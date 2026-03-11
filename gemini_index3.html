@@ -2391,25 +2391,12 @@
                     canvasCtx.shadowColor = '#00ccff';
                     canvasCtx.strokeStyle = 'rgba(200, 240, 255, 1.0)';
                 } else {
-                    // 서브타입별 다른 비주얼
+                    // 서브타입별 비주얼 — 같은 색, 두께로만 구분
                     const v = b.iceVariant || 0;
-                    const variantStyles = [
-                        // 0: clear (투명 얼음) - 기본
-                        { fill: stageData.blockFill, stroke: stageData.blockStroke, shadow: stageData.blockStroke },
-                        // 1: snow (눈덩이) - 하얀색, 부드러운 느낌
-                        { fill: 'rgba(240, 248, 255, 0.5)', stroke: 'rgba(255, 255, 255, 0.9)', shadow: '#ffffff' },
-                        // 2: frost (서리) - 진한 파란, 단단한 느낌
-                        { fill: 'rgba(50, 100, 180, 0.6)', stroke: 'rgba(100, 180, 255, 0.9)', shadow: '#4488ff' },
-                        // 3: glacier (빙하) - 짙은 남색, 묵직한 느낌
-                        { fill: 'rgba(30, 60, 120, 0.7)', stroke: 'rgba(80, 140, 220, 0.9)', shadow: '#3366aa' },
-                        // 4: crystal (크리스탈) - 보라+분홍, 반짝이는 느낌
-                        { fill: 'rgba(200, 150, 255, 0.45)', stroke: 'rgba(230, 200, 255, 0.9)', shadow: '#cc88ff' },
-                    ];
-                    const vs = variantStyles[v] || variantStyles[0];
                     canvasCtx.globalAlpha = 0.6 + hpRatio * 0.3;
-                    canvasCtx.fillStyle = vs.fill;
-                    canvasCtx.shadowColor = vs.shadow;
-                    canvasCtx.strokeStyle = vs.stroke;
+                    canvasCtx.fillStyle = stageData.blockFill;
+                    canvasCtx.shadowColor = stageData.blockStroke;
+                    canvasCtx.strokeStyle = stageData.blockStroke;
                 }
                 canvasCtx.shadowBlur = 20;
 
@@ -2422,7 +2409,10 @@
                 canvasCtx.closePath();
 
                 canvasCtx.fill();
-                canvasCtx.lineWidth = 6;
+                // variant별 테두리 두께 — 확실한 차이로 구분
+                const variantLineWidths = [4, 2, 16, 28, 8];
+                const variantLineW = (b.blockType === 'normal' && !isFeverMode) ? (variantLineWidths[b.iceVariant || 0] || 6) : 6;
+                canvasCtx.lineWidth = variantLineW;
                 canvasCtx.stroke();
 
                 // 폭탄 블록 아이콘 표시
@@ -2447,17 +2437,18 @@
                     canvasCtx.fillText('🧊', b.position.x, b.position.y);
                 }
 
-                // 일반 블록: 서브타입별 작은 아이콘 (크기 충분할 때만)
-                if (b.blockType === 'normal' && !isFeverMode && b.rectWidth > 120) {
-                    const icons = ['❄️', '⛄', '🌨️', '🏔️', '💠'];
-                    const icon = icons[b.iceVariant || 0];
-                    const iconSize = Math.max(18, b.rectWidth * 0.22);
-                    canvasCtx.globalAlpha = 0.7;
-                    canvasCtx.font = `${iconSize}px serif`;
-                    canvasCtx.textAlign = 'center';
-                    canvasCtx.textBaseline = 'middle';
-                    canvasCtx.shadowBlur = 10;
-                    canvasCtx.fillText(icon, b.position.x, b.position.y);
+                // 일반 블록: 무거운 variant(서리/빙하)는 내부 빛줄기로 구분
+                if (b.blockType === 'normal' && !isFeverMode && (b.iceVariant === 2 || b.iceVariant === 3)) {
+                    canvasCtx.globalAlpha = 0.25;
+                    canvasCtx.strokeStyle = 'rgba(180, 220, 255, 0.6)';
+                    canvasCtx.lineWidth = 2;
+                    // 대각선 빛줄기 (단단한 느낌)
+                    canvasCtx.beginPath();
+                    canvasCtx.moveTo(b.position.x - b.rectWidth * 0.3, b.position.y - b.rectHeight * 0.3);
+                    canvasCtx.lineTo(b.position.x + b.rectWidth * 0.3, b.position.y + b.rectHeight * 0.3);
+                    canvasCtx.moveTo(b.position.x + b.rectWidth * 0.2, b.position.y - b.rectHeight * 0.3);
+                    canvasCtx.lineTo(b.position.x - b.rectWidth * 0.2, b.position.y + b.rectHeight * 0.3);
+                    canvasCtx.stroke();
                 }
 
                 canvasCtx.restore();
