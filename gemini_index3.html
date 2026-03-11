@@ -373,49 +373,225 @@
             if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
-        function playHit(stageIdx) {
+        // ── 타격음: 블록 타입별로 다른 소리 ──
+        function playHit(stageIdx, blockType, iceVariant) {
             ensureAudio();
             const t = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain); gain.connect(audioCtx.destination);
 
-            const freqs = [440, 320, 500]; // 스테이지별 다른 타격음 톤
-            osc.type = ['sine', 'sawtooth', 'square'][stageIdx % 3];
-            osc.frequency.setValueAtTime(freqs[stageIdx % 3] * 2, t);
-            osc.frequency.exponentialRampToValueAtTime(freqs[stageIdx % 3] * 0.5, t + 0.12);
-            gain.gain.setValueAtTime(0.35, t);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
-            osc.start(t); osc.stop(t + 0.15);
+            if (blockType === 'bomb') {
+                // 폭탄 타격: 둔탁한 금속음
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(200, t);
+                osc.frequency.exponentialRampToValueAtTime(80, t + 0.1);
+                gain.gain.setValueAtTime(0.4, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+                osc.start(t); osc.stop(t + 0.12);
+            } else if (blockType === 'ice1') {
+                // 얼음1 타격: 차가운 높은 음
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1200, t);
+                osc.frequency.exponentialRampToValueAtTime(800, t + 0.1);
+                gain.gain.setValueAtTime(0.25, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+                osc.start(t); osc.stop(t + 0.12);
+            } else if (iceVariant === 3) {
+                // 빙하 타격: 묵직한 둥 소리
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, t);
+                osc.frequency.exponentialRampToValueAtTime(60, t + 0.15);
+                gain.gain.setValueAtTime(0.5, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+                osc.start(t); osc.stop(t + 0.18);
+            } else if (iceVariant === 2) {
+                // 서리 타격: 단단한 탁 소리
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(350, t);
+                osc.frequency.exponentialRampToValueAtTime(150, t + 0.1);
+                gain.gain.setValueAtTime(0.4, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+                osc.start(t); osc.stop(t + 0.12);
+            } else if (iceVariant === 1) {
+                // 눈덩이 타격: 부드러운 퍽 소리
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, t);
+                osc.frequency.exponentialRampToValueAtTime(100, t + 0.08);
+                gain.gain.setValueAtTime(0.2, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+                osc.start(t); osc.stop(t + 0.1);
+            } else if (iceVariant === 4) {
+                // 크리스탈 타격: 맑은 딩 소리
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(900, t);
+                osc.frequency.exponentialRampToValueAtTime(600, t + 0.12);
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+                osc.start(t); osc.stop(t + 0.15);
+            } else {
+                // 투명 얼음 타격: 기본 파삭
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, t);
+                osc.frequency.exponentialRampToValueAtTime(300, t + 0.1);
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+                osc.start(t); osc.stop(t + 0.12);
+            }
         }
 
-        function playDestroy(stageIdx) {
+        // ── 파괴음: 블록 타입별로 다른 소리 ──
+        function playDestroy(stageIdx, blockType, iceVariant) {
             ensureAudio();
             const t = audioCtx.currentTime;
-            // 저음 쿵
-            const osc1 = audioCtx.createOscillator();
-            const g1   = audioCtx.createGain();
-            osc1.connect(g1); g1.connect(audioCtx.destination);
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(180, t);
-            osc1.frequency.exponentialRampToValueAtTime(40, t + 0.4);
-            g1.gain.setValueAtTime(0.6, t);
-            g1.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-            osc1.start(t); osc1.stop(t + 0.4);
-            // 고음 파편
-            const osc2 = audioCtx.createOscillator();
-            const g2   = audioCtx.createGain();
-            const dist = audioCtx.createWaveShaper();
-            const curve = new Float32Array(256);
-            for (let i = 0; i < 256; i++) curve[i] = (i < 128) ? -1 : 1;
-            dist.curve = curve;
-            osc2.connect(dist); dist.connect(g2); g2.connect(audioCtx.destination);
-            osc2.type = 'sawtooth';
-            osc2.frequency.setValueAtTime(900 + stageIdx * 200, t);
-            osc2.frequency.exponentialRampToValueAtTime(200, t + 0.25);
-            g2.gain.setValueAtTime(0.25, t);
-            g2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-            osc2.start(t); osc2.stop(t + 0.25);
+
+            if (blockType === 'bomb') {
+                // 폭탄 폭발: 쿵! + 잔향
+                const bass = audioCtx.createOscillator();
+                const bg = audioCtx.createGain();
+                bass.connect(bg); bg.connect(audioCtx.destination);
+                bass.type = 'sine';
+                bass.frequency.setValueAtTime(80, t);
+                bass.frequency.exponentialRampToValueAtTime(20, t + 0.6);
+                bg.gain.setValueAtTime(0.8, t);
+                bg.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+                bass.start(t); bass.stop(t + 0.6);
+
+                // 노이즈 폭발음
+                const bufSize = audioCtx.sampleRate * 0.3;
+                const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+                const data = buf.getChannelData(0);
+                for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 2);
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buf;
+                const ng = audioCtx.createGain();
+                noise.connect(ng); ng.connect(audioCtx.destination);
+                ng.gain.setValueAtTime(0.5, t);
+                ng.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+                noise.start(t); noise.stop(t + 0.3);
+
+                // 중간음 쩡
+                const mid = audioCtx.createOscillator();
+                const mg = audioCtx.createGain();
+                mid.connect(mg); mg.connect(audioCtx.destination);
+                mid.type = 'sawtooth';
+                mid.frequency.setValueAtTime(250, t);
+                mid.frequency.exponentialRampToValueAtTime(60, t + 0.4);
+                mg.gain.setValueAtTime(0.35, t);
+                mg.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                mid.start(t); mid.stop(t + 0.4);
+                return;
+            }
+
+            if (blockType === 'ice1') {
+                // 얼음1 파괴: 파삭 + 결빙 잔향
+                const o1 = audioCtx.createOscillator();
+                const g1 = audioCtx.createGain();
+                o1.connect(g1); g1.connect(audioCtx.destination);
+                o1.type = 'sine';
+                o1.frequency.setValueAtTime(1500, t);
+                o1.frequency.exponentialRampToValueAtTime(400, t + 0.3);
+                g1.gain.setValueAtTime(0.4, t);
+                g1.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+                o1.start(t); o1.stop(t + 0.35);
+                // 잔향 윙
+                const o2 = audioCtx.createOscillator();
+                const g2 = audioCtx.createGain();
+                o2.connect(g2); g2.connect(audioCtx.destination);
+                o2.type = 'sine';
+                o2.frequency.setValueAtTime(2000, t + 0.05);
+                o2.frequency.exponentialRampToValueAtTime(1000, t + 0.5);
+                g2.gain.setValueAtTime(0.15, t + 0.05);
+                g2.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+                o2.start(t + 0.05); o2.stop(t + 0.5);
+                return;
+            }
+
+            // 서브타입별 파괴음
+            const v = iceVariant || 0;
+
+            // 공통 저음 쿵
+            const bass = audioCtx.createOscillator();
+            const bg = audioCtx.createGain();
+            bass.connect(bg); bg.connect(audioCtx.destination);
+            bass.type = 'sine';
+
+            // 공통 고음 파편
+            const high = audioCtx.createOscillator();
+            const hg = audioCtx.createGain();
+            high.connect(hg); hg.connect(audioCtx.destination);
+
+            if (v === 3) {
+                // 빙하 파괴: 깊은 쿵 + 갈라지는 소리
+                bass.frequency.setValueAtTime(100, t);
+                bass.frequency.exponentialRampToValueAtTime(25, t + 0.5);
+                bg.gain.setValueAtTime(0.7, t);
+                bg.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+                bass.start(t); bass.stop(t + 0.5);
+
+                high.type = 'sawtooth';
+                high.frequency.setValueAtTime(400, t);
+                high.frequency.exponentialRampToValueAtTime(80, t + 0.4);
+                hg.gain.setValueAtTime(0.3, t);
+                hg.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                high.start(t); high.stop(t + 0.4);
+            } else if (v === 2) {
+                // 서리 파괴: 단단한 쩍 + 파삭
+                bass.frequency.setValueAtTime(250, t);
+                bass.frequency.exponentialRampToValueAtTime(80, t + 0.3);
+                bg.gain.setValueAtTime(0.6, t);
+                bg.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+                bass.start(t); bass.stop(t + 0.3);
+
+                high.type = 'square';
+                high.frequency.setValueAtTime(1200, t);
+                high.frequency.exponentialRampToValueAtTime(300, t + 0.2);
+                hg.gain.setValueAtTime(0.2, t);
+                hg.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+                high.start(t); high.stop(t + 0.2);
+            } else if (v === 1) {
+                // 눈덩이 파괴: 부드러운 퍼프
+                bass.frequency.setValueAtTime(200, t);
+                bass.frequency.exponentialRampToValueAtTime(60, t + 0.25);
+                bg.gain.setValueAtTime(0.35, t);
+                bg.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+                bass.start(t); bass.stop(t + 0.25);
+
+                high.type = 'sine';
+                high.frequency.setValueAtTime(500, t);
+                high.frequency.exponentialRampToValueAtTime(200, t + 0.15);
+                hg.gain.setValueAtTime(0.15, t);
+                hg.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+                high.start(t); high.stop(t + 0.15);
+            } else if (v === 4) {
+                // 크리스탈 파괴: 맑은 딩딩 + 반짝 잔향
+                bass.frequency.setValueAtTime(500, t);
+                bass.frequency.exponentialRampToValueAtTime(300, t + 0.3);
+                bg.gain.setValueAtTime(0.3, t);
+                bg.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+                bass.start(t); bass.stop(t + 0.35);
+
+                high.type = 'sine';
+                high.frequency.setValueAtTime(1800, t);
+                high.frequency.exponentialRampToValueAtTime(900, t + 0.4);
+                hg.gain.setValueAtTime(0.25, t);
+                hg.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                high.start(t); high.stop(t + 0.4);
+            } else {
+                // 투명 얼음 파괴: 기본 유리 깨지는 소리
+                bass.frequency.setValueAtTime(180, t);
+                bass.frequency.exponentialRampToValueAtTime(40, t + 0.35);
+                bg.gain.setValueAtTime(0.5, t);
+                bg.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+                bass.start(t); bass.stop(t + 0.35);
+
+                high.type = 'sawtooth';
+                high.frequency.setValueAtTime(900, t);
+                high.frequency.exponentialRampToValueAtTime(200, t + 0.25);
+                hg.gain.setValueAtTime(0.2, t);
+                hg.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+                high.start(t); high.stop(t + 0.25);
+            }
         }
 
         function playFeverStart() {
@@ -564,7 +740,7 @@
             shockwaves.push({ x, y, radius: 0, maxRadius, alpha: 1.0 });
         }
 
-        // 화면 흔들기 (폭탄용)
+        // 화면 흔들기
         function screenShake(duration, intensity) {
             const el = document.getElementById('container');
             const start = Date.now();
@@ -582,6 +758,12 @@
             }
             shake();
         }
+
+        // 히트스톱 (순간 멈춤으로 타격감)
+        let hitStopTimer = 0;
+
+        // 화면 번쩍임 (파괴 시 흰색 플래시)
+        let flashAlpha = 0;
 
         // 얼음1 디버프 시스템 (스테이지2 전용)
         let iceDebuffs = []; // { x, y, radius, remainTime, alpha }
@@ -1453,7 +1635,16 @@
 
             const dtRaw = (now - lastTime) / 1000;
             lastTime = now;
-            const dt = Math.min(dtRaw, 0.1);
+            let dt = Math.min(dtRaw, 0.1);
+
+            // 히트스톱: 일시 정지 효과
+            if (hitStopTimer > 0) {
+                hitStopTimer -= dtRaw;
+                dt = 0; // 물리/타이머 멈춤, 렌더링은 계속
+            }
+
+            // 플래시 감소
+            if (flashAlpha > 0) flashAlpha -= dtRaw * 1.5;
 
             gameTimeLeft -= dt;
             gameTime     += dt;
@@ -1526,7 +1717,7 @@
                             // 타격 쿨다운 적용. 피버일때는 바로바로 터지게 짧게.
                             b.hitCooldown = isFeverMode ? 0.05 : 0.75;
 
-                            playHit(currentStageIndex);
+                            playHit(currentStageIndex, b.blockType, b.iceVariant);
                             spawnShatter(p.x, p.y, 8, isFeverMode);
 
                             if (b.hp <= 0) {
@@ -1558,7 +1749,7 @@
                                             if (!Composite.allBodies(world).includes(cb)) return;
                                             score += cb.maxHp * 20;
                                             addFever(cb.maxHp * 0.5);
-                                            playDestroy(currentStageIndex);
+                                            playDestroy(currentStageIndex, cb.blockType, cb.iceVariant);
                                             spawnShatter(cb.position.x, cb.position.y, 80, true);
                                             spawnShockwave(cb.position.x, cb.position.y, 300);
                                             Composite.remove(world, cb);
@@ -1574,8 +1765,15 @@
                                 }
 
                                 updateUI();
-                                playDestroy(currentStageIndex);
+                                playDestroy(currentStageIndex, b.blockType, b.iceVariant);
                                 spawnShatter(b.position.x, b.position.y, 50, isFeverMode);
+
+                                // 타격감: 블록 크기에 비례한 흔들림 + 히트스톱 + 번쩍임
+                                const impactSize = Math.min(b.scaleFactor / 4, 1.0);
+                                screenShake(120 + impactSize * 180, 3 + impactSize * 6);
+                                hitStopTimer = 0.03 + impactSize * 0.04;
+                                flashAlpha = 0.15 + impactSize * 0.2;
+
                                 Composite.remove(world, b);
                             } else {
                                 // 파괴 못했을 경우 밀어내기
@@ -1931,6 +2129,15 @@
                     p.draw(canvasCtx);
                 }
             }
+            // 화면 번쩍임 (흰색 플래시)
+            if (flashAlpha > 0) {
+                canvasCtx.save();
+                canvasCtx.globalAlpha = Math.min(flashAlpha, 0.4);
+                canvasCtx.fillStyle = '#ffffff';
+                canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.restore();
+            }
+
             // 매 프레임 UI(시간/게이지) 갱신
             updateUI();
         }
