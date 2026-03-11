@@ -839,6 +839,113 @@
             }, 400);
         }
 
+        // ── 스테이지 배경음 시스템 ──
+        let bgmNodes = null;
+        let bgmInterval = null;
+
+        function startBgm(stageIdx) {
+            stopBgm();
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            const master = audioCtx.createGain();
+            master.gain.value = 0.08; // 은은하게
+            master.connect(audioCtx.destination);
+
+            const nodes = [];
+
+            // 스테이지별 음계와 템포
+            const configs = [
+                // Lv.1 얼음 동굴: 몽환적, 차분한 펜타토닉
+                { notes: [261.6, 311.1, 349.2, 392.0, 466.2, 523.3, 466.2, 392.0],
+                  bass: [130.8, 155.6, 174.6, 130.8], bpm: 100, wave: 'sine', bassWave: 'triangle', vol: 0.5 },
+                // Lv.2 우주 운석: 약간 긴장감, 마이너
+                { notes: [329.6, 369.99, 415.3, 493.88, 554.37, 493.88, 415.3, 369.99],
+                  bass: [164.8, 185.0, 207.65, 164.8], bpm: 120, wave: 'triangle', bassWave: 'sawtooth', vol: 0.4 },
+                // Lv.3 다이아몬드 성: 밝고 활기찬 메이저
+                { notes: [523.3, 587.3, 659.3, 784.0, 880.0, 784.0, 659.3, 587.3],
+                  bass: [261.6, 293.7, 329.6, 261.6], bpm: 140, wave: 'triangle', bassWave: 'triangle', vol: 0.45 },
+            ];
+
+            const cfg = configs[stageIdx] || configs[0];
+            const beatMs = 60000 / cfg.bpm;
+            let noteIdx = 0;
+            let bassIdx = 0;
+
+            // 패드 (지속음, 코드 분위기)
+            const pad = audioCtx.createOscillator();
+            const padG = audioCtx.createGain();
+            pad.type = 'sine';
+            pad.frequency.value = cfg.notes[0] / 2;
+            padG.gain.value = 0.15;
+            pad.connect(padG);
+            padG.connect(master);
+            pad.start();
+            nodes.push(pad);
+
+            // 멜로디 + 베이스를 setInterval로 스케줄링
+            bgmInterval = setInterval(() => {
+                if (!audioCtx) return;
+                const now = audioCtx.currentTime;
+
+                // 멜로디 음
+                const osc = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                osc.type = cfg.wave;
+                osc.frequency.value = cfg.notes[noteIdx % cfg.notes.length];
+                g.gain.setValueAtTime(cfg.vol * 0.5, now);
+                g.gain.exponentialRampToValueAtTime(0.001, now + beatMs / 1000 * 0.9);
+                osc.connect(g);
+                g.connect(master);
+                osc.start(now);
+                osc.stop(now + beatMs / 1000);
+
+                // 매 4비트마다 베이스
+                if (noteIdx % 2 === 0) {
+                    const bass = audioCtx.createOscillator();
+                    const bg = audioCtx.createGain();
+                    bass.type = cfg.bassWave;
+                    bass.frequency.value = cfg.bass[bassIdx % cfg.bass.length];
+                    bg.gain.setValueAtTime(cfg.vol * 0.35, now);
+                    bg.gain.exponentialRampToValueAtTime(0.001, now + beatMs / 1000 * 1.8);
+                    bass.connect(bg);
+                    bg.connect(master);
+                    bass.start(now);
+                    bass.stop(now + beatMs / 1000 * 2);
+                    bassIdx++;
+                }
+
+                // 패드 음 천천히 변경
+                pad.frequency.setTargetAtTime(cfg.notes[noteIdx % cfg.notes.length] / 2, now, 0.5);
+
+                noteIdx++;
+            }, beatMs);
+
+            bgmNodes = { master, nodes };
+        }
+
+        function stopBgm() {
+            if (bgmInterval) {
+                clearInterval(bgmInterval);
+                bgmInterval = null;
+            }
+            if (!bgmNodes) return;
+            if (audioCtx) {
+                const t = audioCtx.currentTime;
+                bgmNodes.master.gain.cancelScheduledValues(t);
+                bgmNodes.master.gain.setValueAtTime(bgmNodes.master.gain.value, t);
+                bgmNodes.master.gain.linearRampToValueAtTime(0, t + 0.5);
+                setTimeout(() => {
+                    if (bgmNodes) {
+                        bgmNodes.nodes.forEach(n => { try { n.stop(); } catch(e) {} });
+                        bgmNodes.master.disconnect();
+                        bgmNodes = null;
+                    }
+                }, 600);
+            } else {
+                bgmNodes = null;
+            }
+        }
+
         let feverValue = 0; // 0 to 100
         let isFeverMode = false;
         let feverTimer = 0.0; // 피버 지속 시간
@@ -1484,6 +1591,10 @@
             feverTitle.innerText = "PARTY!!";
             playFeverStart();
             startFeverBgm();
+            // 배경음 볼륨 낮추기 (피버 BGM과 겹치지 않게)
+            if (bgmNodes && audioCtx) {
+                bgmNodes.master.gain.linearRampToValueAtTime(0.02, audioCtx.currentTime + 0.3);
+            }
         }
 
         function deactivateFever() {
@@ -1494,6 +1605,10 @@
             feverTitle.classList.remove('fever-active-text');
             feverTitle.innerText = "PARTY";
             stopFeverBgm();
+            // 배경음 볼륨 복구
+            if (bgmNodes && audioCtx) {
+                bgmNodes.master.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.5);
+            }
         }
 
         function addFever(amt) {
@@ -1508,6 +1623,7 @@
         function gameOver() {
             isPlaying = false;
             stopFeverBgm();
+            stopBgm();
 
             let isLastStage = (currentStageIndex >= STAGES.length - 1);
             showRewardScreen(score, isLastStage);
@@ -1864,6 +1980,7 @@
 
             updateUI();
             isPlaying = true;
+            startBgm(currentStageIndex);
 
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
             lastTime = performance.now();
