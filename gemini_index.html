@@ -411,6 +411,120 @@
             });
         }
 
+        // 피버 BGM 시스템 (신나는 루프 음악)
+        let feverBgmNodes = null;
+
+        function startFeverBgm() {
+            ensureAudio();
+            if (feverBgmNodes) stopFeverBgm();
+
+            const t = audioCtx.currentTime;
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(0, t);
+            masterGain.gain.linearRampToValueAtTime(0.25, t + 0.3);
+            masterGain.connect(audioCtx.destination);
+
+            const nodes = [];
+
+            // 베이스 드럼 (4비트 반복)
+            const beatInterval = 0.25; // 240 BPM
+            const loopLen = 2.0;       // 2초 루프
+            const totalBeats = Math.floor(loopLen / beatInterval);
+
+            function scheduleDrumLoop(startTime) {
+                for (let i = 0; i < totalBeats; i++) {
+                    const bt = startTime + i * beatInterval;
+                    const kick = audioCtx.createOscillator();
+                    const kickG = audioCtx.createGain();
+                    kick.connect(kickG); kickG.connect(masterGain);
+                    kick.type = 'sine';
+                    kick.frequency.setValueAtTime(150, bt);
+                    kick.frequency.exponentialRampToValueAtTime(40, bt + 0.1);
+                    kickG.gain.setValueAtTime(0.6, bt);
+                    kickG.gain.exponentialRampToValueAtTime(0.001, bt + 0.12);
+                    kick.start(bt); kick.stop(bt + 0.12);
+                    nodes.push(kick);
+
+                    // 하이햇 (오프비트)
+                    if (i % 2 === 1) {
+                        const hat = audioCtx.createOscillator();
+                        const hatG = audioCtx.createGain();
+                        hat.connect(hatG); hatG.connect(masterGain);
+                        hat.type = 'square';
+                        hat.frequency.setValueAtTime(8000, bt);
+                        hatG.gain.setValueAtTime(0.08, bt);
+                        hatG.gain.exponentialRampToValueAtTime(0.001, bt + 0.05);
+                        hat.start(bt); hat.stop(bt + 0.05);
+                        nodes.push(hat);
+                    }
+                }
+            }
+
+            // 멜로디 (밝은 아르페지오 루프)
+            const melody = [523, 659, 784, 1047, 784, 659, 523, 659]; // C5-E5-G5-C6 아르페지오
+            const noteLen = loopLen / melody.length;
+
+            function scheduleMelodyLoop(startTime) {
+                melody.forEach((freq, i) => {
+                    const nt = startTime + i * noteLen;
+                    const osc = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    osc.connect(g); g.connect(masterGain);
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, nt);
+                    g.gain.setValueAtTime(0.18, nt);
+                    g.gain.exponentialRampToValueAtTime(0.001, nt + noteLen * 0.9);
+                    osc.start(nt); osc.stop(nt + noteLen);
+                    nodes.push(osc);
+                });
+            }
+
+            // 베이스라인
+            const bassNotes = [131, 165, 196, 165]; // C3-E3-G3-E3
+            const bassNoteLen = loopLen / bassNotes.length;
+
+            function scheduleBassLoop(startTime) {
+                bassNotes.forEach((freq, i) => {
+                    const nt = startTime + i * bassNoteLen;
+                    const osc = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    osc.connect(g); g.connect(masterGain);
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, nt);
+                    g.gain.setValueAtTime(0.12, nt);
+                    g.gain.exponentialRampToValueAtTime(0.02, nt + bassNoteLen * 0.8);
+                    osc.start(nt); osc.stop(nt + bassNoteLen);
+                    nodes.push(osc);
+                });
+            }
+
+            // 5루프 스케줄 (피버 8초 커버)
+            for (let loop = 0; loop < 5; loop++) {
+                const lt = t + loop * loopLen;
+                scheduleDrumLoop(lt);
+                scheduleMelodyLoop(lt);
+                scheduleBassLoop(lt);
+            }
+
+            feverBgmNodes = { masterGain, nodes };
+        }
+
+        function stopFeverBgm() {
+            if (!feverBgmNodes) return;
+            const t = audioCtx.currentTime;
+            feverBgmNodes.masterGain.gain.cancelScheduledValues(t);
+            feverBgmNodes.masterGain.gain.setValueAtTime(feverBgmNodes.masterGain.gain.value, t);
+            feverBgmNodes.masterGain.gain.linearRampToValueAtTime(0, t + 0.3);
+            // 모든 노드 정리
+            setTimeout(() => {
+                if (feverBgmNodes) {
+                    feverBgmNodes.nodes.forEach(n => { try { n.stop(); } catch(e) {} });
+                    feverBgmNodes.masterGain.disconnect();
+                    feverBgmNodes = null;
+                }
+            }, 400);
+        }
+
         let feverValue = 0; // 0 to 100
         let isFeverMode = false;
         let feverTimer = 0.0; // 피버 지속 시간
@@ -982,6 +1096,7 @@
             feverTitle.classList.add('fever-active-text');
             feverTitle.innerText = "PARTY!!";
             playFeverStart();
+            startFeverBgm();
         }
 
         function deactivateFever() {
@@ -991,6 +1106,7 @@
             container.classList.remove('fever-mode-active');
             feverTitle.classList.remove('fever-active-text');
             feverTitle.innerText = "PARTY";
+            stopFeverBgm();
         }
 
         function addFever(amt) {
@@ -1329,7 +1445,7 @@
 
                                 // 폭탄 블록: 주변 블록이 연쇄적으로 터짐!
                                 if (b.blockType === 'bomb') {
-                                    const BOMB_RADIUS = 600;
+                                    const BOMB_RADIUS = 1200;
                                     spawnShockwave(b.position.x, b.position.y, BOMB_RADIUS);
                                     spawnShatter(b.position.x, b.position.y, 120, true);
 
