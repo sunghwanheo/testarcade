@@ -269,7 +269,7 @@
         </div>
 
         <div id="rightUi">
-            <div class="time-box" id="timeBox">01:30</div>
+            <div class="time-box" id="timeBox">01:00</div>
             <div class="fever-title" id="feverTitle">FEVER</div>
             <div id="feverBarContainer">
                 <div id="feverBar"></div>
@@ -284,13 +284,27 @@
                 style="background: rgba(0,0,0,0.5); padding: 30px; border-radius: 20px; border: 1px solid #00d2ff; margin-bottom: 50px;">
                 <p id="endDesc"
                     style="font-size: 26px; max-width: 700px; text-align: center; line-height: 1.6; color: #dff9ff; margin: 0;">
-                    <b>1분 30초</b> 동안 신나고 재미있게 얼음 큐브를 파괴하세요!<br><br>
+                    <b>1분</b> 동안 신나고 재미있게 얼음 큐브를 파괴하세요!<br><br>
                     거대한 얼음도 포기하지 않고 팡팡 두드리면 시원하게 터집니다.<br>
                     신나게 움직여서 <b>무지개 파티(FEVER)</b>를 켜면 모든 얼음이 반짝이며 터집니다!
                 </p>
             </div>
             <button id="startButton">게임 시작 (카메라 권한 필요)</button>
             <div id="loadingMsg">AI 및 얼음 마법 준비중... 잠시만 기다려주세요!</div>
+        </div>
+
+        <!-- 스테이지 프리뷰 오버레이 -->
+        <div id="stagePreview" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,10,30,0.92); z-index:15; flex-direction:column; justify-content:center; align-items:center;
+            backdrop-filter:blur(12px);">
+            <h1 id="previewTitle" style="color:#00ffff; font-size:64px; margin-bottom:10px; text-shadow:0 0 30px #00d2ff;
+                text-transform:uppercase; font-style:italic; animation: pulse 1s infinite alternate;"></h1>
+            <p id="previewWeapon" style="font-size:36px; color:#ffdd00; margin:0 0 30px 0; text-shadow:0 0 15px #ffdd00;"></p>
+
+            <div style="display:flex; gap:40px; margin-bottom:40px; flex-wrap:wrap; justify-content:center;" id="previewItems"></div>
+
+            <div id="previewCountdown" style="font-size:100px; font-weight:900; color:#ffffff;
+                text-shadow:0 0 40px #00ffff, 0 0 80px #ff00ff; animation: pulse 0.5s infinite alternate;"></div>
         </div>
     </div>
 
@@ -411,6 +425,29 @@
         function spawnShockwave(x, y, maxRadius) {
             shockwaves.push({ x, y, radius: 0, maxRadius, alpha: 1.0 });
         }
+
+        // 얼음1 디버프 시스템 (스테이지2 전용)
+        let iceDebuffs = []; // { x, y, radius, remainTime, alpha }
+        const ICE_DEBUFF_RADIUS = 350;
+        const ICE_DEBUFF_DURATION = 7.0;
+        const ICE_DAMAGE_MULTIPLIER = 0.2; // 1/5 파워
+
+        function spawnIceDebuff(x, y) {
+            iceDebuffs.push({
+                x, y,
+                radius: ICE_DEBUFF_RADIUS,
+                remainTime: ICE_DEBUFF_DURATION,
+                alpha: 1.0
+            });
+        }
+
+        function isInIceZone(px, py) {
+            for (const ice of iceDebuffs) {
+                if (Math.hypot(px - ice.x, py - ice.y) < ice.radius) return true;
+            }
+            return false;
+        }
+
         let animationFrameId;
 
         const HIT_RADIUS = 0; // 각 bodyPoint의 p.radius를 사용하므로 여기선 0
@@ -778,7 +815,59 @@
             ctx.restore();
         }
 
+        // 장갑 그리기
+        function drawGlove(ctx, x, y, r, stageIdx, fever) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const gloveR = r * 0.55;
+            let gloveColor, borderColor, shadowColor;
+
+            if (fever) {
+                gloveColor = 'rgba(255, 200, 255, 0.7)';
+                borderColor = 'rgba(255, 255, 255, 0.9)';
+                shadowColor = '#ff00ff';
+            } else if (stageIdx === 0) {
+                gloveColor = 'rgba(180, 230, 255, 0.6)';
+                borderColor = 'rgba(200, 240, 255, 0.9)';
+                shadowColor = '#00ccff';
+            } else if (stageIdx === 1) {
+                gloveColor = 'rgba(255, 150, 50, 0.6)';
+                borderColor = 'rgba(255, 200, 100, 0.9)';
+                shadowColor = '#ff6600';
+            } else {
+                gloveColor = 'rgba(220, 150, 255, 0.6)';
+                borderColor = 'rgba(255, 200, 255, 0.9)';
+                shadowColor = '#cc00ff';
+            }
+
+            // 장갑 본체 (둥근 주먹 모양)
+            ctx.shadowColor = shadowColor;
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = gloveColor;
+            ctx.beginPath();
+            ctx.ellipse(0, 0, gloveR, gloveR * 1.15, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 테두리
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // 손가락 마디 라인
+            ctx.globalAlpha = 0.4;
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(0, -gloveR * 0.3, gloveR * 0.6, -Math.PI * 0.8, -Math.PI * 0.2);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
         function drawWeapon(ctx, p, stageIdx, fever, t) {
+            // 장갑을 먼저 그리고 그 위에 무기 이펙트
+            drawGlove(ctx, p.x, p.y, p.radius, stageIdx, fever);
             if (fever) { drawRainbowVortex(ctx, p.x, p.y, p.radius, t); return; }
             if (stageIdx === 0) drawIceFist(ctx, p.x, p.y, p.radius, t);
             else if (stageIdx === 1) drawFireFist(ctx, p.x, p.y, p.radius, t);
@@ -837,13 +926,24 @@
             block.nudgeTimer      = 0; // Lv.3 랜덤 방향 재부여용
             block.hasEnteredScreen = false; // Lv.2 화면 진입 추적용
 
-            // 특수 블록: 폭탄 블록 (12% 확률) - 터뜨리면 주변 블록도 같이 폭발!
-            if (Math.random() < 0.12) {
+            // 특수 블록 결정
+            const rng = Math.random();
+            if (rng < 0.12) {
+                // 폭탄 블록 (12%) - 터뜨리면 주변 블록도 같이 폭발!
                 block.blockType = 'bomb';
-                block.hp    = 5;               // 5번 쳐야 터짐
+                block.hp    = 5;
                 block.maxHp = 5;
-                Body.set(block, 'restitution', 0.02);
+                Body.set(block, 'restitution', 0.01);
                 Body.set(block, 'friction', 1.0);
+                Body.set(block, 'frictionAir', 0.15);  // 공기저항 높여서 안 튀게
+            } else if (stage === 1 && rng < 0.22) {
+                // 얼음1 블록 (스테이지2 전용, 10%) - 터뜨리면 주변 영역 7초간 파워 1/5
+                block.blockType = 'ice1';
+                block.hp    = 3;
+                block.maxHp = 3;
+                Body.set(block, 'restitution', 0.01);
+                Body.set(block, 'friction', 1.0);
+                Body.set(block, 'frictionAir', 0.15);
             } else {
                 block.blockType = 'normal';
             }
@@ -927,6 +1027,93 @@
             loadingMsg.style.display = 'none';
         }
 
+        // 스테이지별 프리뷰 데이터
+        const STAGE_PREVIEWS = [
+            {
+                blocks: [
+                    { icon: '🧊', name: '얼음 큐브', desc: '주먹으로 깨부숴요!', color: '#b0e0e6' }
+                ],
+                items: [
+                    { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' }
+                ]
+            },
+            {
+                blocks: [
+                    { icon: '☄️', name: '우주 운석', desc: '불꽃 주먹으로 부숴요!', color: '#ff8844' }
+                ],
+                items: [
+                    { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' },
+                    { icon: '🧊', name: '얼음1', desc: '조심! 주변이 7초간 얼어붙어요!', color: '#66ccff' }
+                ]
+            },
+            {
+                blocks: [
+                    { icon: '💎', name: '다이아몬드', desc: '광선검으로 베어내요!', color: '#ff88ff' }
+                ],
+                items: [
+                    { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' }
+                ]
+            }
+        ];
+
+        function showStagePreview(callback) {
+            const stageData = STAGES[currentStageIndex];
+            const preview = STAGE_PREVIEWS[currentStageIndex];
+            const previewEl = document.getElementById('stagePreview');
+            const titleEl = document.getElementById('previewTitle');
+            const weaponEl = document.getElementById('previewWeapon');
+            const itemsEl = document.getElementById('previewItems');
+            const countdownEl = document.getElementById('previewCountdown');
+
+            titleEl.innerText = stageData.name;
+            weaponEl.innerHTML = `무기: ${stageData.weaponIcon} ${stageData.weapon}`;
+
+            // 블록/아이템 카드 생성
+            itemsEl.innerHTML = '';
+
+            const allCards = [
+                ...preview.blocks.map(b => ({ ...b, label: '블록' })),
+                ...preview.items.map(b => ({ ...b, label: '아이템' }))
+            ];
+
+            allCards.forEach(item => {
+                const card = document.createElement('div');
+                card.style.cssText = `
+                    background: rgba(0,0,0,0.6); border: 2px solid ${item.color}; border-radius: 16px;
+                    padding: 20px 28px; text-align: center; min-width: 160px;
+                    box-shadow: 0 0 20px ${item.color}44; transition: transform 0.3s;
+                `;
+                card.innerHTML = `
+                    <div style="font-size:60px; margin-bottom:8px; filter:drop-shadow(0 0 10px ${item.color});">${item.icon}</div>
+                    <div style="font-size:22px; font-weight:bold; color:${item.color}; margin-bottom:4px;">${item.name}</div>
+                    <div style="font-size:14px; color:#aaa; margin-bottom:6px;">[${item.label}]</div>
+                    <div style="font-size:16px; color:#ddd; line-height:1.4;">${item.desc}</div>
+                `;
+                itemsEl.appendChild(card);
+            });
+
+            previewEl.style.display = 'flex';
+
+            // 카운트다운 3 → 2 → 1 → GO!
+            let count = 3;
+            countdownEl.innerText = count;
+
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdownEl.innerText = count;
+                } else if (count === 0) {
+                    countdownEl.innerText = 'GO!';
+                    countdownEl.style.color = '#ffdd00';
+                } else {
+                    clearInterval(timer);
+                    previewEl.style.display = 'none';
+                    countdownEl.style.color = '#ffffff';
+                    callback();
+                }
+            }, 1000);
+        }
+
         function resetGame() {
             const stageData = STAGES[currentStageIndex];
             const phys      = STAGE_PHYSICS[currentStageIndex];
@@ -949,6 +1136,8 @@
             particles = [];
             bodyPoints = [];
             blockSpawnTimer = 1.0;
+            shockwaves = [];
+            iceDebuffs = [];
             deactivateFever();
 
             updateUI();
@@ -1087,6 +1276,15 @@
                 }
             }
 
+            // 얼음 디버프 영역 타이머 업데이트
+            for (let i = iceDebuffs.length - 1; i >= 0; i--) {
+                iceDebuffs[i].remainTime -= dt;
+                iceDebuffs[i].alpha = Math.min(1.0, iceDebuffs[i].remainTime / 1.5);
+                if (iceDebuffs[i].remainTime <= 0) {
+                    iceDebuffs.splice(i, 1);
+                }
+            }
+
             const allBodies = Composite.allBodies(world);
             const blocks = allBodies.filter(b => b.isBlock);
 
@@ -1104,7 +1302,15 @@
                         if (b.hitCooldown <= 0) {
 
                             // 무쌍(피버 모드)일 경우 데미지가 무한대!
-                            let damage = isFeverMode ? 1000 : 1;
+                            // 얼음 디버프 영역 안이면 파워 1/5 (피버 모드엔 무시)
+                            let damage;
+                            if (isFeverMode) {
+                                damage = 1000;
+                            } else if (isInIceZone(p.x, p.y)) {
+                                damage = ICE_DAMAGE_MULTIPLIER; // 0.2 데미지
+                            } else {
+                                damage = 1;
+                            }
                             b.hp -= damage;
 
                             // 타격 쿨다운 적용. 피버일때는 바로바로 터지게 짧게.
@@ -1123,9 +1329,9 @@
 
                                 // 폭탄 블록: 주변 블록이 연쇄적으로 터짐!
                                 if (b.blockType === 'bomb') {
-                                    const BOMB_RADIUS = 450;
+                                    const BOMB_RADIUS = 600;
                                     spawnShockwave(b.position.x, b.position.y, BOMB_RADIUS);
-                                    spawnShatter(b.position.x, b.position.y, 100, true);
+                                    spawnShatter(b.position.x, b.position.y, 120, true);
 
                                     // 거리순 정렬 -> 가까운 것부터 순차 폭발
                                     const bx = b.position.x, by = b.position.y;
@@ -1142,12 +1348,18 @@
                                             score += cb.maxHp * 20;
                                             addFever(cb.maxHp * 0.5);
                                             playDestroy(currentStageIndex);
-                                            spawnShatter(cb.position.x, cb.position.y, 60, true);
-                                            spawnShockwave(cb.position.x, cb.position.y, 200);
+                                            spawnShatter(cb.position.x, cb.position.y, 80, true);
+                                            spawnShockwave(cb.position.x, cb.position.y, 300);
                                             Composite.remove(world, cb);
                                             updateUI();
                                         }, (idx + 1) * 250);
                                     });
+                                }
+
+                                // 얼음1 블록: 주변 영역에 7초간 파워 디버프!
+                                if (b.blockType === 'ice1') {
+                                    spawnIceDebuff(b.position.x, b.position.y);
+                                    spawnShatter(b.position.x, b.position.y, 80, false);
                                 }
 
                                 updateUI();
@@ -1160,13 +1372,17 @@
                                 let pushNormalY = dist > 0 ? dy / dist : -1;
 
                                 {
-                                    let pushFactor = 0.04 / Math.pow(b.scaleFactor, 1.5);
+                                    // 폭탄/얼음1 블록은 거의 안 밀림 (제자리 유지)
+                                    const isHeavy = (b.blockType === 'bomb' || b.blockType === 'ice1');
+                                    let pushFactor = isHeavy
+                                        ? 0.002 / Math.pow(b.scaleFactor, 1.5)
+                                        : 0.04 / Math.pow(b.scaleFactor, 1.5);
                                     let bumpForce = pushFactor * b.mass;
                                     Body.applyForce(b, b.position, {
                                         x: pushNormalX * bumpForce,
-                                        y: pushNormalY * bumpForce - (0.005 * b.mass)
+                                        y: isHeavy ? 0 : pushNormalY * bumpForce - (0.005 * b.mass)
                                     });
-                                    Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.5);
+                                    if (!isHeavy) Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.5);
                                 }
                                 addFever(0.8);
                                 updateUI();
@@ -1310,6 +1526,13 @@
                     canvasCtx.fillStyle = 'rgba(255, 60, 20, 0.6)';
                     canvasCtx.shadowColor = '#ff4400';
                     canvasCtx.strokeStyle = 'rgba(255, 200, 50, 1.0)';
+                } else if (b.blockType === 'ice1') {
+                    // 얼음1 블록: 하늘색 + 흰색 맥동
+                    const pulse = 0.6 + 0.3 * Math.sin(Date.now() / 200);
+                    canvasCtx.globalAlpha = pulse;
+                    canvasCtx.fillStyle = 'rgba(100, 200, 255, 0.7)';
+                    canvasCtx.shadowColor = '#00ccff';
+                    canvasCtx.strokeStyle = 'rgba(200, 240, 255, 1.0)';
                 } else {
                     canvasCtx.globalAlpha = 0.6 + hpRatio * 0.3;
                     canvasCtx.fillStyle = stageData.blockFill;
@@ -1340,6 +1563,16 @@
                     canvasCtx.shadowColor = '#ff4400';
                     canvasCtx.shadowBlur = 30;
                     canvasCtx.fillText('💣', b.position.x, b.position.y);
+                }
+                if (b.blockType === 'ice1' && !isFeverMode) {
+                    const iconSize = Math.max(28, b.rectWidth * 0.4);
+                    canvasCtx.globalAlpha = 1.0;
+                    canvasCtx.font = `${iconSize}px serif`;
+                    canvasCtx.textAlign = 'center';
+                    canvasCtx.textBaseline = 'middle';
+                    canvasCtx.shadowColor = '#00ccff';
+                    canvasCtx.shadowBlur = 30;
+                    canvasCtx.fillText('🧊', b.position.x, b.position.y);
                 }
 
                 canvasCtx.restore();
@@ -1418,6 +1651,33 @@
                 canvasCtx.restore();
             }
 
+            // 얼음 디버프 영역 렌더링 (하늘색 반투명 원)
+            for (const ice of iceDebuffs) {
+                canvasCtx.save();
+                const a = Math.max(0, ice.alpha);
+                // 바깥 테두리
+                canvasCtx.globalAlpha = a * 0.6;
+                canvasCtx.strokeStyle = `rgba(100, 200, 255, ${a})`;
+                canvasCtx.lineWidth = 6;
+                canvasCtx.shadowColor = '#00ccff';
+                canvasCtx.shadowBlur = 40;
+                canvasCtx.beginPath();
+                canvasCtx.arc(ice.x, ice.y, ice.radius, 0, Math.PI * 2);
+                canvasCtx.stroke();
+                // 안쪽 채우기
+                canvasCtx.globalAlpha = a * 0.12;
+                canvasCtx.fillStyle = 'rgba(100, 200, 255, 1)';
+                canvasCtx.fill();
+                // 눈꽃 아이콘
+                canvasCtx.globalAlpha = a * 0.8;
+                canvasCtx.font = '40px serif';
+                canvasCtx.textAlign = 'center';
+                canvasCtx.textBaseline = 'middle';
+                canvasCtx.fillStyle = '#ffffff';
+                canvasCtx.fillText('❄️', ice.x, ice.y);
+                canvasCtx.restore();
+            }
+
             // 손/발 위에 무기 이펙트 그리기
             for (let p of bodyPoints) {
                 drawWeapon(canvasCtx, p, currentStageIndex, isFeverMode, gameTime);
@@ -1438,32 +1698,42 @@
         // -------------------------
         // 시작
         // -------------------------
+        let cameraStarted = false;
+
         startButton.addEventListener('click', async () => {
             startButton.style.display = 'none';
             loadingMsg.style.display = 'block';
 
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        facingMode: "user"
-                    }
-                });
-                videoElement.srcObject = stream;
+                if (!cameraStarted) {
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                            facingMode: "user"
+                        }
+                    });
+                    videoElement.srcObject = stream;
 
-                const camera = new Camera(videoElement, {
-                    onFrame: async () => {
-                        await pose.send({ image: videoElement });
-                    },
-                    width: 1280,
-                    height: 720
-                });
+                    const camera = new Camera(videoElement, {
+                        onFrame: async () => {
+                            await pose.send({ image: videoElement });
+                        },
+                        width: 1280,
+                        height: 720
+                    });
 
-                await camera.start();
+                    await camera.start();
+                    cameraStarted = true;
+                }
 
                 overlay.style.display = 'none';
-                resetGame();
+                loadingMsg.style.display = 'none';
+
+                // 스테이지 프리뷰를 보여준 뒤 게임 시작
+                showStagePreview(() => {
+                    resetGame();
+                });
             } catch (e) {
                 alert("카메라 권한을 부여하거나 연결에 실패했습니다.\n" + e.message);
                 startButton.style.display = 'block';
