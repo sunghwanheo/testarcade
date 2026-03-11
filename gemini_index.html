@@ -322,7 +322,7 @@
         // 상태
         let isPlaying = false;
         let score = 0;
-        let gameTimeLeft = 90.0; // 1분 30초
+        let gameTimeLeft = 60.0; // 1분
         let gameTime = 0; // 애니메이션용 누적 시간
 
         // ─────────────────────────────────────────
@@ -405,6 +405,12 @@
         let particles = [];
         let bodyPoints = [];
         let blockSpawnTimer = 0;
+
+        // 폭탄 충격파 이펙트
+        let shockwaves = [];
+        function spawnShockwave(x, y, maxRadius) {
+            shockwaves.push({ x, y, radius: 0, maxRadius, alpha: 1.0 });
+        }
         let animationFrameId;
 
         const HIT_RADIUS = 0; // 각 bodyPoint의 p.radius를 사용하므로 여기선 0
@@ -423,7 +429,7 @@
                 particleColors: ['#ffffff', '#e0ffff', '#b0e0e6', '#00ffff'],
                 handAura: ['rgba(0, 255, 255, 0.8)', 'rgba(0, 200, 255, 0.5)', 'rgba(0, 100, 255, 0)'],
                 handCore: '#ffffff',
-                hpMultiplier: 1.0
+                hpMultiplier: 1.2
             },
             {
                 name: "Lv.2 우주 운석 지대",
@@ -831,6 +837,17 @@
             block.nudgeTimer      = 0; // Lv.3 랜덤 방향 재부여용
             block.hasEnteredScreen = false; // Lv.2 화면 진입 추적용
 
+            // 특수 블록: 폭탄 블록 (12% 확률) - 터뜨리면 주변 블록도 같이 폭발!
+            if (Math.random() < 0.12) {
+                block.blockType = 'bomb';
+                block.hp    = 5;               // 5번 쳐야 터짐
+                block.maxHp = 5;
+                Body.set(block, 'restitution', 0.02);
+                Body.set(block, 'friction', 1.0);
+            } else {
+                block.blockType = 'normal';
+            }
+
             Composite.add(world, block);
         }
 
@@ -928,7 +945,7 @@
             updateBounds(phys.wallR, phys.addTop);
 
             score = 0;
-            gameTimeLeft = 90.0;
+            gameTimeLeft = 60.0;
             particles = [];
             bodyPoints = [];
             blockSpawnTimer = 1.0;
@@ -1063,10 +1080,10 @@
                 spawnBlock();
                 // 피버 모드일 때는 블럭 스폰 속도가 폭발적으로 증가
                 if (isFeverMode) {
-                    blockSpawnTimer = 0.2 + Math.random() * 0.2;
+                    blockSpawnTimer = 0.4 + Math.random() * 0.2;
                 } else {
-                    let difficultSpeed = Math.min(score * 0.005, 1.0);
-                    blockSpawnTimer = 1.5 - difficultSpeed + Math.random() * 0.5;
+                    let difficultSpeed = Math.min(score * 0.003, 0.8);
+                    blockSpawnTimer = 2.5 - difficultSpeed + Math.random() * 0.8;
                 }
             }
 
@@ -1091,7 +1108,7 @@
                             b.hp -= damage;
 
                             // 타격 쿨다운 적용. 피버일때는 바로바로 터지게 짧게.
-                            b.hitCooldown = isFeverMode ? 0.05 : 0.3;
+                            b.hitCooldown = isFeverMode ? 0.05 : 0.75;
 
                             playHit(currentStageIndex);
                             spawnShatter(p.x, p.y, 8, isFeverMode);
@@ -1099,27 +1116,59 @@
                             if (b.hp <= 0) {
                                 // 파괴 시 점수 획득 및 피버 게이지 상승
                                 let scoreGain = b.maxHp * 20;
-                                score += isFeverMode ? scoreGain * 2 : scoreGain; // 피버 모드 점수 두배
-                                addFever(b.maxHp * 4.0); // 깰 때 피버 획득량 대폭 증가 (한 게임에 2번 정도 볼 수 있게)
+
+                                // 점수 및 피버
+                                score += isFeverMode ? scoreGain * 2 : scoreGain;
+                                addFever(b.maxHp * 1.5);
+
+                                // 폭탄 블록: 주변 블록이 연쇄적으로 터짐!
+                                if (b.blockType === 'bomb') {
+                                    const BOMB_RADIUS = 450;
+                                    spawnShockwave(b.position.x, b.position.y, BOMB_RADIUS);
+                                    spawnShatter(b.position.x, b.position.y, 100, true);
+
+                                    // 거리순 정렬 -> 가까운 것부터 순차 폭발
+                                    const bx = b.position.x, by = b.position.y;
+                                    const nearby = Composite.allBodies(world).filter(cb =>
+                                        cb.isBlock && cb !== b &&
+                                        Math.hypot(cb.position.x - bx, cb.position.y - by) < BOMB_RADIUS
+                                    ).sort((a, c) =>
+                                        Math.hypot(a.position.x - bx, a.position.y - by) -
+                                        Math.hypot(c.position.x - bx, c.position.y - by)
+                                    );
+                                    nearby.forEach((cb, idx) => {
+                                        setTimeout(() => {
+                                            if (!Composite.allBodies(world).includes(cb)) return;
+                                            score += cb.maxHp * 20;
+                                            addFever(cb.maxHp * 0.5);
+                                            playDestroy(currentStageIndex);
+                                            spawnShatter(cb.position.x, cb.position.y, 60, true);
+                                            spawnShockwave(cb.position.x, cb.position.y, 200);
+                                            Composite.remove(world, cb);
+                                            updateUI();
+                                        }, (idx + 1) * 250);
+                                    });
+                                }
 
                                 updateUI();
                                 playDestroy(currentStageIndex);
                                 spawnShatter(b.position.x, b.position.y, 50, isFeverMode);
                                 Composite.remove(world, b);
                             } else {
-                                // 파괴 못했을 경우 밀어내기 (큰 블록은 엄청 무거워서 거의 안 밀림)
+                                // 파괴 못했을 경우 밀어내기
                                 let pushNormalX = dist > 0 ? dx / dist : 0;
                                 let pushNormalY = dist > 0 ? dy / dist : -1;
 
-                                // 큰 놈일수록 밀리는 힘의 비율을 제곱근 이상으로 더 크게 깎아서 제자리에서 꿈쩍도 안 하게 만듦
-                                let pushFactor = 0.04 / Math.pow(b.scaleFactor, 1.5);
-                                let bumpForce = pushFactor * b.mass;
-                                Body.applyForce(b, b.position, {
-                                    x: pushNormalX * bumpForce,
-                                    y: pushNormalY * bumpForce - (0.005 * b.mass)
-                                });
-                                Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.5);
-                                addFever(2.0); // 한 번 때릴 때마다 피버 게이지 빠르게 차오름
+                                {
+                                    let pushFactor = 0.04 / Math.pow(b.scaleFactor, 1.5);
+                                    let bumpForce = pushFactor * b.mass;
+                                    Body.applyForce(b, b.position, {
+                                        x: pushNormalX * bumpForce,
+                                        y: pushNormalY * bumpForce - (0.005 * b.mass)
+                                    });
+                                    Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.5);
+                                }
+                                addFever(0.8);
                                 updateUI();
                             }
                         }
@@ -1254,6 +1303,13 @@
                     canvasCtx.fillStyle = 'rgba(255, 150, 255, 0.4)';
                     canvasCtx.shadowColor = '#ff00ff';
                     canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+                } else if (b.blockType === 'bomb') {
+                    // 폭탄 블록: 빨간 + 주황 맥동, 눈에 확 띄게
+                    const pulse = 0.6 + 0.35 * Math.sin(Date.now() / 150);
+                    canvasCtx.globalAlpha = pulse;
+                    canvasCtx.fillStyle = 'rgba(255, 60, 20, 0.6)';
+                    canvasCtx.shadowColor = '#ff4400';
+                    canvasCtx.strokeStyle = 'rgba(255, 200, 50, 1.0)';
                 } else {
                     canvasCtx.globalAlpha = 0.6 + hpRatio * 0.3;
                     canvasCtx.fillStyle = stageData.blockFill;
@@ -1273,6 +1329,18 @@
                 canvasCtx.fill();
                 canvasCtx.lineWidth = 6;
                 canvasCtx.stroke();
+
+                // 폭탄 블록 아이콘 표시
+                if (b.blockType === 'bomb' && !isFeverMode) {
+                    const iconSize = Math.max(28, b.rectWidth * 0.4);
+                    canvasCtx.globalAlpha = 1.0;
+                    canvasCtx.font = `${iconSize}px serif`;
+                    canvasCtx.textAlign = 'center';
+                    canvasCtx.textBaseline = 'middle';
+                    canvasCtx.shadowColor = '#ff4400';
+                    canvasCtx.shadowBlur = 30;
+                    canvasCtx.fillText('💣', b.position.x, b.position.y);
+                }
 
                 canvasCtx.restore();
 
@@ -1315,6 +1383,38 @@
                     canvasCtx.stroke();
                 }
 
+                canvasCtx.restore();
+            }
+
+            // 폭탄 충격파 렌더링
+            for (let i = shockwaves.length - 1; i >= 0; i--) {
+                const sw = shockwaves[i];
+                sw.radius += 8;  // 퍼지는 속도 (느리게)
+                sw.alpha = 1.0 - (sw.radius / sw.maxRadius);
+                if (sw.alpha <= 0) {
+                    shockwaves.splice(i, 1);
+                    continue;
+                }
+                canvasCtx.save();
+                // 바깥 테두리 (굵고 밝게)
+                canvasCtx.globalAlpha = sw.alpha * 0.9;
+                canvasCtx.strokeStyle = `rgba(255, 120, 30, ${sw.alpha})`;
+                canvasCtx.lineWidth = 14 * sw.alpha + 4;
+                canvasCtx.shadowColor = '#ff6600';
+                canvasCtx.shadowBlur = 50;
+                canvasCtx.beginPath();
+                canvasCtx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                canvasCtx.stroke();
+                // 안쪽 밝은 테두리
+                canvasCtx.globalAlpha = sw.alpha * 0.7;
+                canvasCtx.strokeStyle = `rgba(255, 220, 80, ${sw.alpha})`;
+                canvasCtx.lineWidth = 5 * sw.alpha + 2;
+                canvasCtx.shadowBlur = 20;
+                canvasCtx.stroke();
+                // 안쪽 채우기 (반투명 오렌지-빨강)
+                canvasCtx.globalAlpha = sw.alpha * 0.3;
+                canvasCtx.fillStyle = 'rgba(255, 80, 20, 1)';
+                canvasCtx.fill();
                 canvasCtx.restore();
             }
 
