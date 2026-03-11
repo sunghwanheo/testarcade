@@ -1955,9 +1955,9 @@
         const STAGE_PREVIEWS = [
             {
                 blocks: [
-                    { icon: '❄️', name: '투명 얼음', desc: '기본 얼음이에요!', color: '#b0e0e6' },
-                    { icon: '⛄', name: '눈덩이', desc: '가볍고 잘 굴러요!', color: '#ffffff' },
-                    { icon: '🏔️', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
+                    { icon: '', img: 'graphic/nobg/s1_clear_100.png', name: '투명 얼음', desc: '기본 얼음이에요!', color: '#b0e0e6' },
+                    { icon: '', img: 'graphic/nobg/s1_snow_100.png', name: '눈덩이', desc: '가볍고 잘 굴러요!', color: '#ffffff' },
+                    { icon: '', img: 'graphic/nobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
                 ],
                 items: [
                     { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' }
@@ -1966,7 +1966,7 @@
             {
                 blocks: [
                     { icon: '🌨️', name: '서리', desc: '단단하고 무거워요!', color: '#4488ff' },
-                    { icon: '🏔️', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
+                    { icon: '', img: 'graphic/nobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
                 ],
                 items: [
                     { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' },
@@ -2010,8 +2010,11 @@
                     padding: 20px 28px; text-align: center; min-width: 160px;
                     box-shadow: 0 0 20px ${item.color}44; transition: transform 0.3s;
                 `;
+                const iconHtml = item.img
+                    ? `<img src="${item.img}" style="width:80px; height:80px; object-fit:contain; margin-bottom:8px; filter:drop-shadow(0 0 10px ${item.color});" />`
+                    : `<div style="font-size:60px; margin-bottom:8px; filter:drop-shadow(0 0 10px ${item.color});">${item.icon}</div>`;
                 card.innerHTML = `
-                    <div style="font-size:60px; margin-bottom:8px; filter:drop-shadow(0 0 10px ${item.color});">${item.icon}</div>
+                    ${iconHtml}
                     <div style="font-size:22px; font-weight:bold; color:${item.color}; margin-bottom:4px;">${item.name}</div>
                     <div style="font-size:14px; color:#aaa; margin-bottom:6px;">[${item.label}]</div>
                     <div style="font-size:16px; color:#ddd; line-height:1.4;">${item.desc}</div>
@@ -2514,14 +2517,28 @@
                 let hpRatio = Math.max(0, b.hp / b.maxHp);
 
                 // ── s1 이미지 블록 렌더링 (clear/snow/glacier) ──
-                const s1ImgVariant = (currentStageIndex === 0 && b.blockType === 'normal' && !isFeverMode) ? variantToType[b.iceVariant || 0] : null;
+                // 피버 모드: 모든 블록을 clear_25 (깨지기 직전) 이미지로 표시
+                const s1ImgVariant = (currentStageIndex === 0 && b.blockType === 'normal') ? variantToType[b.iceVariant || 0] : null;
                 if (s1ImgVariant) {
-                    const img = getS1BlockImg(b.iceVariant || 0, hpRatio);
+                    const img = isFeverMode
+                        ? s1BlockImgs['clear']['25']
+                        : getS1BlockImg(b.iceVariant || 0, hpRatio);
                     if (img && img.complete && img.naturalWidth > 0) {
                         canvasCtx.save();
                         canvasCtx.translate(b.position.x, b.position.y);
                         canvasCtx.rotate(b.angle);
-                        canvasCtx.globalAlpha = 0.7 + hpRatio * 0.3;
+
+                        if (isFeverMode) {
+                            // 피버: 깜빡깜빡 + 색상 시프트
+                            const now = Date.now();
+                            const flicker = 0.5 + 0.5 * Math.sin(now / 80); // 빠른 깜빡임
+                            canvasCtx.globalAlpha = 0.55 + flicker * 0.45;
+                            // hue-rotate로 색상 변화 (무지개 느낌)
+                            canvasCtx.filter = `hue-rotate(${(now / 3) % 360}deg) brightness(${1.0 + flicker * 0.5})`;
+                        } else {
+                            canvasCtx.globalAlpha = 0.7 + hpRatio * 0.3;
+                        }
+
                         const pad = 1.15;
                         canvasCtx.drawImage(img, -b.rectWidth * pad / 2, -b.rectHeight * pad / 2, b.rectWidth * pad, b.rectHeight * pad);
                         canvasCtx.restore();
