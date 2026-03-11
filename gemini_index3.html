@@ -254,6 +254,107 @@
                 opacity: 1;
             }
         }
+
+        /* ── 보상 화면 ── */
+        #rewardScreen {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 20;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(ellipse at center, rgba(30,0,80,0.92) 0%, rgba(0,5,20,0.96) 100%);
+            backdrop-filter: blur(14px);
+            overflow: hidden;
+        }
+        #rewardScreen .reward-stars {
+            font-size: 90px;
+            margin-bottom: 10px;
+            animation: rewardBounce 0.8s ease-out;
+        }
+        #rewardScreen .reward-title {
+            font-size: 72px;
+            font-weight: 900;
+            color: #ffe44d;
+            text-shadow: 0 0 40px #ffaa00, 0 0 80px #ff6600, 0 4px 8px rgba(0,0,0,0.6);
+            margin-bottom: 10px;
+            animation: rewardPop 0.6s cubic-bezier(0.17, 0.67, 0.29, 1.4);
+        }
+        #rewardScreen .reward-subtitle {
+            font-size: 32px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(255,255,255,0.5);
+            margin-bottom: 30px;
+            animation: rewardFadeUp 0.8s ease-out 0.3s both;
+        }
+        #rewardScreen .reward-score-box {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,200,50,0.5);
+            border-radius: 24px;
+            padding: 30px 60px;
+            margin-bottom: 40px;
+            text-align: center;
+            animation: rewardFadeUp 0.8s ease-out 0.5s both;
+        }
+        #rewardScreen .reward-score-label {
+            font-size: 24px;
+            color: #aaddff;
+            margin-bottom: 8px;
+        }
+        #rewardScreen .reward-score-value {
+            font-size: 80px;
+            font-weight: 900;
+            color: #ff44ff;
+            text-shadow: 0 0 20px #ff00ff, 0 0 40px #cc00cc;
+        }
+        #rewardScreen .reward-msg {
+            font-size: 26px;
+            color: #ccffcc;
+            margin-bottom: 30px;
+            animation: rewardFadeUp 0.8s ease-out 0.7s both;
+        }
+        #rewardScreen .reward-btn {
+            padding: 20px 50px;
+            font-size: 30px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff9500, #ff2d55);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 15px;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(255,100,50,0.6);
+            transition: all 0.3s;
+            animation: rewardFadeUp 0.8s ease-out 0.9s both;
+        }
+        #rewardScreen .reward-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 50px rgba(255,100,50,0.9);
+        }
+        .confetti-piece {
+            position: absolute;
+            width: 12px; height: 12px;
+            top: -20px;
+            border-radius: 2px;
+            animation: confettiFall linear forwards;
+        }
+        @keyframes confettiFall {
+            0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(110vh) rotate(720deg); opacity: 0.3; }
+        }
+        @keyframes rewardPop {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes rewardBounce {
+            0% { transform: scale(0) translateY(40px); opacity: 0; }
+            60% { transform: scale(1.3) translateY(-10px); opacity: 1; }
+            100% { transform: scale(1) translateY(0); }
+        }
+        @keyframes rewardFadeUp {
+            0% { transform: translateY(30px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
     </style>
     <!-- MediaPipe files -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -315,6 +416,19 @@
             </div>
             <button id="startButton">게임 시작 (카메라 권한 필요)</button>
             <div id="loadingMsg">AI 및 얼음 마법 준비중... 잠시만 기다려주세요!</div>
+        </div>
+
+        <!-- 보상 화면 -->
+        <div id="rewardScreen">
+            <div class="reward-stars" id="rewardStars"></div>
+            <div class="reward-title" id="rewardTitle"></div>
+            <div class="reward-subtitle" id="rewardSubtitle"></div>
+            <div class="reward-score-box">
+                <div class="reward-score-label">획득한 점수</div>
+                <div class="reward-score-value" id="rewardScore"></div>
+            </div>
+            <div class="reward-msg" id="rewardMsg"></div>
+            <button class="reward-btn" id="rewardBtn"></button>
         </div>
 
         <!-- 스테이지 프리뷰 오버레이 -->
@@ -1393,27 +1507,240 @@
 
         function gameOver() {
             isPlaying = false;
-            overlay.style.display = 'flex';
-            document.getElementById('endTitle').innerText = 'STAGE CLEAR!';
-            document.getElementById('endTitle').style.color = '#00ffff';
+            stopFeverBgm();
 
             let isLastStage = (currentStageIndex >= STAGES.length - 1);
-            let descMsg = isLastStage
-                ? `모든 레벨을 클리어했습니다! 정말 대단해요!<br>지금까지 누적된 점수는: <b style="color: #ff00ff; font-size: 50px; text-shadow: 0 0 10px #ff00ff;">${score}</b> 점 입니다!`
-                : `현재 레벨을 완료했어요! 최고예요!<br>당신의 누적 점수는: <b style="color: #ff00ff; font-size: 50px; text-shadow: 0 0 10px #ff00ff;">${score}</b> 점 입니다!<br>다음 레벨에선 더 굉장한 무기를 얻습니다!`;
-
-            document.getElementById('endDesc').innerHTML = descMsg;
-            startButton.innerText = isLastStage ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!';
+            showRewardScreen(score, isLastStage);
 
             if (isLastStage) {
-                currentStageIndex = 0; // 마지막 끝내면 0으로 초기화
-                score = 0; // 전부 깼을 땐 리셋해도 좋음 (선택)
+                currentStageIndex = 0;
+                score = 0;
             } else {
                 currentStageIndex++;
             }
+        }
 
-            startButton.style.display = 'block';
-            loadingMsg.style.display = 'none';
+        // ── 보상 화면 시스템 ──
+        function showRewardScreen(finalScore, isAllClear) {
+            const screen = document.getElementById('rewardScreen');
+            screen.style.display = 'flex';
+
+            // 별/이모지
+            const starsEl = document.getElementById('rewardStars');
+            if (isAllClear) {
+                starsEl.textContent = '🏆🌟🏆';
+            } else if (finalScore >= 300) {
+                starsEl.textContent = '⭐⭐⭐';
+            } else if (finalScore >= 150) {
+                starsEl.textContent = '⭐⭐';
+            } else {
+                starsEl.textContent = '⭐';
+            }
+            // 리셋 애니메이션
+            starsEl.style.animation = 'none';
+            starsEl.offsetHeight;
+            starsEl.style.animation = 'rewardBounce 0.8s ease-out';
+
+            // 제목
+            const titleEl = document.getElementById('rewardTitle');
+            titleEl.textContent = isAllClear ? '모든 스테이지 클리어!' : 'STAGE CLEAR!';
+            titleEl.style.animation = 'none';
+            titleEl.offsetHeight;
+            titleEl.style.animation = 'rewardPop 0.6s cubic-bezier(0.17, 0.67, 0.29, 1.4)';
+
+            // 부제
+            const subtitleEl = document.getElementById('rewardSubtitle');
+            const praiseList = [
+                '정말 대단해요! 최고!', '너무 잘했어요!', '와, 멋져요!',
+                '엄청 잘했어요!', '짝짝짝! 훌륭해요!', '대박! 완전 잘했어!'
+            ];
+            subtitleEl.textContent = praiseList[Math.floor(Math.random() * praiseList.length)];
+
+            // 점수 (카운트업 애니메이션)
+            const scoreEl = document.getElementById('rewardScore');
+            animateScoreCount(scoreEl, finalScore);
+
+            // 메시지
+            const msgEl = document.getElementById('rewardMsg');
+            msgEl.textContent = isAllClear
+                ? '모든 얼음을 부쉈어요! 진정한 챔피언!'
+                : '다음 레벨에선 더 굉장한 것들이 기다리고 있어요!';
+
+            // 버튼
+            const btnEl = document.getElementById('rewardBtn');
+            btnEl.textContent = isAllClear ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!';
+            btnEl.onclick = function () {
+                screen.style.display = 'none';
+                clearConfetti(screen);
+                overlay.style.display = 'flex';
+                document.getElementById('endTitle').innerText = 'Ice Breaker';
+                document.getElementById('endTitle').style.color = '#00ffff';
+                document.getElementById('endDesc').innerHTML =
+                    '<b>1분</b> 동안 신나고 재미있게 얼음 큐브를 파괴하세요!';
+                startButton.innerText = isAllClear ? '게임 시작' : '다음 레벨 시작!';
+                startButton.style.display = 'block';
+                loadingMsg.style.display = 'none';
+            };
+
+            // 컨페티
+            spawnConfetti(screen, 60);
+
+            // 축하 사운드
+            playRewardSound(isAllClear);
+        }
+
+        function animateScoreCount(el, target) {
+            let current = 0;
+            const step = Math.max(1, Math.ceil(target / 40));
+            const interval = setInterval(() => {
+                current += step;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(interval);
+                }
+                el.textContent = current;
+            }, 30);
+        }
+
+        function spawnConfetti(container, count) {
+            clearConfetti(container);
+            const colors = ['#ff4488', '#44ddff', '#ffee44', '#44ff88', '#aa55ff', '#ff8844', '#55ffdd'];
+            for (let i = 0; i < count; i++) {
+                const c = document.createElement('div');
+                c.className = 'confetti-piece';
+                c.style.left = (Math.random() * 100) + '%';
+                c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                c.style.width = (6 + Math.random() * 10) + 'px';
+                c.style.height = (6 + Math.random() * 10) + 'px';
+                c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                c.style.animationDuration = (2 + Math.random() * 3) + 's';
+                c.style.animationDelay = (Math.random() * 2) + 's';
+                container.appendChild(c);
+            }
+        }
+
+        function clearConfetti(container) {
+            container.querySelectorAll('.confetti-piece').forEach(c => c.remove());
+        }
+
+        function playRewardSound(isAllClear) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioCtx.currentTime;
+
+            // 팡파레 멜로디 (C E G C5 E5)
+            const notes = isAllClear
+                ? [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568.0]
+                : [523.25, 659.25, 783.99, 1046.5];
+
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.25, now + i * 0.15);
+                gain.gain.exponentialDecayToValueAtTime?.(0.01, now + i * 0.15 + 0.6) ||
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.6);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + i * 0.15);
+                osc.stop(now + i * 0.15 + 0.6);
+            });
+
+            // 심벌즈 느낌 노이즈
+            const bufSize = audioCtx.sampleRate * 0.4;
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.15;
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buf;
+            const ng = audioCtx.createGain();
+            ng.gain.setValueAtTime(0.2, now + 0.1);
+            ng.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+            noise.connect(ng);
+            ng.connect(audioCtx.destination);
+            noise.start(now + 0.1);
+            noise.stop(now + 0.5);
+        }
+
+        // ── 카운트다운 사운드 ──
+        function playCountdownBeep(num) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioCtx.currentTime;
+            // 3→낮은음, 2→중간, 1→높은음 (점점 긴장감 UP)
+            const freq = num === 3 ? 440 : num === 2 ? 554.37 : 659.25;
+
+            // 메인 톤 (빵!)
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + 0.25);
+            gain.gain.setValueAtTime(0.3, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.25);
+
+            // 킥 드럼 느낌 (뿌웅)
+            const kick = audioCtx.createOscillator();
+            const kickG = audioCtx.createGain();
+            kick.type = 'sine';
+            kick.frequency.setValueAtTime(150, now);
+            kick.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+            kickG.gain.setValueAtTime(0.4, now);
+            kickG.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            kick.connect(kickG);
+            kickG.connect(audioCtx.destination);
+            kick.start(now);
+            kick.stop(now + 0.15);
+        }
+
+        function playCountdownGo() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioCtx.currentTime;
+
+            // 상승 스윕 (빠~앙~~)
+            const sweep = audioCtx.createOscillator();
+            const sweepG = audioCtx.createGain();
+            sweep.type = 'sawtooth';
+            sweep.frequency.setValueAtTime(300, now);
+            sweep.frequency.exponentialRampToValueAtTime(1200, now + 0.3);
+            sweepG.gain.setValueAtTime(0.2, now);
+            sweepG.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+            sweep.connect(sweepG);
+            sweepG.connect(audioCtx.destination);
+            sweep.start(now);
+            sweep.stop(now + 0.5);
+
+            // 화음 팡파레 (C5 + E5 + G5)
+            [1046.5, 1318.5, 1568.0].forEach(freq => {
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.type = 'triangle';
+                o.frequency.value = freq;
+                g.gain.setValueAtTime(0.2, now + 0.05);
+                g.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+                o.connect(g);
+                g.connect(audioCtx.destination);
+                o.start(now + 0.05);
+                o.stop(now + 0.7);
+            });
+
+            // 노이즈 심벌 (쉬이~)
+            const bufSize = audioCtx.sampleRate * 0.3;
+            const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * 0.12;
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = buf;
+            const ng = audioCtx.createGain();
+            ng.gain.setValueAtTime(0.25, now + 0.02);
+            ng.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+            noise.connect(ng);
+            ng.connect(audioCtx.destination);
+            noise.start(now + 0.02);
+            noise.stop(now + 0.35);
         }
 
         // 스테이지별 프리뷰 데이터
@@ -1489,14 +1816,17 @@
             // 카운트다운 3 → 2 → 1 → GO!
             let count = 3;
             countdownEl.innerText = count;
+            playCountdownBeep(count);
 
             const timer = setInterval(() => {
                 count--;
                 if (count > 0) {
                     countdownEl.innerText = count;
+                    playCountdownBeep(count);
                 } else if (count === 0) {
                     countdownEl.innerText = 'GO!';
                     countdownEl.style.color = '#ffdd00';
+                    playCountdownGo();
                 } else {
                     clearInterval(timer);
                     previewEl.style.display = 'none';
