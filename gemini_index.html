@@ -52,6 +52,14 @@
             animation: hueRotate 3s infinite linear;
         }
 
+        .fever-mode-active #gameCanvas {
+            animation: feverShakeCanvas 0.15s infinite alternate;
+        }
+
+        .fever-mode-active #videoElement {
+            animation: feverShake 0.15s infinite alternate;
+        }
+
         @keyframes hueRotate {
             from {
                 filter: hue-rotate(0deg);
@@ -60,6 +68,22 @@
             to {
                 filter: hue-rotate(360deg);
             }
+        }
+
+        @keyframes feverShake {
+            0%   { transform: scaleX(-1) translate( 3px,  2px); }
+            25%  { transform: scaleX(-1) translate(-2px, -3px); }
+            50%  { transform: scaleX(-1) translate( 2px, -1px); }
+            75%  { transform: scaleX(-1) translate(-3px,  2px); }
+            100% { transform: scaleX(-1) translate( 1px, -2px); }
+        }
+
+        @keyframes feverShakeCanvas {
+            0%   { transform: translate( 3px,  2px); }
+            25%  { transform: translate(-2px, -3px); }
+            50%  { transform: translate( 2px, -1px); }
+            75%  { transform: translate(-3px,  2px); }
+            100% { transform: translate( 1px, -2px); }
         }
 
         .snow-particle {
@@ -1060,6 +1084,24 @@
                 Body.set(block, 'frictionAir', 0.15);
             } else {
                 block.blockType = 'normal';
+                // 스테이지별 블록 배리에이션
+                const allVariants = [
+                    { id: 0, name: 'clear',   densityMul: 1.0 },  // 투명 얼음
+                    { id: 1, name: 'snow',    densityMul: 0.6 },  // 눈덩이
+                    { id: 2, name: 'frost',   densityMul: 2.0 },  // 서리 (무거움)
+                    { id: 3, name: 'glacier', densityMul: 3.5 },  // 빙하 (매우 무거움)
+                    { id: 4, name: 'crystal', densityMul: 0.8 },  // 크리스탈
+                ];
+                const stageVariants = [
+                    [allVariants[0], allVariants[1], allVariants[3]],  // Lv.1: 투명 얼음, 눈덩이, 빙하
+                    [allVariants[2], allVariants[3]],                  // Lv.2: 서리, 빙하
+                    [allVariants[4]],                                  // Lv.3: 크리스탈
+                ];
+                const pool = stageVariants[stage] || stageVariants[0];
+                const v = pool[Math.floor(Math.random() * pool.length)];
+                block.iceVariant = v.id;
+                // 무게 보정
+                Body.set(block, 'density', block.density * v.densityMul);
             }
 
             Composite.add(world, block);
@@ -1147,7 +1189,9 @@
         const STAGE_PREVIEWS = [
             {
                 blocks: [
-                    { icon: '🧊', name: '얼음 큐브', desc: '주먹으로 깨부숴요!', color: '#b0e0e6' }
+                    { icon: '❄️', name: '투명 얼음', desc: '기본 얼음이에요!', color: '#b0e0e6' },
+                    { icon: '⛄', name: '눈덩이', desc: '가볍고 잘 굴러요!', color: '#ffffff' },
+                    { icon: '🏔️', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
                 ],
                 items: [
                     { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' }
@@ -1155,7 +1199,8 @@
             },
             {
                 blocks: [
-                    { icon: '☄️', name: '우주 운석', desc: '불꽃 주먹으로 부숴요!', color: '#ff8844' }
+                    { icon: '🌨️', name: '서리', desc: '단단하고 무거워요!', color: '#4488ff' },
+                    { icon: '🏔️', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
                 ],
                 items: [
                     { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' },
@@ -1164,7 +1209,7 @@
             },
             {
                 blocks: [
-                    { icon: '💎', name: '다이아몬드', desc: '광선검으로 베어내요!', color: '#ff88ff' }
+                    { icon: '💠', name: '크리스탈', desc: '반짝이며 날아다녀요!', color: '#cc88ff' }
                 ],
                 items: [
                     { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' }
@@ -1650,10 +1695,25 @@
                     canvasCtx.shadowColor = '#00ccff';
                     canvasCtx.strokeStyle = 'rgba(200, 240, 255, 1.0)';
                 } else {
+                    // 서브타입별 다른 비주얼
+                    const v = b.iceVariant || 0;
+                    const variantStyles = [
+                        // 0: clear (투명 얼음) - 기본
+                        { fill: stageData.blockFill, stroke: stageData.blockStroke, shadow: stageData.blockStroke },
+                        // 1: snow (눈덩이) - 하얀색, 부드러운 느낌
+                        { fill: 'rgba(240, 248, 255, 0.5)', stroke: 'rgba(255, 255, 255, 0.9)', shadow: '#ffffff' },
+                        // 2: frost (서리) - 진한 파란, 단단한 느낌
+                        { fill: 'rgba(50, 100, 180, 0.6)', stroke: 'rgba(100, 180, 255, 0.9)', shadow: '#4488ff' },
+                        // 3: glacier (빙하) - 짙은 남색, 묵직한 느낌
+                        { fill: 'rgba(30, 60, 120, 0.7)', stroke: 'rgba(80, 140, 220, 0.9)', shadow: '#3366aa' },
+                        // 4: crystal (크리스탈) - 보라+분홍, 반짝이는 느낌
+                        { fill: 'rgba(200, 150, 255, 0.45)', stroke: 'rgba(230, 200, 255, 0.9)', shadow: '#cc88ff' },
+                    ];
+                    const vs = variantStyles[v] || variantStyles[0];
                     canvasCtx.globalAlpha = 0.6 + hpRatio * 0.3;
-                    canvasCtx.fillStyle = stageData.blockFill;
-                    canvasCtx.shadowColor = stageData.blockStroke;
-                    canvasCtx.strokeStyle = stageData.blockStroke;
+                    canvasCtx.fillStyle = vs.fill;
+                    canvasCtx.shadowColor = vs.shadow;
+                    canvasCtx.strokeStyle = vs.stroke;
                 }
                 canvasCtx.shadowBlur = 20;
 
@@ -1689,6 +1749,19 @@
                     canvasCtx.shadowColor = '#00ccff';
                     canvasCtx.shadowBlur = 30;
                     canvasCtx.fillText('🧊', b.position.x, b.position.y);
+                }
+
+                // 일반 블록: 서브타입별 작은 아이콘 (크기 충분할 때만)
+                if (b.blockType === 'normal' && !isFeverMode && b.rectWidth > 120) {
+                    const icons = ['❄️', '⛄', '🌨️', '🏔️', '💠'];
+                    const icon = icons[b.iceVariant || 0];
+                    const iconSize = Math.max(18, b.rectWidth * 0.22);
+                    canvasCtx.globalAlpha = 0.7;
+                    canvasCtx.font = `${iconSize}px serif`;
+                    canvasCtx.textAlign = 'center';
+                    canvasCtx.textBaseline = 'middle';
+                    canvasCtx.shadowBlur = 10;
+                    canvasCtx.fillText(icon, b.position.x, b.position.y);
                 }
 
                 canvasCtx.restore();
