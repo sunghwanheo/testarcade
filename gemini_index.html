@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Arcade - Ice Breaker (Physics)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #001122;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #videoElement {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            z-index: 1;
+            opacity: 0.8;
+        }
+
+        #themeOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            background: radial-gradient(circle at center, rgba(0, 200, 255, 0.1) 0%, rgba(0, 20, 60, 0.6) 100%);
+            box-shadow: inset 0 0 100px rgba(0, 150, 255, 0.4);
+            pointer-events: none;
+            transition: all 0.5s;
+        }
+
+        .fever-mode-active #themeOverlay {
+            background: radial-gradient(circle at center, rgba(255, 150, 255, 0.3) 0%, rgba(50, 0, 150, 0.6) 100%);
+            box-shadow: inset 0 0 150px rgba(255, 255, 255, 0.8);
+            animation: hueRotate 3s infinite linear;
+        }
+
+        @keyframes hueRotate {
+            from {
+                filter: hue-rotate(0deg);
+            }
+
+            to {
+                filter: hue-rotate(360deg);
+            }
+        }
+
+        .snow-particle {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.8;
+            pointer-events: none;
+            z-index: 2;
+            animation: fall linear infinite;
+        }
+
+        .fever-mode-active .snow-particle {
+            background: #ffffff;
+            box-shadow: 0 0 10px #ff00ff;
+            animation-duration: 2s !important;
+        }
+
+        @keyframes fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+            }
+        }
+
+        #gameCanvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        #ui {
+            position: absolute;
+            top: 30px;
+            left: 40px;
+            z-index: 4;
+            font-size: 42px;
+            font-weight: 900;
+            text-shadow: 0 0 15px rgba(0, 255, 255, 0.8), 2px 2px 4px rgba(0, 0, 0, 0.8);
+            display: flex;
+            gap: 60px;
+            color: #dff9ff;
+        }
+
+        .ui-item span {
+            color: #00ffff;
+        }
+
+        /* 오른쪽 게이지 UI */
+        #rightUi {
+            position: absolute;
+            top: 30px;
+            right: 40px;
+            z-index: 4;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 15px;
+        }
+
+        .fever-title {
+            font-size: 32px;
+            font-weight: 900;
+            color: #ff00ff;
+            text-shadow: 0 0 15px #ff00ff;
+            letter-spacing: 2px;
+            animation: none;
+        }
+
+        .fever-active-text {
+            animation: pulseFever 0.3s infinite alternate !important;
+            color: #ffff00;
+            text-shadow: 0 0 20px #00ffff;
+        }
+
+        @keyframes pulseFever {
+            from {
+                transform: scale(1);
+            }
+
+            to {
+                transform: scale(1.2);
+            }
+        }
+
+        #feverBarContainer {
+            width: 40px;
+            height: 300px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 4px solid #ff00ff;
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        #feverBar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(to top, #ff00ff, #00ffff);
+            transition: height 0.1s;
+            box-shadow: 0 0 20px #ff00ff;
+        }
+
+        .time-box {
+            margin-top: 20px;
+            font-size: 50px;
+            font-weight: 900;
+            color: white;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 15, 30, 0.85);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        button {
+            padding: 20px 50px;
+            font-size: 30px;
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.5);
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 50px rgba(0, 210, 255, 0.8);
+            border-color: white;
+        }
+
+        #loadingMsg {
+            display: none;
+            margin-top: 20px;
+            color: #00ffff;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ffff;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from {
+                opacity: 0.5;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+    <!-- MediaPipe files -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <!-- Matter.js Physics Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+</head>
+
+<body>
+    <div id="container">
+        <!-- 웹캠 영상 -->
+        <video id="videoElement" autoplay playsinline></video>
+
+        <!-- 테마 오버레이 -->
+        <div id="themeOverlay"></div>
+
+        <script>
+            const overlayLayer = document.getElementById('themeOverlay');
+            for (let i = 0; i < 40; i++) {
+                let snow = document.createElement('div');
+                snow.className = 'snow-particle';
+                snow.style.left = Math.random() * 100 + 'vw';
+                snow.style.top = (Math.random() * -100) + 'vh';
+                snow.style.width = snow.style.height = (Math.random() * 5 + 3) + 'px';
+                snow.style.animationDuration = (Math.random() * 5 + 5) + 's';
+                snow.style.animationDelay = (Math.random() * 5) + 's';
+                overlayLayer.appendChild(snow);
+            }
+        </script>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="ui">
+            <div class="ui-item">SCORE: <span id="score">0</span></div>
+            <div class="ui-item" style="font-size:24px; margin-top:10px; color:#ffdd00;" id="stageTitle">Lv.1 얼음 동굴 (무기:
+                파란 마법장갑)</div>
+        </div>
+
+        <div id="rightUi">
+            <div class="time-box" id="timeBox">01:30</div>
+            <div class="fever-title" id="feverTitle">FEVER</div>
+            <div id="feverBarContainer">
+                <div id="feverBar"></div>
+            </div>
+        </div>
+
+        <div id="overlay">
+            <h1 id="endTitle"
+                style="color: #00ffff; font-size: 72px; margin-bottom: 20px; text-transform: uppercase; font-style: italic; text-shadow: 0 0 30px #00d2ff;">
+                Ice Breaker</h1>
+            <div
+                style="background: rgba(0,0,0,0.5); padding: 30px; border-radius: 20px; border: 1px solid #00d2ff; margin-bottom: 50px;">
+                <p id="endDesc"
+                    style="font-size: 26px; max-width: 700px; text-align: center; line-height: 1.6; color: #dff9ff; margin: 0;">
+                    <b>1분 30초</b> 동안 신나고 재미있게 얼음 큐브를 파괴하세요!<br><br>
+                    거대한 얼음도 포기하지 않고 팡팡 두드리면 시원하게 터집니다.<br>
+                    신나게 움직여서 <b>무지개 파티(FEVER)</b>를 켜면 모든 얼음이 반짝이며 터집니다!
+                </p>
+            </div>
+            <button id="startButton">게임 시작 (카메라 권한 필요)</button>
+            <div id="loadingMsg">AI 및 얼음 마법 준비중... 잠시만 기다려주세요!</div>
+        </div>
+    </div>
+
+    <script>
+        // -------------------------
+        // Matter.js 설정
+        // -------------------------
+        const Engine = Matter.Engine,
+            Bodies = Matter.Bodies,
+            Composite = Matter.Composite,
+            Body = Matter.Body;
+
+        const engine = Engine.create();
+        const world = engine.world;
+
+        // DOM 
+        const container = document.getElementById('container');
+        const videoElement = document.getElementById('videoElement');
+        const canvasElement = document.getElementById('gameCanvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const overlay = document.getElementById('overlay');
+        const startButton = document.getElementById('startButton');
+        const loadingMsg = document.getElementById('loadingMsg');
+        const feverTitle = document.getElementById('feverTitle');
+        const feverBar = document.getElementById('feverBar');
+        const timeBox = document.getElementById('timeBox');
+
+        // 상태
+        let isPlaying = false;
+        let score = 0;
+        let gameTimeLeft = 90.0; // 1분 30초
+        let gameTime = 0; // 애니메이션용 누적 시간
+
+        // ─────────────────────────────────────────
+        // Web Audio 소리 시스템
+        // ─────────────────────────────────────────
+        let audioCtx = null;
+
+        function ensureAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playHit(stageIdx) {
+            ensureAudio();
+            const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+
+            const freqs = [440, 320, 500]; // 스테이지별 다른 타격음 톤
+            osc.type = ['sine', 'sawtooth', 'square'][stageIdx % 3];
+            osc.frequency.setValueAtTime(freqs[stageIdx % 3] * 2, t);
+            osc.frequency.exponentialRampToValueAtTime(freqs[stageIdx % 3] * 0.5, t + 0.12);
+            gain.gain.setValueAtTime(0.35, t);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+            osc.start(t); osc.stop(t + 0.15);
+        }
+
+        function playDestroy(stageIdx) {
+            ensureAudio();
+            const t = audioCtx.currentTime;
+            // 저음 쿵
+            const osc1 = audioCtx.createOscillator();
+            const g1   = audioCtx.createGain();
+            osc1.connect(g1); g1.connect(audioCtx.destination);
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(180, t);
+            osc1.frequency.exponentialRampToValueAtTime(40, t + 0.4);
+            g1.gain.setValueAtTime(0.6, t);
+            g1.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+            osc1.start(t); osc1.stop(t + 0.4);
+            // 고음 파편
+            const osc2 = audioCtx.createOscillator();
+            const g2   = audioCtx.createGain();
+            const dist = audioCtx.createWaveShaper();
+            const curve = new Float32Array(256);
+            for (let i = 0; i < 256; i++) curve[i] = (i < 128) ? -1 : 1;
+            dist.curve = curve;
+            osc2.connect(dist); dist.connect(g2); g2.connect(audioCtx.destination);
+            osc2.type = 'sawtooth';
+            osc2.frequency.setValueAtTime(900 + stageIdx * 200, t);
+            osc2.frequency.exponentialRampToValueAtTime(200, t + 0.25);
+            g2.gain.setValueAtTime(0.25, t);
+            g2.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+            osc2.start(t); osc2.stop(t + 0.25);
+        }
+
+        function playFeverStart() {
+            ensureAudio();
+            const t = audioCtx.currentTime;
+            [261.6, 329.6, 392, 523.3].forEach((freq, i) => {
+                const osc  = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                const st = t + i * 0.08;
+                gain.gain.setValueAtTime(0, st);
+                gain.gain.linearRampToValueAtTime(0.4, st + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, st + 0.5);
+                osc.start(st); osc.stop(st + 0.5);
+            });
+        }
+
+        let feverValue = 0; // 0 to 100
+        let isFeverMode = false;
+        let feverTimer = 0.0; // 피버 지속 시간
+        const FEVER_DURATION = 8.0;
+
+        let particles = [];
+        let bodyPoints = [];
+        let blockSpawnTimer = 0;
+        let animationFrameId;
+
+        const HIT_RADIUS = 0; // 각 bodyPoint의 p.radius를 사용하므로 여기선 0
+        let currentStageIndex = 0;
+
+        // 스테이지 기획 데이터 (3단계)
+        const STAGES = [
+            {
+                name: "Lv.1 얼음 동굴",
+                weapon: "파란 마법장갑",
+                weaponIcon: "🧤",
+                shapeType: "rect",
+                bgGradient: 'radial-gradient(circle at center, rgba(0, 200, 255, 0.1) 0%, rgba(0, 20, 60, 0.6) 100%)',
+                blockFill: 'rgba(150, 230, 255, 0.4)',
+                blockStroke: 'rgba(255, 255, 255, 0.8)',
+                particleColors: ['#ffffff', '#e0ffff', '#b0e0e6', '#00ffff'],
+                handAura: ['rgba(0, 255, 255, 0.8)', 'rgba(0, 200, 255, 0.5)', 'rgba(0, 100, 255, 0)'],
+                handCore: '#ffffff',
+                hpMultiplier: 1.0
+            },
+            {
+                name: "Lv.2 우주 운석 지대",
+                weapon: "불꽃 주먹",
+                weaponIcon: "🥊",
+                shapeType: "circle",
+                bgGradient: 'radial-gradient(circle at center, rgba(200, 100, 50, 0.1) 0%, rgba(40, 10, 10, 0.8) 100%)',
+                blockFill: 'rgba(150, 100, 80, 0.7)',
+                blockStroke: 'rgba(255, 150, 50, 0.9)',
+                particleColors: ['#ff5500', '#ffd700', '#aaaaaa', '#ffffff'],
+                handAura: ['rgba(255, 100, 0, 0.8)', 'rgba(255, 50, 0, 0.5)', 'rgba(255, 0, 0, 0)'],
+                handCore: '#ffff00',
+                hpMultiplier: 1.5
+            },
+            {
+                name: "Lv.3 다이아몬드 성",
+                weapon: "광선검",
+                weaponIcon: "🗡️",
+                shapeType: "polygon",
+                bgGradient: 'radial-gradient(circle at center, rgba(255, 100, 255, 0.15) 0%, rgba(50, 0, 50, 0.8) 100%)',
+                blockFill: 'rgba(255, 150, 255, 0.4)',
+                blockStroke: 'rgba(255, 200, 255, 0.9)',
+                particleColors: ['#ff00ff', '#ffffff', '#00ffff', '#ffdd00'],
+                handAura: ['rgba(255, 0, 255, 0.8)', 'rgba(100, 0, 255, 0.5)', 'rgba(0, 0, 255, 0)'],
+                handCore: '#ffbbff',
+                hpMultiplier: 2.0
+            }
+        ];
+
+        let ground, leftWall, rightWall, topWall;
+
+        // wallR: 벽/바닥 탄성계수, addTop: 천장 벽 추가 여부 (Lv.3용)
+        function updateBounds(wallR = 0.1, addTop = false) {
+            canvasElement.width  = window.innerWidth;
+            canvasElement.height = window.innerHeight;
+
+            [ground, leftWall, rightWall, topWall].forEach(b => { if (b) Composite.remove(world, b); });
+
+            const w = canvasElement.width, h = canvasElement.height;
+            const wallOpts = (r) => ({ isStatic: true, friction: 0.05, restitution: r });
+
+            ground    = Bodies.rectangle(w / 2,    h + 50,  w + 1000, 100, wallOpts(wallR));
+            leftWall  = Bodies.rectangle(-50,       h / 2,  100, h * 3,  wallOpts(wallR));
+            rightWall = Bodies.rectangle(w + 50,    h / 2,  100, h * 3,  wallOpts(wallR));
+            const bodies = [ground, leftWall, rightWall];
+
+            if (addTop) {
+                topWall = Bodies.rectangle(w / 2, -50, w + 1000, 100, wallOpts(wallR));
+                bodies.push(topWall);
+            }
+            Composite.add(world, bodies);
+        }
+        window.addEventListener('resize', () => {
+            const cfg = STAGE_PHYSICS[currentStageIndex];
+            updateBounds(cfg.wallR, cfg.addTop);
+        });
+        updateBounds();
+
+        // 스테이지별 물리 설정
+        const STAGE_PHYSICS = [
+            // Lv.1 얼음 동굴: 무겁고 거의 안 튕김
+            { gravity: 1.0,  wallR: 0.1,  addTop: false,
+              bodyOpts: (sf) => ({ restitution: 0.08, friction: 0.8, frictionAir: 0.015, density: 0.05 * Math.pow(sf, 4.0) }),
+              initVel: ()  => ({ x: 0, y: 0 }),
+              angVel:  ()  => 0 },
+
+            // Lv.2 우주 운석: 위에서 내려와 바닥/벽에서 계속 튕김
+            { gravity: 0.18, wallR: 0.475, addTop: false,
+              bodyOpts: (sf) => ({ restitution: 0.47, friction: 0.0, frictionAir: 0.0002, density: 0.004 * Math.pow(sf, 2.0) }),
+              initVel: ()  => ({
+                  x: (Math.random() - 0.5) * 8,
+                  y: 4 + Math.random() * 4   // 확실히 아래로 내려오는 초기 속도
+              }),
+              angVel: ()  => (Math.random() - 0.5) * 0.5 },
+
+            // Lv.3 다이아몬드: 탄성 있게 사방팔방 튕김
+            { gravity: 0.12, wallR: 0.65, addTop: true,
+              bodyOpts: (sf) => ({ restitution: 0.65, friction: 0.0, frictionAir: 0.003, density: 0.003 * Math.pow(sf, 1.8) }),
+              initVel: ()  => { const a = Math.random() * Math.PI * 2, s = 5 + Math.random() * 5;
+                                return { x: Math.cos(a) * s, y: Math.sin(a) * s }; },
+              angVel:  ()  => (Math.random() - 0.5) * 0.4 },
+        ];
+
+        // 파편 효과
+        class IceParticle {
+            constructor(x, y, isFever) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 300 + Math.random() * 800; // 넓게 튀김
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.life = 1.0;
+                this.size = 15 + Math.random() * 25;
+                this.rotation = Math.random() * Math.PI;
+                this.rotSpeed = (Math.random() - 0.5) * 15;
+
+                const stageData = STAGES[currentStageIndex];
+                const colors = isFever
+                    ? ['#ff00ff', '#00ffff', '#ffff00', '#ffaa00', '#00ffaa']
+                    : stageData.particleColors;
+                this.color = colors[Math.floor(Math.random() * colors.length)];
+                this.isFever = isFever;
+            }
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.vy += 1500 * dt; // 중력 강하게
+                this.life -= dt * 1.5;
+                this.rotation += this.rotSpeed * dt;
+                return this.life > 0;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.isFever ? '#ff00ff' : '#00ffff';
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+
+                ctx.beginPath();
+                ctx.moveTo(0, -this.size);
+                ctx.lineTo(this.size / 2, this.size);
+                ctx.lineTo(-this.size / 2, this.size);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function spawnShatter(x, y, count = 30, isFever = false) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new IceParticle(x, y, isFever));
+            }
+        }
+
+        // ─────────────────────────────────────────
+        // 무기 이펙트 드로잉 함수
+        // ─────────────────────────────────────────
+
+        // Stage 0: 얼음 주먹 — 얼음 결정 8개가 손 주위에 회전
+        function drawIceFist(ctx, x, y, r, t) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // 외부 오라
+            ctx.globalCompositeOperation = 'lighter';
+            const aura = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 2.2);
+            aura.addColorStop(0,   'rgba(180, 245, 255, 0.55)');
+            aura.addColorStop(0.5, 'rgba(0,  190, 255, 0.25)');
+            aura.addColorStop(1,   'rgba(0,   80, 200, 0)');
+            ctx.fillStyle = aura;
+            ctx.beginPath(); ctx.arc(0, 0, r * 2.2, 0, Math.PI * 2); ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+
+            // 얼음 결정 8개 (천천히 자전)
+            const NUM = 8;
+            ctx.rotate(t * 0.4);
+            for (let i = 0; i < NUM; i++) {
+                ctx.save();
+                ctx.rotate((i / NUM) * Math.PI * 2);
+                const len = r * (1.1 + 0.22 * Math.sin(t * 2.5 + i));
+                const wid = r * 0.22;
+                const grad = ctx.createLinearGradient(0, -r * 0.5, 0, -(r * 0.5 + len));
+                grad.addColorStop(0,   'rgba(220, 248, 255, 0.95)');
+                grad.addColorStop(0.4, 'rgba(100, 210, 255, 0.85)');
+                grad.addColorStop(1,   'rgba(255, 255, 255, 0.3)');
+                ctx.shadowBlur  = 14; ctx.shadowColor = '#00d4ff';
+                ctx.fillStyle   = grad;
+                // 마름모 결정 모양
+                ctx.beginPath();
+                ctx.moveTo(0, -r * 0.5);
+                ctx.lineTo(wid * 0.55,  -(r * 0.5 + len * 0.35));
+                ctx.lineTo(0,           -(r * 0.5 + len));
+                ctx.lineTo(-wid * 0.55, -(r * 0.5 + len * 0.35));
+                ctx.closePath(); ctx.fill();
+                ctx.restore();
+            }
+
+            // 코어 (얼음 구슬)
+            ctx.shadowBlur = 25; ctx.shadowColor = '#80eeff';
+            const core = ctx.createRadialGradient(0, -r * 0.1, 0, 0, 0, r * 0.65);
+            core.addColorStop(0,   'rgba(255, 255, 255, 1)');
+            core.addColorStop(0.4, 'rgba(160, 235, 255, 0.92)');
+            core.addColorStop(1,   'rgba(0,   160, 220, 0.6)');
+            ctx.fillStyle = core;
+            ctx.beginPath(); ctx.arc(0, 0, r * 0.65, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Stage 1: 불꽃 주먹 — 화염이 손에서 뿜어나옴
+        function drawFireFist(ctx, x, y, r, t) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // 외부 열기
+            ctx.globalCompositeOperation = 'lighter';
+            const heat = ctx.createRadialGradient(0, 0, r * 0.2, 0, 0, r * 2.4);
+            heat.addColorStop(0,   'rgba(255, 200, 50,  0.5)');
+            heat.addColorStop(0.4, 'rgba(255,  80,  0,  0.25)');
+            heat.addColorStop(1,   'rgba(200,   0,  0,  0)');
+            ctx.fillStyle = heat;
+            ctx.beginPath(); ctx.arc(0, 0, r * 2.4, 0, Math.PI * 2); ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+
+            // 화염 6줄기
+            const NUM = 6;
+            for (let i = 0; i < NUM; i++) {
+                ctx.save();
+                ctx.rotate((i / NUM) * Math.PI * 2 + t * 0.8);
+                const len = r * (1.25 + 0.38 * Math.sin(t * 4.5 + i * 1.3));
+                const wid = r * (0.32 + 0.08 * Math.sin(t * 3 + i));
+                const flameGrad = ctx.createLinearGradient(0, -r * 0.35, 0, -(r * 0.35 + len));
+                flameGrad.addColorStop(0,   'rgba(255, 230,  60, 0.95)');
+                flameGrad.addColorStop(0.35,'rgba(255, 110,   0, 0.85)');
+                flameGrad.addColorStop(0.7, 'rgba(220,  30,   0, 0.5)');
+                flameGrad.addColorStop(1,   'rgba(150,   0,   0, 0)');
+                ctx.shadowBlur = 18; ctx.shadowColor = '#ff5500';
+                ctx.fillStyle  = flameGrad;
+                const base = -r * 0.35;
+                const wobble = wid * 0.4 * Math.sin(t * 6 + i * 2);
+                ctx.beginPath();
+                ctx.moveTo(-wid * 0.5, base);
+                ctx.bezierCurveTo(-wid * 0.6, base - len * 0.3, wobble, base - len * 0.65, 0, base - len);
+                ctx.bezierCurveTo(-wobble, base - len * 0.65, wid * 0.6, base - len * 0.3, wid * 0.5, base);
+                ctx.closePath(); ctx.fill();
+                ctx.restore();
+            }
+
+            // 코어 (불덩어리)
+            ctx.shadowBlur = 30; ctx.shadowColor = '#ff8800';
+            const core = ctx.createRadialGradient(0, -r * 0.08, 0, 0, 0, r * 0.68);
+            core.addColorStop(0,   'rgba(255, 248, 180, 1)');
+            core.addColorStop(0.45,'rgba(255, 160,   0, 0.9)');
+            core.addColorStop(1,   'rgba(200,  40,   0, 0.7)');
+            ctx.fillStyle = core;
+            ctx.beginPath(); ctx.arc(0, 0, r * 0.68, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Stage 2: 번개 검 — 손에서 에너지 검이 뻗어나옴 + 전기 아크
+        function drawLightningBlade(ctx, x, y, r, t) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // 자기장 오라
+            ctx.globalCompositeOperation = 'lighter';
+            const field = ctx.createRadialGradient(0, 0, r * 0.2, 0, 0, r * 2.0);
+            field.addColorStop(0,   'rgba(200, 80, 255, 0.5)');
+            field.addColorStop(0.5, 'rgba(100,  0, 255, 0.25)');
+            field.addColorStop(1,   'rgba(0,    0, 200, 0)');
+            ctx.fillStyle = field;
+            ctx.beginPath(); ctx.arc(0, 0, r * 2.0, 0, Math.PI * 2); ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+
+            // 검 본체 (위쪽으로 뻗음)
+            const bladeLen = r * 3.8;
+            const bladeW   = r * 0.28;
+            const bladeGrad = ctx.createLinearGradient(0, -r * 0.5, 0, -r * 0.5 - bladeLen);
+            bladeGrad.addColorStop(0,   'rgba(255, 255, 255, 0.98)');
+            bladeGrad.addColorStop(0.2, 'rgba(210, 110, 255, 0.9)');
+            bladeGrad.addColorStop(0.6, 'rgba(130,  0,  255, 0.65)');
+            bladeGrad.addColorStop(1,   'rgba(60,   0,  180, 0)');
+            ctx.shadowBlur  = 28; ctx.shadowColor = '#cc00ff';
+            ctx.fillStyle   = bladeGrad;
+            ctx.beginPath();
+            ctx.moveTo(-bladeW * 0.5, -r * 0.5);
+            ctx.lineTo( bladeW * 0.5, -r * 0.5);
+            ctx.lineTo(0, -r * 0.5 - bladeLen);
+            ctx.closePath(); ctx.fill();
+
+            // 전기 아크 (검을 따라 지직거림)
+            for (let i = 0; i < 5; i++) {
+                const prog    = 0.15 + (i / 5) * 0.82;
+                const arcY    = -(r * 0.5 + bladeLen * prog);
+                const maxAmp  = r * (0.35 - prog * 0.25);
+                const amp     = maxAmp * Math.sin(t * 9 + i * 1.7);
+                ctx.strokeStyle = `rgba(255, 200, 255, ${0.8 - prog * 0.4})`;
+                ctx.lineWidth   = 2.5;
+                ctx.shadowBlur  = 10; ctx.shadowColor = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(-amp * 1.2, arcY - r * 0.18);
+                ctx.lineTo(amp * 1.5,  arcY);
+                ctx.lineTo(-amp * 0.7, arcY + r * 0.12);
+                ctx.stroke();
+            }
+
+            // 손잡이 크로스가드
+            ctx.shadowBlur  = 12; ctx.shadowColor = '#9900ff';
+            ctx.fillStyle   = 'rgba(180, 80, 255, 0.85)';
+            ctx.fillRect(-r * 0.7, -r * 0.65, r * 1.4, r * 0.22);
+
+            // 코어 (에너지 구슬)
+            ctx.shadowBlur = 32; ctx.shadowColor = '#dd00ff';
+            const core = ctx.createRadialGradient(0, -r * 0.08, 0, 0, 0, r * 0.65);
+            core.addColorStop(0,   'rgba(255, 255, 255, 1)');
+            core.addColorStop(0.4, 'rgba(210, 100, 255, 0.92)');
+            core.addColorStop(1,   'rgba(100,   0, 220, 0.6)');
+            ctx.fillStyle = core;
+            ctx.beginPath(); ctx.arc(0, 0, r * 0.65, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Fever: 무지개 소용돌이 에너지
+        function drawRainbowVortex(ctx, x, y, r, t) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const ARMS = 7;
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < ARMS; i++) {
+                ctx.save();
+                ctx.rotate((i / ARMS) * Math.PI * 2 + t * 2.5);
+                const hue = ((i / ARMS) * 360 + t * 110) % 360;
+                const len = r * (2.2 + 0.5 * Math.sin(t * 3.5 + i));
+                const wid = r * 0.38;
+                const armGrad = ctx.createLinearGradient(0, 0, 0, -len);
+                armGrad.addColorStop(0, `hsla(${hue}, 100%, 70%, 0.85)`);
+                armGrad.addColorStop(1, `hsla(${(hue+60)%360}, 100%, 60%, 0)`);
+                ctx.shadowBlur = 22; ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
+                ctx.fillStyle  = armGrad;
+                ctx.beginPath();
+                ctx.moveTo(-wid * 0.25, 0);
+                ctx.bezierCurveTo(-wid, -len * 0.28, wid * 0.5, -len * 0.55, 0, -len);
+                ctx.bezierCurveTo(-wid * 0.5, -len * 0.55, wid, -len * 0.28, wid * 0.25, 0);
+                ctx.closePath(); ctx.fill();
+                ctx.restore();
+            }
+
+            // 코어
+            ctx.globalCompositeOperation = 'source-over';
+            const pulse = 1 + 0.18 * Math.sin(t * 6);
+            const hue   = (t * 130) % 360;
+            ctx.shadowBlur = 45; ctx.shadowColor = `hsl(${hue}, 100%, 70%)`;
+            const core = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.72 * pulse);
+            core.addColorStop(0,   'rgba(255, 255, 255, 1)');
+            core.addColorStop(0.5, `hsla(${hue}, 100%, 70%, 0.9)`);
+            core.addColorStop(1,   `hsla(${hue}, 100%, 50%, 0)`);
+            ctx.fillStyle = core;
+            ctx.beginPath(); ctx.arc(0, 0, r * 0.72 * pulse, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawWeapon(ctx, p, stageIdx, fever, t) {
+            if (fever) { drawRainbowVortex(ctx, p.x, p.y, p.radius, t); return; }
+            if (stageIdx === 0) drawIceFist(ctx, p.x, p.y, p.radius, t);
+            else if (stageIdx === 1) drawFireFist(ctx, p.x, p.y, p.radius, t);
+            else drawLightningBlade(ctx, p.x, p.y, p.radius, t);
+        }
+
+        function spawnBlock() {
+            const stageData  = STAGES[currentStageIndex];
+            const phys       = STAGE_PHYSICS[currentStageIndex];
+            const stage      = currentStageIndex;
+
+            let scaleFactor  = 1 + Math.random() * 6.0;
+            let size         = 60 * scaleFactor;
+            const W = canvasElement.width, H = canvasElement.height;
+
+            // 스테이지별 스폰 위치
+            let x, y;
+            if (stage === 2) {
+                // Lv.3: 4면 어디서든 랜덤 진입
+                const edge = Math.floor(Math.random() * 4);
+                if      (edge === 0) { x = -size;    y = Math.random() * H; }          // 왼쪽
+                else if (edge === 1) { x = W + size; y = Math.random() * H; }          // 오른쪽
+                else if (edge === 2) { x = Math.random() * W; y = -size; }             // 위
+                else                 { x = Math.random() * W; y = H + size; }          // 아래
+            } else {
+                const margin = size + 50;
+                x = margin + Math.random() * (W - margin * 2);
+                y = -size - 100;
+            }
+
+            const options = phys.bodyOpts(scaleFactor);
+
+            let block;
+            if (stageData.shapeType === 'rect') {
+                block = Bodies.rectangle(x, y, size, size, options);
+            } else if (stageData.shapeType === 'circle') {
+                block = Bodies.circle(x, y, size / 2, options);
+            } else {
+                const sides = Math.floor(Math.random() * 4) + 4;
+                block = Bodies.polygon(x, y, sides, size / 2, options);
+            }
+
+            // 초기 속도 & 회전 (스테이지별)
+            const vel = phys.initVel();
+            Body.setVelocity(block, vel);
+            Body.setAngularVelocity(block, phys.angVel());
+
+            block.isBlock         = true;
+            block.maxHp           = Math.max(1, Math.floor(scaleFactor * stageData.hpMultiplier));
+            block.hp              = block.maxHp;
+            block.hitCooldown     = 0;
+            block.timeSinceSpawn  = 0;
+            block.rectWidth       = size;
+            block.rectHeight      = size;
+            block.scaleFactor     = scaleFactor;
+            block.nudgeTimer      = 0; // Lv.3 랜덤 방향 재부여용
+            block.hasEnteredScreen = false; // Lv.2 화면 진입 추적용
+
+            Composite.add(world, block);
+        }
+
+        function updateUI() {
+            scoreElement.innerText = score;
+
+            // Time Text Update
+            let m = Math.floor(gameTimeLeft / 60);
+            let s = Math.floor(gameTimeLeft % 60);
+            timeBox.innerText = `0${m}:${s < 10 ? '0' + s : s}`;
+            if (gameTimeLeft <= 10) {
+                timeBox.style.color = '#ffff00'; // 부드러운 노란색으로 경고 느낌 감소
+                timeBox.style.animation = 'pulseFever 0.3s infinite alternate';
+            } else {
+                timeBox.style.color = 'white';
+                timeBox.style.animation = 'none';
+            }
+
+            // Fever Update
+            if (isFeverMode) {
+                feverBar.style.height = `${(feverTimer / FEVER_DURATION) * 100}%`;
+            } else {
+                feverBar.style.height = `${feverValue}%`;
+            }
+        }
+
+        function activateFever() {
+            isFeverMode = true;
+            feverTimer = FEVER_DURATION;
+            feverValue = 0;
+            container.classList.add('fever-mode-active');
+            feverTitle.classList.add('fever-active-text');
+            feverTitle.innerText = "PARTY!!";
+            playFeverStart();
+        }
+
+        function deactivateFever() {
+            isFeverMode = false;
+            feverTimer = 0;
+            feverValue = 0;
+            container.classList.remove('fever-mode-active');
+            feverTitle.classList.remove('fever-active-text');
+            feverTitle.innerText = "PARTY";
+        }
+
+        function addFever(amt) {
+            if (isFeverMode || gameTimeLeft <= 0) return;
+            feverValue += amt;
+            if (feverValue >= 100) {
+                feverValue = 100;
+                activateFever();
+            }
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            overlay.style.display = 'flex';
+            document.getElementById('endTitle').innerText = 'STAGE CLEAR!';
+            document.getElementById('endTitle').style.color = '#00ffff';
+
+            let isLastStage = (currentStageIndex >= STAGES.length - 1);
+            let descMsg = isLastStage
+                ? `모든 레벨을 클리어했습니다! 정말 대단해요!<br>지금까지 누적된 점수는: <b style="color: #ff00ff; font-size: 50px; text-shadow: 0 0 10px #ff00ff;">${score}</b> 점 입니다!`
+                : `현재 레벨을 완료했어요! 최고예요!<br>당신의 누적 점수는: <b style="color: #ff00ff; font-size: 50px; text-shadow: 0 0 10px #ff00ff;">${score}</b> 점 입니다!<br>다음 레벨에선 더 굉장한 무기를 얻습니다!`;
+
+            document.getElementById('endDesc').innerHTML = descMsg;
+            startButton.innerText = isLastStage ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!';
+
+            if (isLastStage) {
+                currentStageIndex = 0; // 마지막 끝내면 0으로 초기화
+                score = 0; // 전부 깼을 땐 리셋해도 좋음 (선택)
+            } else {
+                currentStageIndex++;
+            }
+
+            startButton.style.display = 'block';
+            loadingMsg.style.display = 'none';
+        }
+
+        function resetGame() {
+            const stageData = STAGES[currentStageIndex];
+            const phys      = STAGE_PHYSICS[currentStageIndex];
+
+            // 테마 적용
+            document.getElementById('themeOverlay').style.background = stageData.bgGradient;
+            document.getElementById('stageTitle').innerText = `${stageData.name} (무기: ${stageData.weapon})`;
+
+            Matter.World.clear(world);
+            Engine.clear(engine);
+
+            // 스테이지별 중력
+            engine.gravity.y = phys.gravity;
+
+            // 스테이지별 벽 탄성
+            updateBounds(phys.wallR, phys.addTop);
+
+            score = 0;
+            gameTimeLeft = 90.0;
+            particles = [];
+            bodyPoints = [];
+            blockSpawnTimer = 1.0;
+            deactivateFever();
+
+            updateUI();
+            isPlaying = true;
+
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            lastTime = performance.now();
+            gameLoop(lastTime);
+        }
+
+        // -------------------------
+        // MediaPipe Pose
+        // -------------------------
+        const pose = new Pose({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+            }
+        });
+
+        pose.setOptions({
+            modelComplexity: 1,
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.6,
+            minTrackingConfidence: 0.6
+        });
+
+        pose.onResults((results) => {
+            bodyPoints = [];
+            if (results.poseLandmarks) {
+                const lms = results.poseLandmarks;
+                const W = canvasElement.width;
+                const H = canvasElement.height;
+
+                // 화면 좌표 변환 (거울 반전)
+                const toScreen = (lm) => ({
+                    x: (1 - lm.x) * W,
+                    y: lm.y * H
+                });
+
+                // 두 landmark 사이의 픽셀 거리
+                const dist2D = (a, b) => {
+                    const ax = (1 - a.x) * W, ay = a.y * H;
+                    const bx = (1 - b.x) * W, by = b.y * H;
+                    return Math.hypot(ax - bx, ay - by);
+                };
+
+                // 손 추적: 손목(wristIdx)과 검지(indexIdx) 사이 거리를 손 크기로 사용
+                const trackHand = (wristIdx, indexIdx, pinkyIdx) => {
+                    const wrist = lms[wristIdx];
+                    const index = lms[indexIdx];
+                    if (!wrist || !index) return null;
+                    if (wrist.visibility < 0.4 || index.visibility < 0.4) return null;
+
+                    // 손 크기: 손목~검지 픽셀 거리
+                    let handSize = dist2D(wrist, index);
+
+                    // 최소/최대 클램프 (너무 가까이/멀리 있을 때 대비)
+                    handSize = Math.max(40, Math.min(handSize, 220));
+
+                    // 중심 = 손목과 검지의 중간
+                    const cx = (1 - (wrist.x + index.x) / 2) * W;
+                    const cy = ((wrist.y + index.y) / 2) * H;
+
+                    return { x: cx, y: cy, radius: handSize, type: 'hand' };
+                };
+
+                // 발 추적: 발목~발끝 거리를 발 크기로 사용
+                const trackFoot = (ankleIdx, toeIdx) => {
+                    const ankle = lms[ankleIdx];
+                    const toe   = lms[toeIdx];
+                    if (!ankle || !toe) return null;
+                    if (ankle.visibility < 0.4 || toe.visibility < 0.4) return null;
+
+                    let footSize = dist2D(ankle, toe);
+                    footSize = Math.max(35, Math.min(footSize, 180));
+
+                    const cx = (1 - (ankle.x + toe.x) / 2) * W;
+                    const cy = ((ankle.y + toe.y) / 2) * H;
+
+                    return { x: cx, y: cy, radius: footSize, type: 'foot' };
+                };
+
+                const leftHand  = trackHand(15, 19, 17);
+                const rightHand = trackHand(16, 20, 18);
+                const leftFoot  = trackFoot(27, 31);
+                const rightFoot = trackFoot(28, 32);
+
+                if (leftHand)  bodyPoints.push(leftHand);
+                if (rightHand) bodyPoints.push(rightHand);
+                if (leftFoot)  bodyPoints.push(leftFoot);
+                if (rightFoot) bodyPoints.push(rightFoot);
+            }
+        });
+
+        // -------------------------
+        // 게임 루프
+        // -------------------------
+        let lastTime = 0;
+
+        function gameLoop(now) {
+            if (!isPlaying) return;
+            animationFrameId = requestAnimationFrame(gameLoop);
+
+            const dtRaw = (now - lastTime) / 1000;
+            lastTime = now;
+            const dt = Math.min(dtRaw, 0.1);
+
+            gameTimeLeft -= dt;
+            gameTime     += dt;
+            if (gameTimeLeft <= 0) {
+                gameTimeLeft = 0;
+                updateUI();
+                gameOver();
+                return;
+            }
+
+            if (isFeverMode) {
+                feverTimer -= dt;
+                if (feverTimer <= 0) {
+                    deactivateFever();
+                }
+            }
+
+            Engine.update(engine, dt * 1000);
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            blockSpawnTimer -= dt;
+            if (blockSpawnTimer <= 0) {
+                spawnBlock();
+                // 피버 모드일 때는 블럭 스폰 속도가 폭발적으로 증가
+                if (isFeverMode) {
+                    blockSpawnTimer = 0.2 + Math.random() * 0.2;
+                } else {
+                    let difficultSpeed = Math.min(score * 0.005, 1.0);
+                    blockSpawnTimer = 1.5 - difficultSpeed + Math.random() * 0.5;
+                }
+            }
+
+            const allBodies = Composite.allBodies(world);
+            const blocks = allBodies.filter(b => b.isBlock);
+
+            for (let b of blocks) {
+                b.timeSinceSpawn += dt;
+                if (b.hitCooldown > 0) b.hitCooldown -= dt;
+
+                // 타격 검사
+                for (let p of bodyPoints) {
+                    let dx = b.position.x - p.x;
+                    let dy = b.position.y - p.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < p.radius + (b.rectWidth / 2)) {
+                        if (b.hitCooldown <= 0) {
+
+                            // 무쌍(피버 모드)일 경우 데미지가 무한대!
+                            let damage = isFeverMode ? 1000 : 1;
+                            b.hp -= damage;
+
+                            // 타격 쿨다운 적용. 피버일때는 바로바로 터지게 짧게.
+                            b.hitCooldown = isFeverMode ? 0.05 : 0.3;
+
+                            playHit(currentStageIndex);
+                            spawnShatter(p.x, p.y, 8, isFeverMode);
+
+                            if (b.hp <= 0) {
+                                // 파괴 시 점수 획득 및 피버 게이지 상승
+                                let scoreGain = b.maxHp * 20;
+                                score += isFeverMode ? scoreGain * 2 : scoreGain; // 피버 모드 점수 두배
+                                addFever(b.maxHp * 4.0); // 깰 때 피버 획득량 대폭 증가 (한 게임에 2번 정도 볼 수 있게)
+
+                                updateUI();
+                                playDestroy(currentStageIndex);
+                                spawnShatter(b.position.x, b.position.y, 50, isFeverMode);
+                                Composite.remove(world, b);
+                            } else {
+                                // 파괴 못했을 경우 밀어내기 (큰 블록은 엄청 무거워서 거의 안 밀림)
+                                let pushNormalX = dist > 0 ? dx / dist : 0;
+                                let pushNormalY = dist > 0 ? dy / dist : -1;
+
+                                // 큰 놈일수록 밀리는 힘의 비율을 제곱근 이상으로 더 크게 깎아서 제자리에서 꿈쩍도 안 하게 만듦
+                                let pushFactor = 0.04 / Math.pow(b.scaleFactor, 1.5);
+                                let bumpForce = pushFactor * b.mass;
+                                Body.applyForce(b, b.position, {
+                                    x: pushNormalX * bumpForce,
+                                    y: pushNormalY * bumpForce - (0.005 * b.mass)
+                                });
+                                Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.5);
+                                addFever(2.0); // 한 번 때릴 때마다 피버 게이지 빠르게 차오름
+                                updateUI();
+                            }
+                        }
+                    }
+                }
+
+                // ── Lv.3 전용: 속도 유지 & 상하좌우 랜덤 방향 ──
+                if (currentStageIndex === 2) {
+                    b.nudgeTimer = (b.nudgeTimer || 0) + dt;
+
+                    const spd = Math.hypot(b.velocity.x, b.velocity.y);
+
+                    // 속도가 일정 이하로 떨어지면 즉시 랜덤 방향으로 재점화
+                    if (spd < 3) {
+                        const a = Math.random() * Math.PI * 2;
+                        const s = 5 + Math.random() * 4;
+                        Body.setVelocity(b, { x: Math.cos(a) * s, y: Math.sin(a) * s });
+                        Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.5);
+                        b.nudgeTimer = 0;
+                    }
+                    // 4~7초마다 방향을 살짝 틀어서 예측 불가능하게
+                    else if (b.nudgeTimer > 4.0 + Math.random() * 3.0) {
+                        const a = Math.random() * Math.PI * 2;
+                        const boost = 2 + Math.random() * 2;
+                        Body.applyForce(b, b.position, {
+                            x: Math.cos(a) * boost * b.mass,
+                            y: Math.sin(a) * boost * b.mass
+                        });
+                        Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.4);
+                        b.nudgeTimer = 0;
+                    }
+
+                    // 속도 상한 제한 (가속 누적 방지)
+                    const MAX_SPEED = 14;
+                    if (spd > MAX_SPEED) {
+                        const ratio = MAX_SPEED / spd;
+                        Body.setVelocity(b, { x: b.velocity.x * ratio, y: b.velocity.y * ratio });
+                    }
+
+                    // addTop: true 이므로 4면 벽이 있음 - 화면 밖 탈출 방지용 클램프
+                    const W = canvasElement.width, H = canvasElement.height;
+                    const margin = b.rectWidth * 0.5;
+                    if (b.position.x < margin) {
+                        Body.setPosition(b, { x: margin, y: b.position.y });
+                        Body.setVelocity(b, { x: Math.abs(b.velocity.x), y: b.velocity.y });
+                    } else if (b.position.x > W - margin) {
+                        Body.setPosition(b, { x: W - margin, y: b.position.y });
+                        Body.setVelocity(b, { x: -Math.abs(b.velocity.x), y: b.velocity.y });
+                    }
+                    if (b.position.y < margin) {
+                        Body.setPosition(b, { x: b.position.x, y: margin });
+                        Body.setVelocity(b, { x: b.velocity.x, y: Math.abs(b.velocity.y) });
+                    } else if (b.position.y > H - margin) {
+                        Body.setPosition(b, { x: b.position.x, y: H - margin });
+                        Body.setVelocity(b, { x: b.velocity.x, y: -Math.abs(b.velocity.y) });
+                    }
+
+                } else if (currentStageIndex === 1) {
+                    // Lv.2: 속도가 너무 떨어지면 에너지 재주입
+                    const spd = Math.hypot(b.velocity.x, b.velocity.y);
+                    const MIN_SPEED = 4;
+                    if (spd < MIN_SPEED) {
+                        // 현재 방향을 유지하면서 속도만 올림 (자연스럽게)
+                        const angle = spd > 0.5
+                            ? Math.atan2(b.velocity.y, b.velocity.x)
+                            : Math.random() * Math.PI * 2;
+                        const boost = MIN_SPEED + Math.random() * 2.5;
+                        Body.setVelocity(b, {
+                            x: Math.cos(angle) * boost,
+                            y: Math.sin(angle) * boost
+                        });
+                    }
+                    const W2 = canvasElement.width, H2 = canvasElement.height;
+                    const mg = b.rectWidth * 0.5;
+
+                    // 화면 진입 감지
+                    if (!b.hasEnteredScreen && b.position.y > mg && b.position.x > 0 && b.position.x < W2) {
+                        b.hasEnteredScreen = true;
+                    }
+
+                    // 진입 후 화면 밖으로 나가지 못하게 반사
+                    if (b.hasEnteredScreen) {
+                        if (b.position.y < mg) {
+                            Body.setPosition(b, { x: b.position.x, y: mg });
+                            Body.setVelocity(b, { x: b.velocity.x, y: Math.abs(b.velocity.y) });
+                        }
+                        if (b.position.x < mg) {
+                            Body.setPosition(b, { x: mg, y: b.position.y });
+                            Body.setVelocity(b, { x: Math.abs(b.velocity.x), y: b.velocity.y });
+                        }
+                        if (b.position.x > W2 - mg) {
+                            Body.setPosition(b, { x: W2 - mg, y: b.position.y });
+                            Body.setVelocity(b, { x: -Math.abs(b.velocity.x), y: b.velocity.y });
+                        }
+                        if (b.position.y > H2 - mg) {
+                            Body.setPosition(b, { x: b.position.x, y: H2 - mg });
+                            Body.setVelocity(b, { x: b.velocity.x, y: -Math.abs(b.velocity.y) });
+                        }
+                    } else if (b.position.y > H2 + mg * 2) {
+                        Composite.remove(world, b);
+                    }
+
+                } else {
+                    // Lv.1: 바닥에서 멈춘 블럭 제거
+                    if (b.timeSinceSpawn > 20.0 && Math.abs(b.velocity.y) < 0.5) {
+                        spawnShatter(b.position.x, b.position.y, 10);
+                        Composite.remove(world, b);
+                    }
+                    if (b.position.y > canvasElement.height + 600) Composite.remove(world, b);
+                }
+            }
+
+            // 블럭 렌더링
+            const stageData = STAGES[currentStageIndex];
+
+            for (let b of blocks) {
+                if (!b.isBlock) continue;
+                canvasCtx.save();
+
+                // 글로벌 좌표 사용해 scale만 중앙에서 하도록 만듦
+                if (b.hitCooldown > 0.1 && !isFeverMode) {
+                    canvasCtx.translate(b.position.x, b.position.y);
+                    canvasCtx.scale(1.05, 1.05);
+                    canvasCtx.translate(-b.position.x, -b.position.y);
+                }
+
+                let hpRatio = Math.max(0, b.hp / b.maxHp);
+
+                // 피버 모드면 블럭도 무지개처럼 영롱하게
+                if (isFeverMode) {
+                    canvasCtx.globalAlpha = 0.8;
+                    canvasCtx.fillStyle = 'rgba(255, 150, 255, 0.4)';
+                    canvasCtx.shadowColor = '#ff00ff';
+                    canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+                } else {
+                    canvasCtx.globalAlpha = 0.6 + hpRatio * 0.3;
+                    canvasCtx.fillStyle = stageData.blockFill;
+                    canvasCtx.shadowColor = stageData.blockStroke;
+                    canvasCtx.strokeStyle = stageData.blockStroke;
+                }
+                canvasCtx.shadowBlur = 20;
+
+                // Vertices를 그대로 사용하여 모든 다각형을 완벽히 그림!
+                canvasCtx.beginPath();
+                canvasCtx.moveTo(b.vertices[0].x, b.vertices[0].y);
+                for (let j = 1; j < b.vertices.length; j++) {
+                    canvasCtx.lineTo(b.vertices[j].x, b.vertices[j].y);
+                }
+                canvasCtx.closePath();
+
+                canvasCtx.fill();
+                canvasCtx.lineWidth = 6;
+                canvasCtx.stroke();
+
+                canvasCtx.restore();
+
+                // 크랙(균열) 그리기 - 국소 회전 좌표계로 변경
+                canvasCtx.save();
+                canvasCtx.translate(b.position.x, b.position.y);
+                canvasCtx.rotate(b.angle);
+                if (b.hitCooldown > 0.1 && !isFeverMode) {
+                    canvasCtx.scale(1.05, 1.05);
+                }
+
+                let w = b.rectWidth;
+                let h = b.rectHeight;
+
+                canvasCtx.strokeStyle = isFeverMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.9)';
+                canvasCtx.lineWidth = 4 + (w * 0.02);
+
+                let damageRatio = 1 - hpRatio;
+
+                if (damageRatio > 0 && !isFeverMode) {
+                    canvasCtx.beginPath();
+                    canvasCtx.moveTo(0, 0); canvasCtx.lineTo(-w * 0.35, -h * 0.4);
+                    canvasCtx.moveTo(0, 0); canvasCtx.lineTo(w * 0.4, h * 0.35);
+
+                    if (damageRatio >= 0.25) {
+                        canvasCtx.moveTo(0, 0); canvasCtx.lineTo(w * 0.45, -h * 0.1);
+                        canvasCtx.moveTo(w * 0.2, h * 0.15); canvasCtx.lineTo(w * 0.45, h * 0.05);
+                    }
+                    if (damageRatio >= 0.5) {
+                        canvasCtx.moveTo(0, 0); canvasCtx.lineTo(-w * 0.4, h * 0.4);
+                        canvasCtx.moveTo(0, 0); canvasCtx.lineTo(w * 0.1, -h * 0.45);
+                        canvasCtx.moveTo(-w * 0.2, -h * 0.2); canvasCtx.lineTo(-w * 0.45, -h * 0.1);
+                    }
+                    if (damageRatio >= 0.75) {
+                        canvasCtx.moveTo(w * 0.2, h * 0.15); canvasCtx.lineTo(w * 0.4, h * 0.45);
+                        canvasCtx.moveTo(-w * 0.2, h * 0.2); canvasCtx.lineTo(-w * 0.45, h * 0.1);
+                        canvasCtx.lineTo(-w * 0.3, h * 0.4);
+                        canvasCtx.moveTo(w * 0.1, -h * 0.45); canvasCtx.lineTo(-w * 0.1, -h * 0.4);
+                    }
+                    canvasCtx.stroke();
+                }
+
+                canvasCtx.restore();
+            }
+
+            // 손/발 위에 무기 이펙트 그리기
+            for (let p of bodyPoints) {
+                drawWeapon(canvasCtx, p, currentStageIndex, isFeverMode, gameTime);
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                if (!p.update(dt)) {
+                    particles.splice(i, 1);
+                } else {
+                    p.draw(canvasCtx);
+                }
+            }
+            // 매 프레임 UI(시간/게이지) 갱신
+            updateUI();
+        }
+
+        // -------------------------
+        // 시작
+        // -------------------------
+        startButton.addEventListener('click', async () => {
+            startButton.style.display = 'none';
+            loadingMsg.style.display = 'block';
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: "user"
+                    }
+                });
+                videoElement.srcObject = stream;
+
+                const camera = new Camera(videoElement, {
+                    onFrame: async () => {
+                        await pose.send({ image: videoElement });
+                    },
+                    width: 1280,
+                    height: 720
+                });
+
+                await camera.start();
+
+                overlay.style.display = 'none';
+                resetGame();
+            } catch (e) {
+                alert("카메라 권한을 부여하거나 연결에 실패했습니다.\n" + e.message);
+                startButton.style.display = 'block';
+                loadingMsg.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>
