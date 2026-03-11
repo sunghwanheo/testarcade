@@ -564,6 +564,25 @@
             shockwaves.push({ x, y, radius: 0, maxRadius, alpha: 1.0 });
         }
 
+        // 화면 흔들기 (폭탄용)
+        function screenShake(duration, intensity) {
+            const el = document.getElementById('container');
+            const start = Date.now();
+            function shake() {
+                const elapsed = Date.now() - start;
+                if (elapsed > duration) {
+                    el.style.transform = '';
+                    return;
+                }
+                const decay = 1 - elapsed / duration;
+                const dx = (Math.random() - 0.5) * 2 * intensity * decay;
+                const dy = (Math.random() - 0.5) * 2 * intensity * decay;
+                el.style.transform = `translate(${dx}px, ${dy}px)`;
+                requestAnimationFrame(shake);
+            }
+            shake();
+        }
+
         // 얼음1 디버프 시스템 (스테이지2 전용)
         let iceDebuffs = []; // { x, y, radius, remainTime, alpha }
         const ICE_DEBUFF_RADIUS = 350;
@@ -1523,6 +1542,7 @@
                                     const BOMB_RADIUS = 1200;
                                     spawnShockwave(b.position.x, b.position.y, BOMB_RADIUS);
                                     spawnShatter(b.position.x, b.position.y, 120, true);
+                                    screenShake(500, 15);
 
                                     // 거리순 정렬 -> 가까운 것부터 순차 폭발
                                     const bx = b.position.x, by = b.position.y;
