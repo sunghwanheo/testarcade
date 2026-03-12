@@ -1188,6 +1188,21 @@
             s1BreakImgs[type] = breakImg;
         });
 
+        // 스타 블록 이미지 프리로드
+        const starBlockImgs = {};
+        ['100', '75', '50', '25'].forEach(hp => {
+            const img = new Image();
+            img.src = `graphic/casualnobg/star_${hp}.png`;
+            starBlockImgs[hp] = img;
+        });
+
+        function getStarBlockImg(hpRatio) {
+            if (hpRatio > 0.75) return starBlockImgs['100'];
+            if (hpRatio > 0.50) return starBlockImgs['75'];
+            if (hpRatio > 0.25) return starBlockImgs['50'];
+            return starBlockImgs['25'];
+        }
+
         // variant id -> type name 매핑
         const variantToType = { 0: 'clear', 1: 'snow', 5: 'snow_round' };
 
@@ -2775,6 +2790,30 @@
                     }
                 }
 
+                // ── 스타 블록: 이미지로만 렌더링 (사각형/균열 생략) ──
+                if (b.blockType === 'bomb' && !isFeverMode) {
+                    const starHpRatio = b.hp / b.maxHp;
+                    const starImg = getStarBlockImg(starHpRatio);
+                    if (starImg && starImg.complete) {
+                        const imgSize = Math.max(b.rectWidth, b.rectHeight) * 1.3;
+                        canvasCtx.save();
+                        canvasCtx.globalAlpha = 1.0;
+                        canvasCtx.shadowColor = '#ffe000';
+                        canvasCtx.shadowBlur = 25;
+                        canvasCtx.drawImage(starImg, b.position.x - imgSize / 2, b.position.y - imgSize / 2, imgSize, imgSize);
+                        // hitFlash
+                        if (b.hitFlash > 0) {
+                            canvasCtx.globalAlpha = b.hitFlash * 0.5;
+                            canvasCtx.filter = 'brightness(3)';
+                            canvasCtx.drawImage(starImg, b.position.x - imgSize / 2, b.position.y - imgSize / 2, imgSize, imgSize);
+                            canvasCtx.filter = 'none';
+                        }
+                        canvasCtx.restore();
+                    }
+                    canvasCtx.restore();
+                    continue;
+                }
+
                 // ── 기존 캔버스 드로잉 (이미지 없는 블록) ──
                 // 피버 모드면 블럭도 무지개처럼 영롱하게
                 if (isFeverMode) {
@@ -2782,13 +2821,6 @@
                     canvasCtx.fillStyle = 'rgba(255, 150, 255, 0.4)';
                     canvasCtx.shadowColor = '#ff00ff';
                     canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-                } else if (b.blockType === 'bomb') {
-                    // 스타 블록: 황금 + 노란 맥동, 아이템처럼 빛나게
-                    const pulse = 0.65 + 0.3 * Math.sin(Date.now() / 200);
-                    canvasCtx.globalAlpha = pulse;
-                    canvasCtx.fillStyle = 'rgba(255, 220, 50, 0.55)';
-                    canvasCtx.shadowColor = '#ffe000';
-                    canvasCtx.strokeStyle = 'rgba(255, 255, 180, 1.0)';
                 } else if (b.blockType === 'ice1') {
                     // 얼음1 블록: 하늘색 + 흰색 맥동
                     const pulse = 0.6 + 0.3 * Math.sin(Date.now() / 200);
@@ -2835,17 +2867,6 @@
                     canvasCtx.fill();
                 }
 
-                // 스타 블록 아이콘 표시
-                if (b.blockType === 'bomb' && !isFeverMode) {
-                    const iconSize = Math.max(28, b.rectWidth * 0.4);
-                    canvasCtx.globalAlpha = 1.0;
-                    canvasCtx.font = `${iconSize}px serif`;
-                    canvasCtx.textAlign = 'center';
-                    canvasCtx.textBaseline = 'middle';
-                    canvasCtx.shadowColor = '#ffe000';
-                    canvasCtx.shadowBlur = 35;
-                    canvasCtx.fillText('⭐', b.position.x, b.position.y);
-                }
                 if (b.blockType === 'ice1' && !isFeverMode) {
                     const iconSize = Math.max(28, b.rectWidth * 0.4);
                     canvasCtx.globalAlpha = 1.0;
