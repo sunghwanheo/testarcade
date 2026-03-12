@@ -179,6 +179,16 @@
             }
         }
 
+        @keyframes endingBlink {
+            0%   { opacity: 1;    transform: translateX(-50%) scale(1);    }
+            100% { opacity: 0.15; transform: translateX(-50%) scale(0.92); }
+        }
+        @keyframes endingPop {
+            0%   { opacity: 0; transform: translateX(-50%) scale(0.5);  }
+            55%  { opacity: 1; transform: translateX(-50%) scale(1.25); }
+            100% { opacity: 1; transform: translateX(-50%) scale(1);    }
+        }
+
         #feverBarContainer {
             position: absolute;
             top: 175px;
@@ -499,6 +509,72 @@
         // Web Audio 소리 시스템
         // ─────────────────────────────────────────
         let audioCtx = null;
+        let lastTickSecond = -1;
+
+        // 째깍 소리 (초마다)
+        function playTick(secondsLeft) {
+            if (!audioCtx) return;
+            const t = audioCtx.currentTime;
+
+            // 1초 남았을 때는 좀 더 강하고 낮은 소리
+            const isLast = secondsLeft <= 3;
+            const freq   = isLast ? 900 : 1200;
+            const vol    = isLast ? 0.5 : 0.3;
+
+            // 클릭 노이즈
+            const nBuf  = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.04, audioCtx.sampleRate);
+            const nData = nBuf.getChannelData(0);
+            for (let i = 0; i < nData.length; i++)
+                nData[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / nData.length, 4);
+            const noise = audioCtx.createBufferSource();
+            noise.buffer = nBuf;
+            const nHp = audioCtx.createBiquadFilter();
+            nHp.type = 'highpass'; nHp.frequency.value = 3000;
+            const nGain = audioCtx.createGain();
+            nGain.gain.setValueAtTime(vol * 0.6, t);
+            nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+            noise.connect(nHp); nHp.connect(nGain); nGain.connect(audioCtx.destination);
+            noise.start(t); noise.stop(t + 0.04);
+
+            // 음정 클릭
+            const osc = audioCtx.createOscillator();
+            const oGain = audioCtx.createGain();
+            osc.connect(oGain); oGain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+            osc.frequency.exponentialRampToValueAtTime(freq * 0.6, t + 0.06);
+            oGain.gain.setValueAtTime(vol, t);
+            oGain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+            osc.start(t); osc.stop(t + 0.06);
+        }
+
+        // TIME'S UP!! 종료음
+        function playTimeUpSound() {
+            if (!audioCtx) return;
+            const t = audioCtx.currentTime;
+
+            // 낮은 "둥~" 벨 소리
+            const bell = audioCtx.createOscillator();
+            const bGain = audioCtx.createGain();
+            bell.connect(bGain); bGain.connect(audioCtx.destination);
+            bell.type = 'sine';
+            bell.frequency.setValueAtTime(220, t);
+            bell.frequency.exponentialRampToValueAtTime(110, t + 1.2);
+            bGain.gain.setValueAtTime(0.8, t);
+            bGain.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+            bell.start(t); bell.stop(t + 1.2);
+
+            // 고음 하모닉
+            const h = audioCtx.createOscillator();
+            const hGain = audioCtx.createGain();
+            h.connect(hGain); hGain.connect(audioCtx.destination);
+            h.type = 'sine';
+            h.frequency.setValueAtTime(440, t);
+            h.frequency.exponentialRampToValueAtTime(220, t + 0.8);
+            hGain.gain.setValueAtTime(0.4, t);
+            hGain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+            h.start(t); h.stop(t + 0.8);
+        }
 
         function ensureAudio() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1736,6 +1812,7 @@
             scoreElement.innerText = score;
 
             // Time Text Update
+            if (isExploding) return;
             let m = Math.floor(gameTimeLeft / 60);
             let s = Math.floor(gameTimeLeft % 60);
             timeBox.innerText = `0${m}:${s < 10 ? '0' + s : s}`;
@@ -1812,8 +1889,25 @@
             isPlaying = false;
             isExploding = true;
             bodyPoints = [];
+            lastTickSecond = -1;
             stopFeverBgm();
             stopBgm();
+            playTimeUpSound();
+
+            // ── 엔딩 텍스트 헬퍼 ──
+            function setEndingText(text, color, size, shadowColor, blinkSpeed) {
+                timeBox.innerText = text;
+                timeBox.style.fontSize = size;
+                timeBox.style.color = color;
+                timeBox.style.textShadow = `0 0 30px ${shadowColor}, 0 0 60px ${shadowColor}, 2px 2px 6px rgba(0,0,0,0.8)`;
+                timeBox.style.animation = 'none';
+                // force reflow so pop animation restarts
+                void timeBox.offsetWidth;
+                timeBox.style.animation = `endingPop 0.35s ease-out forwards, endingBlink ${blinkSpeed}s infinite alternate ${0.35}s`;
+            }
+
+            // 즉시 첫 텍스트
+            setEndingText('TIME\'S UP!!', '#ff4444', '68px', 'rgba(255,68,68,0.9)', '0.25');
 
             // ── 엔딩 연쇄폭발: 탕... 탕... 탕.. 탕. 탕탕탕 팡!! ──
             const cx = canvasElement.width / 2;
@@ -1848,6 +1942,7 @@
 
                     setTimeout(() => {
                         if (!Composite.allBodies(world).includes(b)) return;
+
 
                         // 폭발 크기: 마지막으로 갈수록 커짐
                         const explosionScale = 0.6 + progress * 1.4; // 0.6→2.0
@@ -1904,6 +1999,8 @@
                                 }
 
                                 setTimeout(() => {
+                                    timeBox.style.animation = 'none';
+                                    timeBox.style.opacity = '0';
                                     isExploding = false;
                                     showEndResult();
                                 }, 800);
@@ -2251,6 +2348,9 @@
         }
 
         function resetGame() {
+            timeBox.style.opacity = '1';
+            timeBox.style.animation = 'none';
+            lastTickSecond = -1;
             const stageData = STAGES[currentStageIndex];
             const phys      = STAGE_PHYSICS[currentStageIndex];
 
@@ -2402,6 +2502,16 @@
 
             gameTimeLeft -= dt;
             gameTime     += dt;
+
+            // ── 10초 카운트다운 째깍 소리 ──
+            if (isPlaying && gameTimeLeft > 0 && gameTimeLeft <= 10) {
+                const currentSec = Math.ceil(gameTimeLeft);
+                if (currentSec !== lastTickSecond) {
+                    lastTickSecond = currentSec;
+                    playTick(currentSec);
+                }
+            }
+
             if (gameTimeLeft <= 0 && isPlaying) {
                 gameTimeLeft = 0;
                 updateUI();
