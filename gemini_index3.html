@@ -1204,11 +1204,11 @@
 
         // 스테이지별 물리 설정
         const STAGE_PHYSICS = [
-            // Lv.1 얼음 동굴: 무겁고 거의 안 튕김
+            // Lv.1 얼음 동굴: 사선으로 내려와 서로 부딪히며 방향 바뀜
             { gravity: 1.0,  wallR: 0.1,  addTop: false,
-              bodyOpts: (sf) => ({ restitution: 0.08, friction: 0.8, frictionAir: 0.015, density: 0.05 * Math.pow(sf, 4.0) }),
-              initVel: ()  => ({ x: 0, y: 0 }),
-              angVel:  ()  => 0 },
+              bodyOpts: (sf) => ({ restitution: 0.35, friction: 0.25, frictionAir: 0.015, density: 0.05 * Math.pow(sf, 4.0) }),
+              initVel: ()  => ({ x: (Math.random() - 0.5) * 10, y: 0 }),
+              angVel:  ()  => (Math.random() - 0.5) * 0.3 },
 
             // Lv.2 우주 운석: 위에서 내려와 바닥/벽에서 계속 튕김
             { gravity: 0.18, wallR: 0.475, addTop: false,
@@ -2539,45 +2539,8 @@
 
                                 Composite.remove(world, b);
                             } else {
-                                // 파괴 못했을 경우 — 주먹 속도 기반 물리 밀기
-                                const handSpeed = Math.hypot(p.vx || 0, p.vy || 0);
-                                const pushDirX = dist > 0 ? dx / dist : 0;
-                                const pushDirY = dist > 0 ? dy / dist : -1;
-
-                                {
-                                    // 큰 블록 = 무거워서 잘 안 밀림, 작은 블록 = 가벼워서 잘 밀림
-                                    const isHeavyVariant = (b.iceVariant === 2 || b.iceVariant === 3);
-                                    const isHeavy = (b.blockType === 'bomb' || b.blockType === 'ice1' || isHeavyVariant);
-
-                                    // 주먹 속도에 비례하는 힘 (빠르게 치면 세게 밀림)
-                                    const speedForce = Math.min(handSpeed / 30, 3.0); // 0~3 정규화
-                                    const massPenalty = 1 / Math.pow(sf, 2.5); // 큰 블록 = 힘 대폭 감쇠
-
-                                    let pushForce;
-                                    if (isHeavy) {
-                                        pushForce = speedForce * massPenalty * 0.001 * b.mass;
-                                    } else {
-                                        pushForce = speedForce * massPenalty * 0.025 * b.mass;
-                                    }
-
-                                    // 주먹 이동 방향으로 밀기 (속도 방향 우선, 없으면 충돌 방향)
-                                    let forceX, forceY;
-                                    if (handSpeed > 5) {
-                                        // 주먹이 움직이는 방향으로 밀기
-                                        const hvx = p.vx / handSpeed;
-                                        const hvy = p.vy / handSpeed;
-                                        forceX = hvx * pushForce;
-                                        forceY = hvy * pushForce;
-                                    } else {
-                                        forceX = pushDirX * pushForce;
-                                        forceY = isHeavy ? 0 : pushDirY * pushForce;
-                                    }
-
-                                    Body.applyForce(b, b.position, { x: forceX, y: forceY });
-                                    if (!isHeavy && handSpeed > 10) {
-                                        Body.setAngularVelocity(b, (Math.random() - 0.5) * speedForce * 0.3);
-                                    }
-                                }
+                                // 파괴 못했을 경우 — 타격감만, 물리 밀기 없음
+                                b.hitFlash = 0.18; // 블록 자체 흰색 번쩍임
                                 addFever(0.8);
                                 updateUI();
                             }
@@ -2705,6 +2668,12 @@
                     canvasCtx.translate(-b.position.x, -b.position.y);
                 }
 
+                // hitFlash: 맞은 직후 블록 자체가 흰색으로 번쩍임
+                if (b.hitFlash > 0) {
+                    b.hitFlash -= dtRaw * 3.5;
+                    if (b.hitFlash < 0) b.hitFlash = 0;
+                }
+
                 let hpRatio = Math.max(0, b.hp / b.maxHp);
 
                 // ── s1 이미지 블록 렌더링 (clear/snow/glacier) ──
@@ -2783,6 +2752,20 @@
                 const variantLineW = (b.blockType === 'normal' && !isFeverMode) ? (variantLineWidths[b.iceVariant || 0] || 6) : 6;
                 canvasCtx.lineWidth = variantLineW;
                 canvasCtx.stroke();
+
+                // hitFlash: 맞은 순간 블록이 흰색으로 번쩍임
+                if (b.hitFlash > 0) {
+                    canvasCtx.globalAlpha = b.hitFlash;
+                    canvasCtx.fillStyle = 'rgba(255, 255, 255, 1.0)';
+                    canvasCtx.shadowBlur = 0;
+                    canvasCtx.beginPath();
+                    canvasCtx.moveTo(b.vertices[0].x, b.vertices[0].y);
+                    for (let j = 1; j < b.vertices.length; j++) {
+                        canvasCtx.lineTo(b.vertices[j].x, b.vertices[j].y);
+                    }
+                    canvasCtx.closePath();
+                    canvasCtx.fill();
+                }
 
                 // 스타 블록 아이콘 표시
                 if (b.blockType === 'bomb' && !isFeverMode) {
