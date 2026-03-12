@@ -1167,31 +1167,23 @@
 
         const HIT_RADIUS = 0; // 각 bodyPoint의 p.radius를 사용하므로 여기선 0
 
-        // s1 블록 이미지 프리로드 (clear=variant0, snow=variant1, glacier=variant3)
-        const s1BlockImgs = {}; // { 'clear': { '100': img, ... }, 'snow': {...}, 'glacier': {...} }
-        const s1BreakImgs = {}; // { 'clear': img, 'snow': img, 'glacier': img }
-        ['clear', 'snow', 'glacier'].forEach(type => {
+        // s1 블록 이미지 프리로드 (clear=variant0, snow=variant1)
+        const s1BlockImgs = {};
+        const s1BreakImgs = {};
+        ['clear', 'snow'].forEach(type => {
             s1BlockImgs[type] = {};
             ['100', '75', '50', '25'].forEach(hp => {
                 const img = new Image();
                 img.src = `graphic/casualnobg/s1_${type}_${hp}.png`;
-                // 누락 이미지 폴백: glacier_25 → glacier_50
-                img.onerror = () => {
-                    if (type === 'glacier' && hp === '25') img.src = `graphic/casualnobg/s1_glacier_50.png`;
-                };
                 s1BlockImgs[type][hp] = img;
             });
             const breakImg = new Image();
             breakImg.src = `graphic/casualnobg/s1_${type}_break.png`;
-            // 누락 이미지 폴백: glacier_break → snow_break
-            breakImg.onerror = () => {
-                if (type === 'glacier') breakImg.src = `graphic/casualnobg/s1_snow_break.png`;
-            };
             s1BreakImgs[type] = breakImg;
         });
 
         // variant id -> type name 매핑
-        const variantToType = { 0: 'clear', 1: 'snow', 3: 'glacier' };
+        const variantToType = { 0: 'clear', 1: 'snow' };
 
         function getS1BlockImg(variantId, hpRatio) {
             const type = variantToType[variantId];
@@ -1779,23 +1771,22 @@
                 // 스테이지별 블록 배리에이션
                 const allVariants = [
                     { id: 0, name: 'clear',   densityMul: 1.0 },  // 투명 얼음
-                    { id: 1, name: 'snow',    densityMul: 0.6 },  // 눈덩이
+                    { id: 1, name: 'snow',    densityMul: 4.0 },  // 눈덩이 (무게감 강화)
                     { id: 2, name: 'frost',   densityMul: 5.0 },  // 서리 (무거움)
-                    { id: 3, name: 'glacier', densityMul: 10.0 }, // 빙하 (매우 무거움)
                     { id: 4, name: 'crystal', densityMul: 0.8 },  // 크리스탈
                 ];
                 const stageVariants = [
-                    [allVariants[0], allVariants[1], allVariants[3]],  // Lv.1: 투명 얼음, 눈덩이, 빙하
-                    [allVariants[2], allVariants[3]],                  // Lv.2: 서리, 빙하
-                    [allVariants[4]],                                  // Lv.3: 크리스탈
+                    [allVariants[0], allVariants[1]],  // Lv.1: 투명 얼음, 눈덩이
+                    [allVariants[2], allVariants[1]],  // Lv.2: 서리, 눈덩이
+                    [allVariants[3]],                  // Lv.3: 크리스탈
                 ];
                 const pool = stageVariants[stage] || stageVariants[0];
                 const v = pool[Math.floor(Math.random() * pool.length)];
                 block.iceVariant = v.id;
                 // 무게 보정
                 Body.set(block, 'density', block.density * v.densityMul);
-                // 무거운 블록(서리, 빙하)은 안 튕기고 묵직하게
-                if (v.id === 2 || v.id === 3) {
+                // 무거운 블록(snow, 서리)은 안 튕기고 묵직하게
+                if (v.id === 1 || v.id === 2) {
                     Body.set(block, 'restitution', 0.01);
                     Body.set(block, 'friction', 1.0);
                     Body.set(block, 'frictionAir', 0.12);
@@ -2253,8 +2244,7 @@
             {
                 blocks: [
                     { icon: '', img: 'graphic/casualnobg/s1_clear_100.png', name: '투명 얼음', desc: '기본 얼음이에요!', color: '#b0e0e6' },
-                    { icon: '', img: 'graphic/casualnobg/s1_snow_100.png', name: '눈덩이', desc: '가볍고 잘 굴러요!', color: '#ffffff' },
-                    { icon: '', img: 'graphic/casualnobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
+                    { icon: '', img: 'graphic/casualnobg/s1_snow_100.png', name: '눈덩이', desc: '무겁고 묵직해요!', color: '#ffffff' }
                 ],
                 items: [
                     { icon: '⭐', name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!', color: '#ffd700' }
@@ -2263,7 +2253,7 @@
             {
                 blocks: [
                     { icon: '🌨️', name: '서리', desc: '단단하고 무거워요!', color: '#4488ff' },
-                    { icon: '', img: 'graphic/casualnobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
+                    { icon: '', img: 'graphic/casualnobg/s1_snow_100.png', name: '눈덩이', desc: '무겁고 묵직해요!', color: '#ffffff' }
                 ],
                 items: [
                     { icon: '⭐', name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!', color: '#ffd700' },
