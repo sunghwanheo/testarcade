@@ -1096,11 +1096,19 @@
             s1BlockImgs[type] = {};
             ['100', '75', '50', '25'].forEach(hp => {
                 const img = new Image();
-                img.src = `graphic/nobg/s1_${type}_${hp}.png`;
+                img.src = `graphic/casualnobg/s1_${type}_${hp}.png`;
+                // 누락 이미지 폴백: glacier_25 → glacier_50
+                img.onerror = () => {
+                    if (type === 'glacier' && hp === '25') img.src = `graphic/casualnobg/s1_glacier_50.png`;
+                };
                 s1BlockImgs[type][hp] = img;
             });
             const breakImg = new Image();
-            breakImg.src = `graphic/nobg/s1_${type}_break.png`;
+            breakImg.src = `graphic/casualnobg/s1_${type}_break.png`;
+            // 누락 이미지 폴백: glacier_break → snow_break
+            breakImg.onerror = () => {
+                if (type === 'glacier') breakImg.src = `graphic/casualnobg/s1_snow_break.png`;
+            };
             s1BreakImgs[type] = breakImg;
         });
 
@@ -2077,9 +2085,9 @@
         const STAGE_PREVIEWS = [
             {
                 blocks: [
-                    { icon: '', img: 'graphic/nobg/s1_clear_100.png', name: '투명 얼음', desc: '기본 얼음이에요!', color: '#b0e0e6' },
-                    { icon: '', img: 'graphic/nobg/s1_snow_100.png', name: '눈덩이', desc: '가볍고 잘 굴러요!', color: '#ffffff' },
-                    { icon: '', img: 'graphic/nobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
+                    { icon: '', img: 'graphic/casualnobg/s1_clear_100.png', name: '투명 얼음', desc: '기본 얼음이에요!', color: '#b0e0e6' },
+                    { icon: '', img: 'graphic/casualnobg/s1_snow_100.png', name: '눈덩이', desc: '가볍고 잘 굴러요!', color: '#ffffff' },
+                    { icon: '', img: 'graphic/casualnobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
                 ],
                 items: [
                     { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' }
@@ -2088,7 +2096,7 @@
             {
                 blocks: [
                     { icon: '🌨️', name: '서리', desc: '단단하고 무거워요!', color: '#4488ff' },
-                    { icon: '', img: 'graphic/nobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
+                    { icon: '', img: 'graphic/casualnobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
                 ],
                 items: [
                     { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' },
