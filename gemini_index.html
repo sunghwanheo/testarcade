@@ -490,6 +490,7 @@
 
         // 상태
         let isPlaying = false;
+        let isExploding = false;
         let score = 0;
         let gameTimeLeft = 60.0; // 1분
         let gameTime = 0; // 애니메이션용 누적 시간
@@ -1809,15 +1810,24 @@
 
         function gameOver() {
             isPlaying = false;
+            isExploding = true;
+            bodyPoints = [];
             stopFeverBgm();
             stopBgm();
 
             // ── 엔딩 연쇄폭발: 탕... 탕... 탕.. 탕. 탕탕탕 팡!! ──
-            const blocks = Composite.allBodies(world).filter(b => b.isBlock);
+            const cx = canvasElement.width / 2;
+            const cy = canvasElement.height / 2;
+            const W = canvasElement.width;
+            const H = canvasElement.height;
+            const margin = 80; // 블록 반경 여유값
+            const blocks = Composite.allBodies(world).filter(b =>
+                b.isBlock &&
+                b.position.x >= -margin && b.position.x <= W + margin &&
+                b.position.y >= -margin && b.position.y <= H + margin
+            );
             if (blocks.length > 0) {
                 // 바깥쪽에서 안쪽 순으로 정렬 (마지막에 가운데가 터지도록)
-                const cx = canvasElement.width / 2;
-                const cy = canvasElement.height / 2;
                 blocks.sort((a, b) =>
                     Math.hypot(b.position.x - cx, b.position.y - cy) -
                     Math.hypot(a.position.x - cx, a.position.y - cy)
@@ -1893,7 +1903,10 @@
                                     n.start(t); n.stop(t + 0.4);
                                 }
 
-                                setTimeout(() => showEndResult(), 800);
+                                setTimeout(() => {
+                                    isExploding = false;
+                                    showEndResult();
+                                }, 800);
                             }, 300);
                         }
                     }, delay);
@@ -1901,6 +1914,7 @@
                 });
             } else {
                 // 블록이 없으면 바로 결과
+                isExploding = false;
                 showEndResult();
             }
         }
@@ -2370,7 +2384,7 @@
         let lastTime = 0;
 
         function gameLoop(now) {
-            if (!isPlaying) return;
+            if (!isPlaying && !isExploding) return;
             animationFrameId = requestAnimationFrame(gameLoop);
 
             const dtRaw = (now - lastTime) / 1000;
@@ -2405,6 +2419,7 @@
             Engine.update(engine, dt * 1000);
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
+            if (isPlaying) {
             blockSpawnTimer -= dt;
             if (blockSpawnTimer <= 0) {
                 spawnBlock();
@@ -2415,6 +2430,7 @@
                     let difficultSpeed = Math.min(score * 0.003, 0.8);
                     blockSpawnTimer = 2.5 - difficultSpeed + Math.random() * 0.8;
                 }
+            }
             }
 
             // 얼음 디버프 영역 타이머 업데이트
@@ -2429,18 +2445,17 @@
             const allBodies = Composite.allBodies(world);
             const blocks = allBodies.filter(b => b.isBlock);
 
-            for (let b of blocks) {
+            if (isPlaying) for (let b of blocks) {
                 b.timeSinceSpawn += dt;
                 if (b.hitCooldown > 0) b.hitCooldown -= dt;
 
-                // 타격 검사
+                // 타격 검사 — 밖에서 안으로 진입하는 순간만 히트
                 for (let p of bodyPoints) {
                     let dx = b.position.x - p.x;
                     let dy = b.position.y - p.y;
                     let dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist < p.radius + (b.rectWidth / 2)) {
-                        if (b.hitCooldown <= 0) {
+                    if (dist < p.radius + (b.rectWidth / 2) && b.hitCooldown <= 0) {
 
                             // 무쌍(피버 모드)일 경우 데미지가 무한대!
                             // 얼음 디버프 영역 안이면 파워 1/5 (피버 모드엔 무시)
@@ -2546,7 +2561,6 @@
                             }
                         }
                     }
-                }
 
                 // ── Lv.3 전용: 속도 유지 & 상하좌우 랜덤 방향 ──
                 if (currentStageIndex === 2) {
