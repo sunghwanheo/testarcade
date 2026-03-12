@@ -1745,48 +1745,89 @@
             stopFeverBgm();
             stopBgm();
 
-            // ── 엔딩 연쇄폭발: 남은 블록들을 하나씩 터뜨림 ──
+            // ── 엔딩 연쇄폭발: 탕... 탕... 탕.. 탕. 탕탕탕 팡!! ──
             const blocks = Composite.allBodies(world).filter(b => b.isBlock);
             if (blocks.length > 0) {
-                // 화면 중앙에서 가까운 순으로 정렬
+                // 바깥쪽에서 안쪽 순으로 정렬 (마지막에 가운데가 터지도록)
                 const cx = canvasElement.width / 2;
                 const cy = canvasElement.height / 2;
                 blocks.sort((a, b) =>
-                    Math.hypot(a.position.x - cx, a.position.y - cy) -
-                    Math.hypot(b.position.x - cx, b.position.y - cy)
+                    Math.hypot(b.position.x - cx, b.position.y - cy) -
+                    Math.hypot(a.position.x - cx, a.position.y - cy)
                 );
 
-                let delay = 0;
-                const interval = Math.max(60, 800 / blocks.length); // 블록 많으면 빠르게
+                const total = blocks.length;
+                let delay = 600; // 첫 폭발 전 잠시 정적 (긴장감)
 
                 blocks.forEach((b, idx) => {
+                    const progress = idx / Math.max(total - 1, 1); // 0→1
+                    // 처음엔 느리게(탕...탕...), 끝으로 갈수록 빠르게(탕탕탕팡!)
+                    // ease-in 곡선: 간격이 점점 좁아짐
+                    const baseInterval = 450; // 첫 간격
+                    const minInterval = 60;   // 마지막 간격
+                    const interval = baseInterval - (baseInterval - minInterval) * Math.pow(progress, 2);
+
+                    const isLast = (idx === total - 1);
+
                     setTimeout(() => {
                         if (!Composite.allBodies(world).includes(b)) return;
 
+                        // 폭발 크기: 마지막으로 갈수록 커짐
+                        const explosionScale = 0.6 + progress * 1.4; // 0.6→2.0
+
                         // 폭발 이펙트
-                        spawnShatter(b.position.x, b.position.y, 40 + b.scaleFactor * 10, true);
-                        spawnShockwave(b.position.x, b.position.y, 200 + b.scaleFactor * 50);
+                        spawnShatter(b.position.x, b.position.y, Math.floor(30 * explosionScale + b.scaleFactor * 8), true);
+                        spawnShockwave(b.position.x, b.position.y, Math.floor((150 + b.scaleFactor * 40) * explosionScale));
                         playDestroy(currentStageIndex, b.blockType, b.iceVariant);
 
-                        // 점수 추가
+                        // 점수
                         score += b.maxHp * 10;
                         updateUI();
 
-                        // 화면 흔들림
-                        const impact = Math.min(b.scaleFactor / 3, 1.5);
-                        screenShake(80 + impact * 100, 3 + impact * 5);
-                        flashAlpha = Math.max(flashAlpha, 0.1 + impact * 0.1);
+                        // 화면 흔들림: 점점 세짐
+                        const impact = Math.min(b.scaleFactor / 3, 1.5) * explosionScale;
+                        screenShake(Math.floor(60 + impact * 80), Math.floor(2 + impact * 5));
+                        flashAlpha = Math.max(flashAlpha, 0.05 + progress * 0.2);
+
+                        // 히트스톱: 처음 큰 폭발들은 잠깐 멈춤 (드라마틱)
+                        if (progress < 0.3) hitStopTimer = Math.max(hitStopTimer, 0.06);
 
                         Composite.remove(world, b);
 
-                        // 마지막 블록이 터진 후 결과 표시
-                        if (idx === blocks.length - 1) {
+                        // ── 마지막: 대폭발 피날레 ──
+                        if (isLast) {
                             setTimeout(() => {
-                                // 마지막 대폭발
-                                screenShake(300, 12);
-                                flashAlpha = 0.5;
-                                showEndResult();
-                            }, 500);
+                                // 화면 중앙 대폭발
+                                screenShake(500, 18);
+                                flashAlpha = 0.7;
+                                hitStopTimer = 0.1;
+                                spawnShatter(cx, cy, 200, true);
+                                spawnShockwave(cx, cy, 800);
+
+                                // 피날레 사운드: 큰 저음
+                                if (audioCtx) {
+                                    const t = audioCtx.currentTime;
+                                    const boom = audioCtx.createOscillator();
+                                    const bg = audioCtx.createGain();
+                                    boom.connect(bg); bg.connect(audioCtx.destination);
+                                    boom.type = 'sine';
+                                    boom.frequency.setValueAtTime(60, t);
+                                    boom.frequency.exponentialRampToValueAtTime(15, t + 0.8);
+                                    bg.gain.setValueAtTime(1.0, t);
+                                    bg.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+                                    boom.start(t); boom.stop(t + 0.8);
+
+                                    const n = audioCtx.createBufferSource();
+                                    n.buffer = createNoiseBuffer(0.4, 1.5);
+                                    const ng = audioCtx.createGain();
+                                    n.connect(ng); ng.connect(audioCtx.destination);
+                                    ng.gain.setValueAtTime(0.8, t);
+                                    ng.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                                    n.start(t); n.stop(t + 0.4);
+                                }
+
+                                setTimeout(() => showEndResult(), 800);
+                            }, 300);
                         }
                     }, delay);
                     delay += interval;
