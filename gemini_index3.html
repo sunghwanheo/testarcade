@@ -147,7 +147,7 @@
 
         .fever-title {
             position: absolute;
-            top: 160px;
+            top: 205px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 5;
@@ -177,7 +177,7 @@
 
         #feverBarContainer {
             position: absolute;
-            top: 130px;
+            top: 175px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 5;
@@ -626,7 +626,7 @@
             const t = audioCtx.currentTime;
 
             if (blockType === 'bomb') {
-                // 폭탄 폭발: 쿵! + 노이즈
+                // 스타 폭발: 쿵! + 반짝임
                 const bass = audioCtx.createOscillator();
                 const bg = audioCtx.createGain();
                 bass.connect(bg); bg.connect(audioCtx.destination);
@@ -1277,6 +1277,61 @@
             }
         }
 
+        // 스타 파티클: 별 모양으로 사방에 튀는 황금 이펙트
+        class StarParticle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 150 + Math.random() * 600;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed - 200; // 살짝 위로 솟구치게
+                this.life = 1.0;
+                this.decay = 0.8 + Math.random() * 0.7;
+                this.size = 10 + Math.random() * 22;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.rotSpeed = (Math.random() - 0.5) * 12;
+                const palette = ['#ffd700', '#ffe966', '#ffffff', '#fff0a0', '#ffcc00'];
+                this.color = palette[Math.floor(Math.random() * palette.length)];
+            }
+            update(dt) {
+                this.x += this.vx * dt;
+                this.y += this.vy * dt;
+                this.vy += 900 * dt; // 중력 (IceParticle보다 약하게 — 별이 천천히 떨어지게)
+                this.vx *= (1 - dt * 1.5); // 공기 저항
+                this.life -= dt * this.decay;
+                this.rotation += this.rotSpeed * dt;
+                return this.life > 0;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ffe000';
+                ctx.fillStyle = this.color;
+                // 5각별 그리기
+                const R = this.size, r = this.size * 0.42;
+                ctx.beginPath();
+                for (let i = 0; i < 5; i++) {
+                    const a1 = (i * 2 * Math.PI / 5) - Math.PI / 2;
+                    const a2 = a1 + Math.PI / 5;
+                    ctx.lineTo(Math.cos(a1) * R, Math.sin(a1) * R);
+                    ctx.lineTo(Math.cos(a2) * r, Math.sin(a2) * r);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function spawnStarEffect(x, y, count = 18) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new StarParticle(x, y));
+            }
+        }
+
         // ─────────────────────────────────────────
         // 무기 이펙트 드로잉 함수
         // ─────────────────────────────────────────
@@ -1626,7 +1681,7 @@
             // 특수 블록 결정
             const rng = Math.random();
             if (rng < 0.12) {
-                // 폭탄 블록 (12%) - 터뜨리면 주변 블록도 같이 폭발!
+                // 스타 블록 (12%) - 터뜨리면 주변 블록도 같이 폭발!
                 block.blockType = 'bomb';
                 block.hp    = 5;
                 block.maxHp = 5;
@@ -2090,7 +2145,7 @@
                     { icon: '', img: 'graphic/casualnobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
                 ],
                 items: [
-                    { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' }
+                    { icon: '⭐', name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!', color: '#ffd700' }
                 ]
             },
             {
@@ -2099,7 +2154,7 @@
                     { icon: '', img: 'graphic/casualnobg/s1_glacier_100.png', name: '빙하', desc: '아주 무겁고 묵직!', color: '#3366aa' }
                 ],
                 items: [
-                    { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' },
+                    { icon: '⭐', name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!', color: '#ffd700' },
                     { icon: '🧊', name: '얼음1', desc: '조심! 주변이 7초간 얼어붙어요!', color: '#66ccff' }
                 ]
             },
@@ -2108,7 +2163,7 @@
                     { icon: '💠', name: '크리스탈', desc: '반짝이며 날아다녀요!', color: '#cc88ff' }
                 ],
                 items: [
-                    { icon: '💣', name: '폭탄 블록', desc: '5번 치면 쿵! 주변이 다 터져요!', color: '#ff6644' }
+                    { icon: '⭐', name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!', color: '#ffd700' }
                 ]
             }
         ];
@@ -2430,11 +2485,11 @@
                                 score += isFeverMode ? scoreGain * 2 : scoreGain;
                                 addFever(b.maxHp * 1.5);
 
-                                // 폭탄 블록: 주변 블록이 연쇄적으로 터짐!
+                                // 스타 블록: 주변 블록이 연쇄적으로 터짐!
                                 if (b.blockType === 'bomb') {
                                     const BOMB_RADIUS = 1200;
                                     spawnShockwave(b.position.x, b.position.y, BOMB_RADIUS);
-                                    spawnShatter(b.position.x, b.position.y, 120, true);
+                                    spawnStarEffect(b.position.x, b.position.y, 50);
                                     screenShake(500, 15);
 
                                     // 거리순 정렬 -> 가까운 것부터 순차 폭발
@@ -2452,8 +2507,8 @@
                                             score += cb.maxHp * 20;
                                             addFever(cb.maxHp * 0.5);
                                             playDestroy(currentStageIndex, cb.blockType, cb.iceVariant);
-                                            spawnShatter(cb.position.x, cb.position.y, 80, true);
                                             spawnShockwave(cb.position.x, cb.position.y, 300);
+                                            spawnStarEffect(cb.position.x, cb.position.y, 22);
                                             Composite.remove(world, cb);
                                             updateUI();
                                         }, (idx + 1) * 250);
@@ -2468,7 +2523,9 @@
 
                                 updateUI();
                                 playDestroy(currentStageIndex, b.blockType, b.iceVariant);
-                                spawnShatter(b.position.x, b.position.y, 50, isFeverMode);
+                                if (b.blockType !== 'bomb') {
+                                    spawnShatter(b.position.x, b.position.y, 50, isFeverMode);
+                                }
 
                                 // 타격감: 블록 크기에 비례한 흔들림 + 히트스톱 + 번쩍임
                                 const impactSize = Math.min(b.scaleFactor / 4, 1.0);
@@ -2685,12 +2742,12 @@
                     canvasCtx.shadowColor = '#ff00ff';
                     canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
                 } else if (b.blockType === 'bomb') {
-                    // 폭탄 블록: 빨간 + 주황 맥동, 눈에 확 띄게
-                    const pulse = 0.6 + 0.35 * Math.sin(Date.now() / 150);
+                    // 스타 블록: 황금 + 노란 맥동, 아이템처럼 빛나게
+                    const pulse = 0.65 + 0.3 * Math.sin(Date.now() / 200);
                     canvasCtx.globalAlpha = pulse;
-                    canvasCtx.fillStyle = 'rgba(255, 60, 20, 0.6)';
-                    canvasCtx.shadowColor = '#ff4400';
-                    canvasCtx.strokeStyle = 'rgba(255, 200, 50, 1.0)';
+                    canvasCtx.fillStyle = 'rgba(255, 220, 50, 0.55)';
+                    canvasCtx.shadowColor = '#ffe000';
+                    canvasCtx.strokeStyle = 'rgba(255, 255, 180, 1.0)';
                 } else if (b.blockType === 'ice1') {
                     // 얼음1 블록: 하늘색 + 흰색 맥동
                     const pulse = 0.6 + 0.3 * Math.sin(Date.now() / 200);
@@ -2723,16 +2780,16 @@
                 canvasCtx.lineWidth = variantLineW;
                 canvasCtx.stroke();
 
-                // 폭탄 블록 아이콘 표시
+                // 스타 블록 아이콘 표시
                 if (b.blockType === 'bomb' && !isFeverMode) {
                     const iconSize = Math.max(28, b.rectWidth * 0.4);
                     canvasCtx.globalAlpha = 1.0;
                     canvasCtx.font = `${iconSize}px serif`;
                     canvasCtx.textAlign = 'center';
                     canvasCtx.textBaseline = 'middle';
-                    canvasCtx.shadowColor = '#ff4400';
-                    canvasCtx.shadowBlur = 30;
-                    canvasCtx.fillText('💣', b.position.x, b.position.y);
+                    canvasCtx.shadowColor = '#ffe000';
+                    canvasCtx.shadowBlur = 35;
+                    canvasCtx.fillText('⭐', b.position.x, b.position.y);
                 }
                 if (b.blockType === 'ice1' && !isFeverMode) {
                     const iconSize = Math.max(28, b.rectWidth * 0.4);
@@ -2805,34 +2862,34 @@
                 canvasCtx.restore();
             }
 
-            // 폭탄 충격파 렌더링
+            // 스타 충격파 렌더링
             for (let i = shockwaves.length - 1; i >= 0; i--) {
                 const sw = shockwaves[i];
-                sw.radius += 8;  // 퍼지는 속도 (느리게)
+                sw.radius += 8;  // 퍼지는 속도
                 sw.alpha = 1.0 - (sw.radius / sw.maxRadius);
                 if (sw.alpha <= 0) {
                     shockwaves.splice(i, 1);
                     continue;
                 }
                 canvasCtx.save();
-                // 바깥 테두리 (굵고 밝게)
+                // 바깥 테두리 (황금빛 반짝임)
                 canvasCtx.globalAlpha = sw.alpha * 0.9;
-                canvasCtx.strokeStyle = `rgba(255, 120, 30, ${sw.alpha})`;
+                canvasCtx.strokeStyle = `rgba(255, 230, 80, ${sw.alpha})`;
                 canvasCtx.lineWidth = 14 * sw.alpha + 4;
-                canvasCtx.shadowColor = '#ff6600';
+                canvasCtx.shadowColor = '#ffe000';
                 canvasCtx.shadowBlur = 50;
                 canvasCtx.beginPath();
                 canvasCtx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
                 canvasCtx.stroke();
-                // 안쪽 밝은 테두리
+                // 안쪽 밝은 테두리 (흰빛)
                 canvasCtx.globalAlpha = sw.alpha * 0.7;
-                canvasCtx.strokeStyle = `rgba(255, 220, 80, ${sw.alpha})`;
+                canvasCtx.strokeStyle = `rgba(255, 255, 220, ${sw.alpha})`;
                 canvasCtx.lineWidth = 5 * sw.alpha + 2;
                 canvasCtx.shadowBlur = 20;
                 canvasCtx.stroke();
-                // 안쪽 채우기 (반투명 오렌지-빨강)
-                canvasCtx.globalAlpha = sw.alpha * 0.3;
-                canvasCtx.fillStyle = 'rgba(255, 80, 20, 1)';
+                // 안쪽 채우기 (반투명 황금)
+                canvasCtx.globalAlpha = sw.alpha * 0.2;
+                canvasCtx.fillStyle = 'rgba(255, 240, 100, 1)';
                 canvasCtx.fill();
                 canvasCtx.restore();
             }
