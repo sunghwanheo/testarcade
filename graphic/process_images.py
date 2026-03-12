@@ -23,24 +23,26 @@ def process_images(src_dir, dest_dir):
     
     print(f"Processing images from {src_path} and saving to {dest_path}")
     
-    for file_path in src_path.glob("*.png"):
-        print(f"Processing {file_path.name}...")
-        try:
-            # 1. Open image
-            with Image.open(file_path) as img:
-                # 2. Remove background using rembg
-                # Note: rembg's remove function takes bytes or Image and returns it
-                img_nobg = remove(img)
-                
-                # 3. Tight crop (재단)
-                cropped_img = tight_crop(img_nobg)
-                
-                # 4. Save
-                save_path = dest_path / file_path.name
-                cropped_img.save(save_path, "PNG")
-                print(f"  Successfully saved to {save_path}")
-        except Exception as e:
-            print(f"  Failed to process {file_path.name}: {e}")
+    for ext in ["*.png", "*.jpg", "*.jpeg"]:
+        for file_path in src_path.glob(ext):
+            print(f"Processing {file_path.name}...")
+            try:
+                # 1. Open image
+                with Image.open(file_path) as img:
+                    # 2. Remove background using rembg
+                    # Note: rembg's remove function takes bytes or Image and returns it
+                    img_nobg = remove(img)
+                    
+                    # 3. Tight crop (재단)
+                    cropped_img = tight_crop(img_nobg)
+                    
+                    # 4. Save
+                    # Force output to PNG for transparency support
+                    save_path = dest_path / (file_path.stem + ".png")
+                    cropped_img.save(save_path, "PNG")
+                    print(f"  Successfully saved to {save_path}")
+            except Exception as e:
+                print(f"  Failed to process {file_path.name}: {e}")
 
 if __name__ == "__main__":
     SRC = r"d:\github\Web\ActiveArcade\graphic\casual"
