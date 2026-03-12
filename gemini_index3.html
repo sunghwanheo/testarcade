@@ -40,15 +40,19 @@
             width: 100%;
             height: 100%;
             z-index: 2;
-            background: radial-gradient(circle at center, rgba(0, 200, 255, 0.1) 0%, rgba(0, 20, 60, 0.6) 100%);
-            box-shadow: inset 0 0 100px rgba(0, 150, 255, 0.4);
+            background:
+                linear-gradient(to right,  rgba(0, 20, 60, 0.82) 0%, transparent 26%),
+                linear-gradient(to left,   rgba(0, 20, 60, 0.82) 0%, transparent 26%),
+                linear-gradient(to bottom, rgba(0, 10, 30, 0.45) 0%, transparent 14%);
             pointer-events: none;
-            transition: all 0.5s;
+            transition: background 0.5s;
         }
 
         .fever-mode-active #themeOverlay {
-            background: radial-gradient(circle at center, rgba(255, 150, 255, 0.3) 0%, rgba(50, 0, 150, 0.6) 100%);
-            box-shadow: inset 0 0 150px rgba(255, 255, 255, 0.8);
+            background:
+                linear-gradient(to right,  rgba(80, 0, 160, 0.85) 0%, transparent 26%),
+                linear-gradient(to left,   rgba(80, 0, 160, 0.85) 0%, transparent 26%),
+                linear-gradient(to bottom, rgba(40, 0, 80, 0.45)  0%, transparent 14%);
             animation: hueRotate 3s infinite linear;
         }
 
@@ -1133,7 +1137,7 @@
                 weapon: "파란 마법장갑",
                 weaponIcon: "🧤",
                 shapeType: "rect",
-                bgGradient: 'radial-gradient(circle at center, rgba(0, 200, 255, 0.1) 0%, rgba(0, 20, 60, 0.6) 100%)',
+                bgGradient: 'linear-gradient(to right, rgba(0, 20, 60, 0.82) 0%, transparent 26%), linear-gradient(to left, rgba(0, 20, 60, 0.82) 0%, transparent 26%), linear-gradient(to bottom, rgba(0, 10, 30, 0.45) 0%, transparent 14%)',
                 blockFill: 'rgba(150, 230, 255, 0.4)',
                 blockStroke: 'rgba(255, 255, 255, 0.8)',
                 particleColors: ['#ffffff', '#e0ffff', '#b0e0e6', '#00ffff'],
@@ -1146,7 +1150,7 @@
                 weapon: "불꽃 주먹",
                 weaponIcon: "🥊",
                 shapeType: "circle",
-                bgGradient: 'radial-gradient(circle at center, rgba(200, 100, 50, 0.1) 0%, rgba(40, 10, 10, 0.8) 100%)',
+                bgGradient: 'linear-gradient(to right, rgba(50, 15, 5, 0.85) 0%, transparent 26%), linear-gradient(to left, rgba(50, 15, 5, 0.85) 0%, transparent 26%), linear-gradient(to bottom, rgba(25, 8, 3, 0.45) 0%, transparent 14%)',
                 blockFill: 'rgba(150, 100, 80, 0.7)',
                 blockStroke: 'rgba(255, 150, 50, 0.9)',
                 particleColors: ['#ff5500', '#ffd700', '#aaaaaa', '#ffffff'],
@@ -1159,7 +1163,7 @@
                 weapon: "광선검",
                 weaponIcon: "🗡️",
                 shapeType: "polygon",
-                bgGradient: 'radial-gradient(circle at center, rgba(255, 100, 255, 0.15) 0%, rgba(50, 0, 50, 0.8) 100%)',
+                bgGradient: 'linear-gradient(to right, rgba(50, 0, 70, 0.85) 0%, transparent 26%), linear-gradient(to left, rgba(50, 0, 70, 0.85) 0%, transparent 26%), linear-gradient(to bottom, rgba(25, 0, 40, 0.45) 0%, transparent 14%)',
                 blockFill: 'rgba(255, 150, 255, 0.4)',
                 blockStroke: 'rgba(255, 200, 255, 0.9)',
                 particleColors: ['#ff00ff', '#ffffff', '#00ffff', '#ffdd00'],
