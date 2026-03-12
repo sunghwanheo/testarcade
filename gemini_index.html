@@ -1903,11 +1903,15 @@
             const W = canvasElement.width;
             const H = canvasElement.height;
             const margin = 80; // 블록 반경 여유값
-            const blocks = Composite.allBodies(world).filter(b =>
-                b.isBlock &&
-                b.position.x >= -margin && b.position.x <= W + margin &&
-                b.position.y >= -margin && b.position.y <= H + margin
-            );
+            // 화면 밖 블록은 즉시 제거 (폭발 중 화면 안으로 떨어지지 않도록)
+            Composite.allBodies(world).filter(b =>
+                b.isBlock && (
+                    b.position.x < -margin || b.position.x > W + margin ||
+                    b.position.y < -margin || b.position.y > H + margin
+                )
+            ).forEach(b => Composite.remove(world, b));
+
+            const blocks = Composite.allBodies(world).filter(b => b.isBlock);
             if (blocks.length > 0) {
                 // 바깥쪽에서 안쪽 순으로 정렬 (마지막에 가운데가 터지도록)
                 blocks.sort((a, b) =>
