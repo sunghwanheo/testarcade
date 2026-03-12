@@ -1096,6 +1096,7 @@
         let particles = [];
         let bodyPoints = [];
         let prevBodyPos = {}; // id -> { x, y } 이전 프레임 위치 추적
+        let hitFlashMap = {}; // id -> { timer, maxTimer } 손/발 타격 플래시
         let blockSpawnTimer = 0;
 
         // 폭탄 충격파 이펙트
@@ -1148,7 +1149,7 @@
         }
 
         // 얼음1 디버프 시스템 (스테이지2 전용)
-        let iceDebuffs = []; // { x, y, radius, remainTime, alpha }
+        let iceDebuffs = []; // { x, y, radius, remainTime, alpha, angle }
         const ICE_DEBUFF_RADIUS = 350;
         const ICE_DEBUFF_DURATION = 7.0;
         const ICE_DAMAGE_MULTIPLIER = 0.2; // 1/5 파워
@@ -1158,7 +1159,8 @@
                 x, y,
                 radius: ICE_DEBUFF_RADIUS,
                 remainTime: ICE_DEBUFF_DURATION,
-                alpha: 1.0
+                alpha: 1.0,
+                angle: 0
             });
         }
 
@@ -1187,6 +1189,40 @@
             breakImg.src = `graphic/casualnobg/s1_${type}_break.png`;
             s1BreakImgs[type] = breakImg;
         });
+
+        // 스타 블록 이미지 프리로드
+        const starBlockImgs = {};
+        ['100', '75', '50', '25'].forEach(hp => {
+            const img = new Image();
+            img.src = `graphic/casualnobg/star_${hp}.png`;
+            starBlockImgs[hp] = img;
+        });
+
+        function getStarBlockImg(hpRatio) {
+            if (hpRatio > 0.75) return starBlockImgs['100'];
+            if (hpRatio > 0.50) return starBlockImgs['75'];
+            if (hpRatio > 0.25) return starBlockImgs['50'];
+            return starBlockImgs['25'];
+        }
+
+        // 얼음1 디버프 존 이미지 프리로드
+        const ice1ZoneImg = new Image();
+        ice1ZoneImg.src = 'graphic/casualnobg/ice1_zone.png';
+
+        // 얼음1 블록 이미지 프리로드
+        const ice1BlockImgs = {};
+        ['100', '75', '50', '25'].forEach(hp => {
+            const img = new Image();
+            img.src = `graphic/casualnobg/ice1_${hp}.png`;
+            ice1BlockImgs[hp] = img;
+        });
+
+        function getIce1BlockImg(hpRatio) {
+            // 3히트 체계: 3/3→100, 2/3→50, 1/3→25
+            if (hpRatio > 0.66) return ice1BlockImgs['100'];
+            if (hpRatio > 0.33) return ice1BlockImgs['50'];
+            return ice1BlockImgs['25'];
+        }
 
         // variant id -> type name 매핑
         const variantToType = { 0: 'clear', 1: 'snow', 5: 'snow_round' };
@@ -1665,7 +1701,7 @@
             ctx.restore();
         }
 
-        function drawWeapon(ctx, p, stageIdx, fever, t) {
+        function drawWeapon(ctx, p, stageIdx, fever, t, hitFlash) {
             // 얼음 디버프 영역 안이면 이펙트 절반 크기
             const inIce = !fever && isInIceZone(p.x, p.y);
             const r = inIce ? p.radius * 0.5 : p.radius;
@@ -1696,6 +1732,27 @@
             if (stageIdx === 0) drawIceFist(ctx, p.x, p.y, r, t);
             else if (stageIdx === 1) drawFireFist(ctx, p.x, p.y, r, t);
             else drawLightningBlade(ctx, p.x, p.y, r, t);
+
+            // 타격 순간 손/발 번쩍임 오버레이
+            if (hitFlash) {
+                const ft = hitFlash.timer / hitFlash.maxTimer; // 1→0
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+
+                // 밝은 글로우 원 (빠르게 팽창 후 사라짐)
+                const expand = 1 + (1 - ft) * 0.4; // 살짝 커지면서 사라짐
+                const glowR = r * 1.2 * expand;
+                const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowR);
+                glow.addColorStop(0, `rgba(255, 255, 255, ${ft * 0.7})`);
+                glow.addColorStop(0.4, `rgba(255, 255, 255, ${ft * 0.3})`);
+                glow.addColorStop(1, `rgba(255, 255, 255, 0)`);
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
         }
 
         function spawnBlock() {
@@ -1721,21 +1778,17 @@
                 const isRound = Math.random() < roundChance;
                 const mg2 = size + 50;
                 if (isRound) {
-                    // 동그란 눈덩이: 상단 좌/우에서 안쪽으로 리니어하게 진입
+                    // 동그란 눈덩이: 좌/우에서 자연스러운 포물선으로 진입
                     const fromLeft = Math.random() < 0.5;
                     x = fromLeft ? 5 : W - 5;
-                    y = 5 + Math.random() * H * 0.15;
+                    y = -size - 50;
                     block = Bodies.circle(x, y, size / 2, options);
-                    // 중력 무시 — 리니어한 직선 포물선
                     Body.set(block, 'isStatic', false);
-                    block.ignoreGravity = true;
-                    const targetX = W * 0.2 + Math.random() * W * 0.6;
-                    const targetY = H * 0.4 + Math.random() * H * 0.4;
-                    const dx = targetX - x;
-                    const dy = targetY - y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    const linearSpd = 4 + Math.random() * 4;
-                    Body.setVelocity(block, { x: dx / dist * linearSpd, y: dy / dist * linearSpd });
+                    // 포물선: 수평으로 강하게 + 약간 아래로
+                    const hSpd = 13 + Math.random() * 8;
+                    const vx = fromLeft ? hSpd : -hSpd;
+                    const vy = 1 + Math.random() * 2;
+                    Body.setVelocity(block, { x: vx, y: vy });
                     Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.3);
                     block.isRoundSnow = true;
                 } else {
@@ -2546,15 +2599,6 @@
                 }
             }
 
-            // ignoreGravity 블록: 중력 상쇄 (리니어 이동)
-            for (const b of Composite.allBodies(world)) {
-                if (b.ignoreGravity) {
-                    Body.applyForce(b, b.position, {
-                        x: 0,
-                        y: -engine.gravity.y * engine.gravity.scale * b.mass
-                    });
-                }
-            }
             Engine.update(engine, dt * 1000);
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
@@ -2575,6 +2619,7 @@
             // 얼음 디버프 영역 타이머 업데이트
             for (let i = iceDebuffs.length - 1; i >= 0; i--) {
                 iceDebuffs[i].remainTime -= dt;
+                iceDebuffs[i].angle += dt * 1.2; // 초당 ~1.2라디안 회전
                 iceDebuffs[i].alpha = Math.min(1.0, iceDebuffs[i].remainTime / 1.5);
                 if (iceDebuffs[i].remainTime <= 0) {
                     iceDebuffs.splice(i, 1);
@@ -2631,6 +2676,9 @@
                             const contactX = p.x + hitDirX * p.radius * 0.7;
                             const contactY = p.y + hitDirY * p.radius * 0.7;
                             spawnImpactBurst(contactX, contactY, hitDirX, hitDirY, sf);
+
+                            // 3.5) 손/발 타격 플래시 — 때리는 순간 손이 번쩍 빛남
+                            hitFlashMap[p.id] = { timer: 0.15 + weight * 0.05, maxTimer: 0.15 + weight * 0.05 };
 
                             // 4) 타격 순간 플래시 — 큰 블록일수록 강하게
                             if (!isFeverMode) flashAlpha = Math.max(flashAlpha, 0.08 + weight * 0.12);
@@ -2701,10 +2749,6 @@
                         }
                     }
 
-                // 리니어 눈덩이: 속도가 줄면 중력 복원 (자연스럽게 떨어짐)
-                if (b.ignoreGravity && Math.hypot(b.velocity.x, b.velocity.y) < 1.5) {
-                    b.ignoreGravity = false;
-                }
 
                 // 바닥에서 멈춘 블럭 제거 (모든 스테이지 공통)
                 if (b.timeSinceSpawn > 20.0 && Math.abs(b.velocity.y) < 0.5) {
@@ -2775,6 +2819,83 @@
                     }
                 }
 
+                // ── 스타 블록: 이미지로만 렌더링 (사각형/균열 생략) ──
+                if (b.blockType === 'bomb') {
+                    const starHpRatio = b.hp / b.maxHp;
+                    const starImg = isFeverMode ? starBlockImgs['25'] : getStarBlockImg(starHpRatio);
+                    if (starImg && starImg.complete) {
+                        // star_25는 균열 이펙트가 바깥으로 퍼져 별 본체가 작아보이므로 보정
+                        const sizeBoost = (starHpRatio <= 0.25 || isFeverMode) ? 1.6 : 1.3;
+                        const imgSize = Math.max(b.rectWidth, b.rectHeight) * sizeBoost;
+                        canvasCtx.save();
+                        canvasCtx.translate(b.position.x, b.position.y);
+                        canvasCtx.rotate(b.angle);
+
+                        if (isFeverMode) {
+                            // 피버: 터지기 직전 이미지로 깜빡임 + hue 시프트
+                            const now = Date.now();
+                            const flicker = 0.5 + 0.5 * Math.sin(now / 80);
+                            canvasCtx.globalAlpha = 0.55 + flicker * 0.45;
+                            canvasCtx.filter = `hue-rotate(${(now / 3) % 360}deg) brightness(${1.0 + flicker * 0.5})`;
+                            canvasCtx.shadowColor = '#ffe000';
+                            canvasCtx.shadowBlur = 25 + flicker * 15;
+                        } else {
+                            canvasCtx.globalAlpha = 1.0;
+                            canvasCtx.shadowColor = '#ffe000';
+                            canvasCtx.shadowBlur = 25;
+                        }
+
+                        canvasCtx.drawImage(starImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+
+                        if (!isFeverMode && b.hitFlash > 0) {
+                            canvasCtx.globalAlpha = b.hitFlash * 0.5;
+                            canvasCtx.filter = 'brightness(3)';
+                            canvasCtx.drawImage(starImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+                            canvasCtx.filter = 'none';
+                        }
+                        canvasCtx.restore();
+                    }
+                    canvasCtx.restore();
+                    continue;
+                }
+
+                // ── 얼음1 블록: 이미지로만 렌더링 (정사각형, 사각형/균열 생략) ──
+                if (b.blockType === 'ice1') {
+                    const ice1Img = isFeverMode ? ice1BlockImgs['25'] : getIce1BlockImg(b.hp / b.maxHp);
+                    if (ice1Img && ice1Img.complete) {
+                        const imgSize = Math.max(b.rectWidth, b.rectHeight) * 1.3;
+                        canvasCtx.save();
+                        canvasCtx.translate(b.position.x, b.position.y);
+                        canvasCtx.rotate(b.angle);
+
+                        if (isFeverMode) {
+                            // 피버: 터지기 직전 이미지로 깜빡임 + hue 시프트
+                            const now = Date.now();
+                            const flicker = 0.5 + 0.5 * Math.sin(now / 80);
+                            canvasCtx.globalAlpha = 0.55 + flicker * 0.45;
+                            canvasCtx.filter = `hue-rotate(${(now / 3) % 360}deg) brightness(${1.0 + flicker * 0.5})`;
+                            canvasCtx.shadowColor = '#00ccff';
+                            canvasCtx.shadowBlur = 25 + flicker * 15;
+                        } else {
+                            canvasCtx.globalAlpha = 1.0;
+                            canvasCtx.shadowColor = '#00ccff';
+                            canvasCtx.shadowBlur = 25;
+                        }
+
+                        canvasCtx.drawImage(ice1Img, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+
+                        if (!isFeverMode && b.hitFlash > 0) {
+                            canvasCtx.globalAlpha = b.hitFlash * 0.5;
+                            canvasCtx.filter = 'brightness(3)';
+                            canvasCtx.drawImage(ice1Img, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
+                            canvasCtx.filter = 'none';
+                        }
+                        canvasCtx.restore();
+                    }
+                    canvasCtx.restore();
+                    continue;
+                }
+
                 // ── 기존 캔버스 드로잉 (이미지 없는 블록) ──
                 // 피버 모드면 블럭도 무지개처럼 영롱하게
                 if (isFeverMode) {
@@ -2782,20 +2903,6 @@
                     canvasCtx.fillStyle = 'rgba(255, 150, 255, 0.4)';
                     canvasCtx.shadowColor = '#ff00ff';
                     canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-                } else if (b.blockType === 'bomb') {
-                    // 스타 블록: 황금 + 노란 맥동, 아이템처럼 빛나게
-                    const pulse = 0.65 + 0.3 * Math.sin(Date.now() / 200);
-                    canvasCtx.globalAlpha = pulse;
-                    canvasCtx.fillStyle = 'rgba(255, 220, 50, 0.55)';
-                    canvasCtx.shadowColor = '#ffe000';
-                    canvasCtx.strokeStyle = 'rgba(255, 255, 180, 1.0)';
-                } else if (b.blockType === 'ice1') {
-                    // 얼음1 블록: 하늘색 + 흰색 맥동
-                    const pulse = 0.6 + 0.3 * Math.sin(Date.now() / 200);
-                    canvasCtx.globalAlpha = pulse;
-                    canvasCtx.fillStyle = 'rgba(100, 200, 255, 0.7)';
-                    canvasCtx.shadowColor = '#00ccff';
-                    canvasCtx.strokeStyle = 'rgba(200, 240, 255, 1.0)';
                 } else {
                     // 서브타입별 비주얼 — 같은 색, 두께로만 구분
                     const v = b.iceVariant || 0;
@@ -2833,28 +2940,6 @@
                     }
                     canvasCtx.closePath();
                     canvasCtx.fill();
-                }
-
-                // 스타 블록 아이콘 표시
-                if (b.blockType === 'bomb' && !isFeverMode) {
-                    const iconSize = Math.max(28, b.rectWidth * 0.4);
-                    canvasCtx.globalAlpha = 1.0;
-                    canvasCtx.font = `${iconSize}px serif`;
-                    canvasCtx.textAlign = 'center';
-                    canvasCtx.textBaseline = 'middle';
-                    canvasCtx.shadowColor = '#ffe000';
-                    canvasCtx.shadowBlur = 35;
-                    canvasCtx.fillText('⭐', b.position.x, b.position.y);
-                }
-                if (b.blockType === 'ice1' && !isFeverMode) {
-                    const iconSize = Math.max(28, b.rectWidth * 0.4);
-                    canvasCtx.globalAlpha = 1.0;
-                    canvasCtx.font = `${iconSize}px serif`;
-                    canvasCtx.textAlign = 'center';
-                    canvasCtx.textBaseline = 'middle';
-                    canvasCtx.shadowColor = '#00ccff';
-                    canvasCtx.shadowBlur = 30;
-                    canvasCtx.fillText('🧊', b.position.x, b.position.y);
                 }
 
                 // 일반 블록: 무거운 variant(서리/빙하)는 내부 빛줄기로 구분
@@ -2984,36 +3069,31 @@
                 canvasCtx.restore();
             }
 
-            // 얼음 디버프 영역 렌더링 (하늘색 반투명 원)
+            // 얼음 디버프 영역 렌더링 (ice1_zone.png 이미지 + 회전)
             for (const ice of iceDebuffs) {
                 canvasCtx.save();
                 const a = Math.max(0, ice.alpha);
-                // 바깥 테두리
-                canvasCtx.globalAlpha = a * 0.6;
-                canvasCtx.strokeStyle = `rgba(100, 200, 255, ${a})`;
-                canvasCtx.lineWidth = 6;
-                canvasCtx.shadowColor = '#00ccff';
-                canvasCtx.shadowBlur = 40;
-                canvasCtx.beginPath();
-                canvasCtx.arc(ice.x, ice.y, ice.radius, 0, Math.PI * 2);
-                canvasCtx.stroke();
-                // 안쪽 채우기
-                canvasCtx.globalAlpha = a * 0.12;
-                canvasCtx.fillStyle = 'rgba(100, 200, 255, 1)';
-                canvasCtx.fill();
-                // 눈꽃 아이콘
-                canvasCtx.globalAlpha = a * 0.8;
-                canvasCtx.font = '40px serif';
-                canvasCtx.textAlign = 'center';
-                canvasCtx.textBaseline = 'middle';
-                canvasCtx.fillStyle = '#ffffff';
-                canvasCtx.fillText('❄️', ice.x, ice.y);
+                const zoneSize = ice.radius * 2;
+                if (ice1ZoneImg.complete) {
+                    canvasCtx.globalAlpha = a * 0.7;
+                    canvasCtx.shadowColor = '#00ccff';
+                    canvasCtx.shadowBlur = 30;
+                    canvasCtx.translate(ice.x, ice.y);
+                    canvasCtx.rotate(ice.angle);
+                    canvasCtx.drawImage(ice1ZoneImg, -zoneSize / 2, -zoneSize / 2, zoneSize, zoneSize);
+                }
                 canvasCtx.restore();
+            }
+
+            // 손/발 히트 플래시 타이머 감소
+            for (const id in hitFlashMap) {
+                hitFlashMap[id].timer -= dtRaw;
+                if (hitFlashMap[id].timer <= 0) delete hitFlashMap[id];
             }
 
             // 손/발 위에 무기 이펙트 그리기
             for (let p of bodyPoints) {
-                drawWeapon(canvasCtx, p, currentStageIndex, isFeverMode, gameTime);
+                drawWeapon(canvasCtx, p, currentStageIndex, isFeverMode, gameTime, hitFlashMap[p.id]);
             }
 
             for (let i = particles.length - 1; i >= 0; i--) {
