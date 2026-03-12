@@ -2655,7 +2655,7 @@
                             b.hp -= damage;
 
                             // 타격 쿨다운 적용. 피버일때는 바로바로 터지게 짧게.
-                            b.hitCooldown = isFeverMode ? 0.05 : 0.4;
+                            b.hitCooldown = isFeverMode ? 0.05 : 0.2;
 
                             const sf = b.scaleFactor || 1; // 1~7
                             const weight = Math.min(sf / 4, 1.5); // 0.25~1.5 무게감 계수
