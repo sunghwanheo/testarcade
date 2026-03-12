@@ -1778,21 +1778,17 @@
                 const isRound = Math.random() < roundChance;
                 const mg2 = size + 50;
                 if (isRound) {
-                    // 동그란 눈덩이: 상단 좌/우에서 안쪽으로 리니어하게 진입
+                    // 동그란 눈덩이: 좌/우에서 자연스러운 포물선으로 진입
                     const fromLeft = Math.random() < 0.5;
                     x = fromLeft ? 5 : W - 5;
-                    y = 5 + Math.random() * H * 0.15;
+                    y = -size - 50;
                     block = Bodies.circle(x, y, size / 2, options);
-                    // 중력 무시 — 리니어한 직선 포물선
                     Body.set(block, 'isStatic', false);
-                    block.ignoreGravity = true;
-                    const targetX = W * 0.2 + Math.random() * W * 0.6;
-                    const targetY = H * 0.4 + Math.random() * H * 0.4;
-                    const dx = targetX - x;
-                    const dy = targetY - y;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    const linearSpd = 4 + Math.random() * 4;
-                    Body.setVelocity(block, { x: dx / dist * linearSpd, y: dy / dist * linearSpd });
+                    // 포물선: 수평으로 강하게 + 약간 아래로
+                    const hSpd = 13 + Math.random() * 8;
+                    const vx = fromLeft ? hSpd : -hSpd;
+                    const vy = 1 + Math.random() * 2;
+                    Body.setVelocity(block, { x: vx, y: vy });
                     Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.3);
                     block.isRoundSnow = true;
                 } else {
@@ -2603,15 +2599,6 @@
                 }
             }
 
-            // ignoreGravity 블록: 중력 상쇄 (리니어 이동)
-            for (const b of Composite.allBodies(world)) {
-                if (b.ignoreGravity) {
-                    Body.applyForce(b, b.position, {
-                        x: 0,
-                        y: -engine.gravity.y * engine.gravity.scale * b.mass
-                    });
-                }
-            }
             Engine.update(engine, dt * 1000);
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
@@ -2762,10 +2749,6 @@
                         }
                     }
 
-                // 리니어 눈덩이: 속도가 줄면 중력 복원 (자연스럽게 떨어짐)
-                if (b.ignoreGravity && Math.hypot(b.velocity.x, b.velocity.y) < 1.5) {
-                    b.ignoreGravity = false;
-                }
 
                 // 바닥에서 멈춘 블럭 제거 (모든 스테이지 공통)
                 if (b.timeSinceSpawn > 20.0 && Math.abs(b.velocity.y) < 0.5) {
