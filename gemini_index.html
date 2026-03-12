@@ -438,6 +438,12 @@
                     신나게 움직여서 <b>무지개 파티(FEVER)</b>를 켜면 모든 얼음이 반짝이며 터집니다!
                 </p>
             </div>
+            <!-- 임시 레벨 선택 -->
+            <div id="levelSelect" style="margin-bottom:20px; display:flex; gap:12px; justify-content:center;">
+                <button class="lvl-btn" data-lv="0" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #00ffff; background:rgba(0,255,255,0.15); color:#00ffff; border-radius:8px; cursor:pointer;">Lv.1</button>
+                <button class="lvl-btn" data-lv="1" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #ffdd00; background:rgba(255,220,0,0.15); color:#ffdd00; border-radius:8px; cursor:pointer;">Lv.2</button>
+                <button class="lvl-btn" data-lv="2" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #ff66ff; background:rgba(255,100,255,0.15); color:#ff66ff; border-radius:8px; cursor:pointer;">Lv.3</button>
+            </div>
             <button id="startButton">게임 시작 (카메라 권한 필요)</button>
             <div id="loadingMsg">AI 및 얼음 마법 준비중... 잠시만 기다려주세요!</div>
         </div>
@@ -1170,7 +1176,7 @@
         // s1 블록 이미지 프리로드 (clear=variant0, snow=variant1)
         const s1BlockImgs = {};
         const s1BreakImgs = {};
-        ['clear', 'snow'].forEach(type => {
+        ['clear', 'snow', 'snow_round'].forEach(type => {
             s1BlockImgs[type] = {};
             ['100', '75', '50', '25'].forEach(hp => {
                 const img = new Image();
@@ -1183,7 +1189,7 @@
         });
 
         // variant id -> type name 매핑
-        const variantToType = { 0: 'clear', 1: 'snow' };
+        const variantToType = { 0: 'clear', 1: 'snow', 5: 'snow_round' };
 
         function getS1BlockImg(variantId, hpRatio) {
             const type = variantToType[variantId];
@@ -1212,14 +1218,14 @@
                 hpMultiplier: 1.2
             },
             {
-                name: "Lv.2 우주 운석 지대",
+                name: "Lv.2 눈밭",
                 weapon: "불꽃 주먹",
                 weaponIcon: "🥊",
-                shapeType: "circle",
-                bgGradient: 'linear-gradient(to right, rgba(50, 15, 5, 0.85) 0%, transparent 26%), linear-gradient(to left, rgba(50, 15, 5, 0.85) 0%, transparent 26%), linear-gradient(to bottom, rgba(25, 8, 3, 0.45) 0%, transparent 14%)',
-                blockFill: 'rgba(150, 100, 80, 0.7)',
-                blockStroke: 'rgba(255, 150, 50, 0.9)',
-                particleColors: ['#ff5500', '#ffd700', '#aaaaaa', '#ffffff'],
+                shapeType: "mixed",
+                bgGradient: 'linear-gradient(to right, rgba(0, 20, 60, 0.82) 0%, transparent 26%), linear-gradient(to left, rgba(0, 20, 60, 0.82) 0%, transparent 26%), linear-gradient(to bottom, rgba(0, 10, 30, 0.45) 0%, transparent 14%)',
+                blockFill: 'rgba(180, 220, 255, 0.4)',
+                blockStroke: 'rgba(255, 255, 255, 0.85)',
+                particleColors: ['#ffffff', '#e0f0ff', '#b0d0ff', '#aaddff'],
                 handAura: ['rgba(255, 100, 0, 0.8)', 'rgba(255, 50, 0, 0.5)', 'rgba(255, 0, 0, 0)'],
                 handCore: '#ffff00',
                 hpMultiplier: 1.5
@@ -1228,7 +1234,7 @@
                 name: "Lv.3 다이아몬드 성",
                 weapon: "광선검",
                 weaponIcon: "🗡️",
-                shapeType: "polygon",
+                shapeType: "mixed",
                 bgGradient: 'linear-gradient(to right, rgba(50, 0, 70, 0.85) 0%, transparent 26%), linear-gradient(to left, rgba(50, 0, 70, 0.85) 0%, transparent 26%), linear-gradient(to bottom, rgba(25, 0, 40, 0.45) 0%, transparent 14%)',
                 blockFill: 'rgba(255, 150, 255, 0.4)',
                 blockStroke: 'rgba(255, 200, 255, 0.9)',
@@ -1276,21 +1282,17 @@
               initVel: ()  => ({ x: (Math.random() - 0.5) * 10, y: 0 }),
               angVel:  ()  => (Math.random() - 0.5) * 0.3 },
 
-            // Lv.2 우주 운석: 위에서 내려와 바닥/벽에서 계속 튕김
-            { gravity: 0.18, wallR: 0.475, addTop: false,
-              bodyOpts: (sf) => ({ restitution: 0.47, friction: 0.0, frictionAir: 0.0002, density: 0.004 * Math.pow(sf, 2.0) }),
-              initVel: ()  => ({
-                  x: (Math.random() - 0.5) * 8,
-                  y: 4 + Math.random() * 4   // 확실히 아래로 내려오는 초기 속도
-              }),
-              angVel: ()  => (Math.random() - 0.5) * 0.5 },
+            // Lv.2 눈밭: Lv.1과 같은 물리
+            { gravity: 1.0,  wallR: 0.1,  addTop: false,
+              bodyOpts: (sf) => ({ restitution: 0.35, friction: 0.25, frictionAir: 0.015, density: 0.05 * Math.pow(sf, 4.0) }),
+              initVel: ()  => ({ x: (Math.random() - 0.5) * 10, y: 0 }),
+              angVel:  ()  => (Math.random() - 0.5) * 0.3 },
 
-            // Lv.3 다이아몬드: 탄성 있게 사방팔방 튕김
-            { gravity: 0.12, wallR: 0.65, addTop: true,
-              bodyOpts: (sf) => ({ restitution: 0.65, friction: 0.0, frictionAir: 0.003, density: 0.003 * Math.pow(sf, 1.8) }),
-              initVel: ()  => { const a = Math.random() * Math.PI * 2, s = 5 + Math.random() * 5;
-                                return { x: Math.cos(a) * s, y: Math.sin(a) * s }; },
-              angVel:  ()  => (Math.random() - 0.5) * 0.4 },
+            // Lv.3: Lv.1과 같은 물리
+            { gravity: 1.0,  wallR: 0.1,  addTop: false,
+              bodyOpts: (sf) => ({ restitution: 0.35, friction: 0.25, frictionAir: 0.015, density: 0.05 * Math.pow(sf, 4.0) }),
+              initVel: ()  => ({ x: (Math.random() - 0.5) * 10, y: 0 }),
+              angVel:  ()  => (Math.random() - 0.5) * 0.3 },
         ];
 
         // 파편 효과
@@ -1705,37 +1707,59 @@
             let size         = 60 * scaleFactor;
             const W = canvasElement.width, H = canvasElement.height;
 
-            // 스테이지별 스폰 위치
+            // 스테이지별 스폰 위치 및 형태
             let x, y;
-            if (stage === 2) {
-                // Lv.3: 4면 어디서든 랜덤 진입
-                const edge = Math.floor(Math.random() * 4);
-                if      (edge === 0) { x = -size;    y = Math.random() * H; }          // 왼쪽
-                else if (edge === 1) { x = W + size; y = Math.random() * H; }          // 오른쪽
-                else if (edge === 2) { x = Math.random() * W; y = -size; }             // 위
-                else                 { x = Math.random() * W; y = H + size; }          // 아래
+            const options = phys.bodyOpts(scaleFactor);
+            let block;
+            let customVelocitySet = false;
+
+            if (stage === 1 || stage === 2) {
+                // Lv.2/3: 동그란 눈덩이(좌우 포물선) or 네모 블록(위에서 낙하)
+                // Lv.2: clear rect + snow_round circle
+                // Lv.3: clear rect + snow rect + snow_round circle
+                const roundChance = stage === 2 ? 0.4 : 0.5;
+                const isRound = Math.random() < roundChance;
+                const mg2 = size + 50;
+                if (isRound) {
+                    // 동그란 눈덩이: 상단 좌/우에서 안쪽으로 리니어하게 진입
+                    const fromLeft = Math.random() < 0.5;
+                    x = fromLeft ? 5 : W - 5;
+                    y = 5 + Math.random() * H * 0.15;
+                    block = Bodies.circle(x, y, size / 2, options);
+                    // 중력 무시 — 리니어한 직선 포물선
+                    Body.set(block, 'isStatic', false);
+                    block.ignoreGravity = true;
+                    const targetX = W * 0.2 + Math.random() * W * 0.6;
+                    const targetY = H * 0.4 + Math.random() * H * 0.4;
+                    const dx = targetX - x;
+                    const dy = targetY - y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const linearSpd = 4 + Math.random() * 4;
+                    Body.setVelocity(block, { x: dx / dist * linearSpd, y: dy / dist * linearSpd });
+                    Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.3);
+                    block.isRoundSnow = true;
+                } else {
+                    // 네모 블록: 위에서 낙하 (Lv.1과 동일)
+                    x = mg2 + Math.random() * (W - mg2 * 2);
+                    y = -size - 100;
+                    block = Bodies.rectangle(x, y, size, size, options);
+                }
+                customVelocitySet = isRound; // 원형만 속도 직접 설정
+
             } else {
+                // Lv.1: 위에서 낙하
                 const margin = size + 50;
                 x = margin + Math.random() * (W - margin * 2);
                 y = -size - 100;
-            }
-
-            const options = phys.bodyOpts(scaleFactor);
-
-            let block;
-            if (stageData.shapeType === 'rect') {
                 block = Bodies.rectangle(x, y, size, size, options);
-            } else if (stageData.shapeType === 'circle') {
-                block = Bodies.circle(x, y, size / 2, options);
-            } else {
-                const sides = Math.floor(Math.random() * 4) + 4;
-                block = Bodies.polygon(x, y, sides, size / 2, options);
             }
 
-            // 초기 속도 & 회전 (스테이지별)
-            const vel = phys.initVel();
-            Body.setVelocity(block, vel);
-            Body.setAngularVelocity(block, phys.angVel());
+            // 초기 속도 & 회전
+            if (!customVelocitySet) {
+                const vel = phys.initVel();
+                Body.setVelocity(block, vel);
+                Body.setAngularVelocity(block, phys.angVel());
+            }
 
             block.isBlock         = true;
             block.maxHp           = Math.max(1, Math.floor(scaleFactor * stageData.hpMultiplier));
@@ -1758,8 +1782,8 @@
                 Body.set(block, 'restitution', 0.01);
                 Body.set(block, 'friction', 1.0);
                 Body.set(block, 'frictionAir', 0.15);  // 공기저항 높여서 안 튀게
-            } else if (stage === 1 && rng < 0.22) {
-                // 얼음1 블록 (스테이지2 전용, 10%) - 터뜨리면 주변 영역 7초간 파워 1/5
+            } else if (stage === 2 && rng < 0.22) {
+                // 얼음1 블록 (스테이지3 전용, 10%) - 터뜨리면 주변 영역 7초간 파워 1/5
                 block.blockType = 'ice1';
                 block.hp    = 3;
                 block.maxHp = 3;
@@ -1768,28 +1792,31 @@
                 Body.set(block, 'frictionAir', 0.15);
             } else {
                 block.blockType = 'normal';
-                // 스테이지별 블록 배리에이션
-                const allVariants = [
-                    { id: 0, name: 'clear',   densityMul: 1.0 },  // 투명 얼음
-                    { id: 1, name: 'snow',    densityMul: 4.0 },  // 눈덩이 (무게감 강화)
-                    { id: 2, name: 'frost',   densityMul: 5.0 },  // 서리 (무거움)
-                    { id: 4, name: 'crystal', densityMul: 0.8 },  // 크리스탈
-                ];
-                const stageVariants = [
-                    [allVariants[0], allVariants[1]],  // Lv.1: 투명 얼음, 눈덩이
-                    [allVariants[2], allVariants[1]],  // Lv.2: 서리, 눈덩이
-                    [allVariants[3]],                  // Lv.3: 크리스탈
-                ];
-                const pool = stageVariants[stage] || stageVariants[0];
-                const v = pool[Math.floor(Math.random() * pool.length)];
-                block.iceVariant = v.id;
-                // 무게 보정
-                Body.set(block, 'density', block.density * v.densityMul);
-                // 무거운 블록(snow, 서리)은 안 튕기고 묵직하게
-                if (v.id === 1 || v.id === 2) {
-                    Body.set(block, 'restitution', 0.01);
-                    Body.set(block, 'friction', 1.0);
-                    Body.set(block, 'frictionAir', 0.12);
+                if (block.isRoundSnow) {
+                    // 동그란 눈덩이 (모든 스테이지 공통)
+                    block.iceVariant = 5; // snow_round
+                    Body.set(block, 'density', block.density * 3.0);
+                    Body.set(block, 'restitution', 0.2);
+                    Body.set(block, 'friction', 0.5);
+                    Body.set(block, 'frictionAir', 0.01);
+                } else {
+                    // 네모 블록 스테이지별 배리에이션
+                    const allVariants = [
+                        { id: 0, name: 'clear', densityMul: 1.0 },
+                        { id: 1, name: 'snow',  densityMul: 4.0 },
+                    ];
+                    // Lv.1/3: clear+snow, Lv.2: clear만 (동그란 눈덩이가 snow 역할)
+                    const pool = stage === 1
+                        ? [allVariants[0]]
+                        : [allVariants[0], allVariants[1]];
+                    const v = pool[Math.floor(Math.random() * pool.length)];
+                    block.iceVariant = v.id;
+                    Body.set(block, 'density', block.density * v.densityMul);
+                    if (v.id === 1) {
+                        Body.set(block, 'restitution', 0.01);
+                        Body.set(block, 'friction', 1.0);
+                        Body.set(block, 'frictionAir', 0.12);
+                    }
                 }
             }
 
@@ -2256,20 +2283,22 @@
             },
             {
                 blocks: [
-                    { icon: '🌨️', name: '서리', desc: '단단하고 무거워요!', color: '#4488ff' },
-                    { icon: '', img: 'graphic/casualnobg/s1_snow_100.png', name: '눈덩이', desc: '무겁고 묵직해요!', color: '#ffffff' }
+                    { icon: '', img: 'graphic/casualnobg/s1_clear_100.png', name: '네모 얼음', desc: '위에서 떨어져요!', color: '#b0e0e6' },
+                    { icon: '', img: 'graphic/casualnobg/s1_snow_round_100.png', name: '동그란 눈덩이', desc: '좌우에서 포물선으로!', color: '#ffffff' }
                 ],
                 items: [
-                    { icon: '⭐', name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!', color: '#ffd700' },
-                    { icon: '🧊', name: '얼음1', desc: '조심! 주변이 7초간 얼어붙어요!', color: '#66ccff' }
+                    { icon: '⭐', name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!', color: '#ffd700' }
                 ]
             },
             {
                 blocks: [
-                    { icon: '💠', name: '크리스탈', desc: '반짝이며 날아다녀요!', color: '#cc88ff' }
+                    { icon: '', img: 'graphic/casualnobg/s1_clear_100.png', name: '네모 얼음', desc: '위에서 떨어져요!', color: '#b0e0e6' },
+                    { icon: '', img: 'graphic/casualnobg/s1_snow_100.png', name: '네모 눈덩이', desc: '묵직하게 쿵!', color: '#ffffff' },
+                    { icon: '', img: 'graphic/casualnobg/s1_snow_round_100.png', name: '동그란 눈덩이', desc: '좌우에서 포물선으로!', color: '#ffffff' }
                 ],
                 items: [
-                    { icon: '⭐', name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!', color: '#ffd700' }
+                    { icon: '⭐', name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!', color: '#ffd700' },
+                    { icon: '🧊', name: '얼음1', desc: '조심! 주변이 7초간 얼어붙어요!', color: '#66ccff' }
                 ]
             }
         ];
@@ -2517,6 +2546,15 @@
                 }
             }
 
+            // ignoreGravity 블록: 중력 상쇄 (리니어 이동)
+            for (const b of Composite.allBodies(world)) {
+                if (b.ignoreGravity) {
+                    Body.applyForce(b, b.position, {
+                        x: 0,
+                        y: -engine.gravity.y * engine.gravity.scale * b.mass
+                    });
+                }
+            }
             Engine.update(engine, dt * 1000);
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
@@ -2663,110 +2701,17 @@
                         }
                     }
 
-                // ── Lv.3 전용: 속도 유지 & 상하좌우 랜덤 방향 ──
-                if (currentStageIndex === 2) {
-                    b.nudgeTimer = (b.nudgeTimer || 0) + dt;
-
-                    const spd = Math.hypot(b.velocity.x, b.velocity.y);
-
-                    // 속도가 일정 이하로 떨어지면 즉시 랜덤 방향으로 재점화
-                    if (spd < 3) {
-                        const a = Math.random() * Math.PI * 2;
-                        const s = 5 + Math.random() * 4;
-                        Body.setVelocity(b, { x: Math.cos(a) * s, y: Math.sin(a) * s });
-                        Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.5);
-                        b.nudgeTimer = 0;
-                    }
-                    // 4~7초마다 방향을 살짝 틀어서 예측 불가능하게
-                    else if (b.nudgeTimer > 4.0 + Math.random() * 3.0) {
-                        const a = Math.random() * Math.PI * 2;
-                        const boost = 2 + Math.random() * 2;
-                        Body.applyForce(b, b.position, {
-                            x: Math.cos(a) * boost * b.mass,
-                            y: Math.sin(a) * boost * b.mass
-                        });
-                        Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.4);
-                        b.nudgeTimer = 0;
-                    }
-
-                    // 속도 상한 제한 (가속 누적 방지)
-                    const MAX_SPEED = 14;
-                    if (spd > MAX_SPEED) {
-                        const ratio = MAX_SPEED / spd;
-                        Body.setVelocity(b, { x: b.velocity.x * ratio, y: b.velocity.y * ratio });
-                    }
-
-                    // addTop: true 이므로 4면 벽이 있음 - 화면 밖 탈출 방지용 클램프
-                    const W = canvasElement.width, H = canvasElement.height;
-                    const margin = b.rectWidth * 0.5;
-                    if (b.position.x < margin) {
-                        Body.setPosition(b, { x: margin, y: b.position.y });
-                        Body.setVelocity(b, { x: Math.abs(b.velocity.x), y: b.velocity.y });
-                    } else if (b.position.x > W - margin) {
-                        Body.setPosition(b, { x: W - margin, y: b.position.y });
-                        Body.setVelocity(b, { x: -Math.abs(b.velocity.x), y: b.velocity.y });
-                    }
-                    if (b.position.y < margin) {
-                        Body.setPosition(b, { x: b.position.x, y: margin });
-                        Body.setVelocity(b, { x: b.velocity.x, y: Math.abs(b.velocity.y) });
-                    } else if (b.position.y > H - margin) {
-                        Body.setPosition(b, { x: b.position.x, y: H - margin });
-                        Body.setVelocity(b, { x: b.velocity.x, y: -Math.abs(b.velocity.y) });
-                    }
-
-                } else if (currentStageIndex === 1) {
-                    // Lv.2: 속도가 너무 떨어지면 에너지 재주입
-                    const spd = Math.hypot(b.velocity.x, b.velocity.y);
-                    const MIN_SPEED = 4;
-                    if (spd < MIN_SPEED) {
-                        // 현재 방향을 유지하면서 속도만 올림 (자연스럽게)
-                        const angle = spd > 0.5
-                            ? Math.atan2(b.velocity.y, b.velocity.x)
-                            : Math.random() * Math.PI * 2;
-                        const boost = MIN_SPEED + Math.random() * 2.5;
-                        Body.setVelocity(b, {
-                            x: Math.cos(angle) * boost,
-                            y: Math.sin(angle) * boost
-                        });
-                    }
-                    const W2 = canvasElement.width, H2 = canvasElement.height;
-                    const mg = b.rectWidth * 0.5;
-
-                    // 화면 진입 감지
-                    if (!b.hasEnteredScreen && b.position.y > mg && b.position.x > 0 && b.position.x < W2) {
-                        b.hasEnteredScreen = true;
-                    }
-
-                    // 진입 후 화면 밖으로 나가지 못하게 반사
-                    if (b.hasEnteredScreen) {
-                        if (b.position.y < mg) {
-                            Body.setPosition(b, { x: b.position.x, y: mg });
-                            Body.setVelocity(b, { x: b.velocity.x, y: Math.abs(b.velocity.y) });
-                        }
-                        if (b.position.x < mg) {
-                            Body.setPosition(b, { x: mg, y: b.position.y });
-                            Body.setVelocity(b, { x: Math.abs(b.velocity.x), y: b.velocity.y });
-                        }
-                        if (b.position.x > W2 - mg) {
-                            Body.setPosition(b, { x: W2 - mg, y: b.position.y });
-                            Body.setVelocity(b, { x: -Math.abs(b.velocity.x), y: b.velocity.y });
-                        }
-                        if (b.position.y > H2 - mg) {
-                            Body.setPosition(b, { x: b.position.x, y: H2 - mg });
-                            Body.setVelocity(b, { x: b.velocity.x, y: -Math.abs(b.velocity.y) });
-                        }
-                    } else if (b.position.y > H2 + mg * 2) {
-                        Composite.remove(world, b);
-                    }
-
-                } else {
-                    // Lv.1: 바닥에서 멈춘 블럭 제거
-                    if (b.timeSinceSpawn > 20.0 && Math.abs(b.velocity.y) < 0.5) {
-                        spawnShatter(b.position.x, b.position.y, 10);
-                        Composite.remove(world, b);
-                    }
-                    if (b.position.y > canvasElement.height + 600) Composite.remove(world, b);
+                // 리니어 눈덩이: 속도가 줄면 중력 복원 (자연스럽게 떨어짐)
+                if (b.ignoreGravity && Math.hypot(b.velocity.x, b.velocity.y) < 1.5) {
+                    b.ignoreGravity = false;
                 }
+
+                // 바닥에서 멈춘 블럭 제거 (모든 스테이지 공통)
+                if (b.timeSinceSpawn > 20.0 && Math.abs(b.velocity.y) < 0.5) {
+                    spawnShatter(b.position.x, b.position.y, 10);
+                    Composite.remove(world, b);
+                }
+                if (b.position.y > canvasElement.height + 600) Composite.remove(world, b);
             }
 
             // 블럭 렌더링
@@ -2791,9 +2736,9 @@
 
                 let hpRatio = Math.max(0, b.hp / b.maxHp);
 
-                // ── s1 이미지 블록 렌더링 (clear/snow/glacier) ──
+                // ── s1 이미지 블록 렌더링 (clear/snow/snow_round) ──
                 // 피버 모드: 모든 블록을 clear_25 (깨지기 직전) 이미지로 표시
-                const s1ImgVariant = (currentStageIndex === 0 && b.blockType === 'normal') ? variantToType[b.iceVariant || 0] : null;
+                const s1ImgVariant = ((currentStageIndex === 0 || currentStageIndex === 1) && b.blockType === 'normal') ? variantToType[b.iceVariant || 0] : null;
                 if (s1ImgVariant) {
                     const img = isFeverMode
                         ? s1BlockImgs['clear']['25']
@@ -2802,6 +2747,14 @@
                         canvasCtx.save();
                         canvasCtx.translate(b.position.x, b.position.y);
                         canvasCtx.rotate(b.angle);
+
+                        // snow_round: 원형 클립으로 렌더링
+                        if (s1ImgVariant === 'snow_round') {
+                            const r = b.rectWidth / 2 * 1.1;
+                            canvasCtx.beginPath();
+                            canvasCtx.arc(0, 0, r, 0, Math.PI * 2);
+                            canvasCtx.clip();
+                        }
 
                         if (isFeverMode) {
                             // 피버: 깜빡깜빡 + 색상 시프트
@@ -3088,6 +3041,18 @@
         // 시작
         // -------------------------
         let cameraStarted = false;
+
+        // 임시 레벨 선택
+        document.querySelectorAll('.lvl-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentStageIndex = parseInt(btn.dataset.lv);
+                document.querySelectorAll('.lvl-btn').forEach(b => b.style.opacity = '0.4');
+                btn.style.opacity = '1';
+            });
+        });
+        // 기본 선택 표시
+        document.querySelector('.lvl-btn[data-lv="0"]').style.opacity = '1';
+        document.querySelectorAll('.lvl-btn:not([data-lv="0"])').forEach(b => b.style.opacity = '0.4');
 
         startButton.addEventListener('click', async () => {
             startButton.style.display = 'none';
