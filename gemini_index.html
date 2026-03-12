@@ -1096,6 +1096,7 @@
         let particles = [];
         let bodyPoints = [];
         let prevBodyPos = {}; // id -> { x, y } 이전 프레임 위치 추적
+        let hitFlashMap = {}; // id -> { timer, maxTimer } 손/발 타격 플래시
         let blockSpawnTimer = 0;
 
         // 폭탄 충격파 이펙트
@@ -1217,9 +1218,9 @@
         });
 
         function getIce1BlockImg(hpRatio) {
-            if (hpRatio > 0.75) return ice1BlockImgs['100'];
-            if (hpRatio > 0.50) return ice1BlockImgs['75'];
-            if (hpRatio > 0.25) return ice1BlockImgs['50'];
+            // 3히트 체계: 3/3→100, 2/3→50, 1/3→25
+            if (hpRatio > 0.66) return ice1BlockImgs['100'];
+            if (hpRatio > 0.33) return ice1BlockImgs['50'];
             return ice1BlockImgs['25'];
         }
 
@@ -1700,7 +1701,7 @@
             ctx.restore();
         }
 
-        function drawWeapon(ctx, p, stageIdx, fever, t) {
+        function drawWeapon(ctx, p, stageIdx, fever, t, hitFlash) {
             // 얼음 디버프 영역 안이면 이펙트 절반 크기
             const inIce = !fever && isInIceZone(p.x, p.y);
             const r = inIce ? p.radius * 0.5 : p.radius;
@@ -1731,6 +1732,27 @@
             if (stageIdx === 0) drawIceFist(ctx, p.x, p.y, r, t);
             else if (stageIdx === 1) drawFireFist(ctx, p.x, p.y, r, t);
             else drawLightningBlade(ctx, p.x, p.y, r, t);
+
+            // 타격 순간 손/발 번쩍임 오버레이
+            if (hitFlash) {
+                const ft = hitFlash.timer / hitFlash.maxTimer; // 1→0
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+
+                // 밝은 글로우 원 (빠르게 팽창 후 사라짐)
+                const expand = 1 + (1 - ft) * 0.4; // 살짝 커지면서 사라짐
+                const glowR = r * 1.2 * expand;
+                const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowR);
+                glow.addColorStop(0, `rgba(255, 255, 255, ${ft * 0.7})`);
+                glow.addColorStop(0.4, `rgba(255, 255, 255, ${ft * 0.3})`);
+                glow.addColorStop(1, `rgba(255, 255, 255, 0)`);
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            }
         }
 
         function spawnBlock() {
@@ -2668,6 +2690,9 @@
                             const contactY = p.y + hitDirY * p.radius * 0.7;
                             spawnImpactBurst(contactX, contactY, hitDirX, hitDirY, sf);
 
+                            // 3.5) 손/발 타격 플래시 — 때리는 순간 손이 번쩍 빛남
+                            hitFlashMap[p.id] = { timer: 0.15 + weight * 0.05, maxTimer: 0.15 + weight * 0.05 };
+
                             // 4) 타격 순간 플래시 — 큰 블록일수록 강하게
                             if (!isFeverMode) flashAlpha = Math.max(flashAlpha, 0.08 + weight * 0.12);
 
@@ -2818,15 +2843,16 @@
                     if (starImg && starImg.complete) {
                         const imgSize = Math.max(b.rectWidth, b.rectHeight) * 1.3;
                         canvasCtx.save();
+                        canvasCtx.translate(b.position.x, b.position.y);
+                        canvasCtx.rotate(b.angle);
                         canvasCtx.globalAlpha = 1.0;
                         canvasCtx.shadowColor = '#ffe000';
                         canvasCtx.shadowBlur = 25;
-                        canvasCtx.drawImage(starImg, b.position.x - imgSize / 2, b.position.y - imgSize / 2, imgSize, imgSize);
-                        // hitFlash
+                        canvasCtx.drawImage(starImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
                         if (b.hitFlash > 0) {
                             canvasCtx.globalAlpha = b.hitFlash * 0.5;
                             canvasCtx.filter = 'brightness(3)';
-                            canvasCtx.drawImage(starImg, b.position.x - imgSize / 2, b.position.y - imgSize / 2, imgSize, imgSize);
+                            canvasCtx.drawImage(starImg, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
                             canvasCtx.filter = 'none';
                         }
                         canvasCtx.restore();
@@ -2835,22 +2861,23 @@
                     continue;
                 }
 
-                // ── 얼음1 블록: 이미지로만 렌더링 (사각형/균열 생략) ──
+                // ── 얼음1 블록: 이미지로만 렌더링 (정사각형, 사각형/균열 생략) ──
                 if (b.blockType === 'ice1' && !isFeverMode) {
                     const ice1HpRatio = b.hp / b.maxHp;
                     const ice1Img = getIce1BlockImg(ice1HpRatio);
                     if (ice1Img && ice1Img.complete) {
                         const imgSize = Math.max(b.rectWidth, b.rectHeight) * 1.3;
                         canvasCtx.save();
+                        canvasCtx.translate(b.position.x, b.position.y);
+                        canvasCtx.rotate(b.angle);
                         canvasCtx.globalAlpha = 1.0;
                         canvasCtx.shadowColor = '#00ccff';
                         canvasCtx.shadowBlur = 25;
-                        canvasCtx.drawImage(ice1Img, b.position.x - imgSize / 2, b.position.y - imgSize / 2, imgSize, imgSize);
-                        // hitFlash
+                        canvasCtx.drawImage(ice1Img, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
                         if (b.hitFlash > 0) {
                             canvasCtx.globalAlpha = b.hitFlash * 0.5;
                             canvasCtx.filter = 'brightness(3)';
-                            canvasCtx.drawImage(ice1Img, b.position.x - imgSize / 2, b.position.y - imgSize / 2, imgSize, imgSize);
+                            canvasCtx.drawImage(ice1Img, -imgSize / 2, -imgSize / 2, imgSize, imgSize);
                             canvasCtx.filter = 'none';
                         }
                         canvasCtx.restore();
@@ -3048,9 +3075,15 @@
                 canvasCtx.restore();
             }
 
+            // 손/발 히트 플래시 타이머 감소
+            for (const id in hitFlashMap) {
+                hitFlashMap[id].timer -= dtRaw;
+                if (hitFlashMap[id].timer <= 0) delete hitFlashMap[id];
+            }
+
             // 손/발 위에 무기 이펙트 그리기
             for (let p of bodyPoints) {
-                drawWeapon(canvasCtx, p, currentStageIndex, isFeverMode, gameTime);
+                drawWeapon(canvasCtx, p, currentStageIndex, isFeverMode, gameTime, hitFlashMap[p.id]);
             }
 
             for (let i = particles.length - 1; i >= 0; i--) {
