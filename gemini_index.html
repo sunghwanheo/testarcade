@@ -2469,7 +2469,7 @@
 
         pose.setOptions({
             modelComplexity: 1,
-            smoothLandmarks: true,
+            smoothLandmarks: false,
             minDetectionConfidence: 0.6,
             minTrackingConfidence: 0.6
         });
@@ -2633,13 +2633,14 @@
                 b.timeSinceSpawn += dt;
                 if (b.hitCooldown > 0) b.hitCooldown -= dt;
 
-                // 타격 검사 — 밖에서 안으로 진입하는 순간만 히트
+                // 타격 검사 — 움직임이 있을 때만 히트
                 for (let p of bodyPoints) {
                     let dx = b.position.x - p.x;
                     let dy = b.position.y - p.y;
                     let dist = Math.sqrt(dx * dx + dy * dy);
 
-                    if (dist < p.radius + (b.rectWidth / 2) && b.hitCooldown <= 0) {
+                    const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+                    if (dist < p.radius + (b.rectWidth / 2) && b.hitCooldown <= 0 && speed > 20) {
 
                             // 무쌍(피버 모드)일 경우 데미지가 무한대!
                             // 얼음 디버프 영역 안이면 파워 1/5 (피버 모드엔 무시)
@@ -2654,7 +2655,7 @@
                             b.hp -= damage;
 
                             // 타격 쿨다운 적용. 피버일때는 바로바로 터지게 짧게.
-                            b.hitCooldown = isFeverMode ? 0.05 : 0.75;
+                            b.hitCooldown = isFeverMode ? 0.05 : 0.2;
 
                             const sf = b.scaleFactor || 1; // 1~7
                             const weight = Math.min(sf / 4, 1.5); // 0.25~1.5 무게감 계수
