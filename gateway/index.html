@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Arcade - Game Gateway</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a0a2e 0%, #1a1a4e 50%, #0a0a2e 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #ff6b6b);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 3s linear infinite;
+        }
+
+        @keyframes shimmer {
+            to { background-position: 200% center; }
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: #aaa;
+            margin-bottom: 50px;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .game-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .game-card:hover {
+            transform: translateY(-8px);
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .game-icon {
+            font-size: 4rem;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .game-card:nth-child(1) .game-icon { background: linear-gradient(135deg, #ff6b6b33, #ff6b6b11); }
+        .game-card:nth-child(2) .game-icon { background: linear-gradient(135deg, #ffd93d33, #ffd93d11); }
+        .game-card:nth-child(3) .game-icon { background: linear-gradient(135deg, #6bcb7733, #6bcb7711); }
+        .game-card:nth-child(4) .game-icon { background: linear-gradient(135deg, #4d96ff33, #4d96ff11); }
+        .game-card:nth-child(5) .game-icon { background: linear-gradient(135deg, #e06bff33, #e06bff11); }
+
+        .game-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .game-author {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .game-desc {
+            font-size: 0.95rem;
+            color: #bbb;
+            line-height: 1.5;
+        }
+
+        .play-btn {
+            margin-top: auto;
+            padding: 10px 30px;
+            border-radius: 25px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: transparent;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .game-card:hover .play-btn {
+            background: white;
+            color: #0a0a2e;
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 2rem; }
+            .game-grid { grid-template-columns: 1fr; gap: 20px; }
+            .game-card { padding: 20px; }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>ACTIVE ARCADE</h1>
+    <p class="subtitle">게임을 선택하고 플레이하세요!</p>
+
+    <div class="game-grid">
+        <a class="game-card" href="https://units-comm-definition-plastics.trycloudflare.com/balloon_pang" target="_blank">
+            <div class="game-icon">🎈</div>
+            <div class="game-title">Balloon Pang</div>
+            <div class="game-desc">풍선 터뜨리기! 몸을 움직여 풍선을 팡팡 터뜨려보세요.</div>
+            <div class="play-btn">PLAY</div>
+        </a>
+
+        <a class="game-card" href="https://secretary-distinct-chicago-seven.trycloudflare.com/" target="_blank">
+            <div class="game-icon">💨</div>
+            <div class="game-title">방귀대장 뿡뿡이</div>
+            <div class="game-desc">방귀대장 뿡뿡이! 웃음 가득한 아케이드 게임에 도전하세요.</div>
+            <div class="play-btn">PLAY</div>
+        </a>
+
+        <a class="game-card" href="https://sunghwanheo.github.io/testarcade/gemini_index.html" target="_blank">
+            <div class="game-icon">🧊</div>
+            <div class="game-title">Ice Breaker</div>
+            <div class="game-desc">물리 엔진 기반 얼음 깨기 게임! 몸을 움직여 얼음을 부숴보세요.</div>
+            <div class="play-btn">PLAY</div>
+        </a>
+
+        <a class="game-card" href="https://station-aye-clearance-trademarks.trycloudflare.com/" target="_blank">
+            <div class="game-icon">🐹</div>
+            <div class="game-title">두더지 잡기</div>
+            <div class="game-desc">두더지를 잡아라! 올라오는 두더지를 빠르게 잡아보세요.</div>
+            <div class="play-btn">PLAY</div>
+        </a>
+
+        <a class="game-card" href="https://jeklinkimm.github.io/lion-lettuce/" target="_blank">
+            <div class="game-icon">🦁</div>
+            <div class="game-title">Lion Lettuce</div>
+            <div class="game-desc">사자와 상추의 만남! 재미있는 액션 게임에 도전해보세요.</div>
+            <div class="play-btn">PLAY</div>
+        </a>
+    </div>
+</body>
+
+</html>
