@@ -1148,7 +1148,7 @@
         }
 
         // 얼음1 디버프 시스템 (스테이지2 전용)
-        let iceDebuffs = []; // { x, y, radius, remainTime, alpha }
+        let iceDebuffs = []; // { x, y, radius, remainTime, alpha, angle }
         const ICE_DEBUFF_RADIUS = 350;
         const ICE_DEBUFF_DURATION = 7.0;
         const ICE_DAMAGE_MULTIPLIER = 0.2; // 1/5 파워
@@ -1158,7 +1158,8 @@
                 x, y,
                 radius: ICE_DEBUFF_RADIUS,
                 remainTime: ICE_DEBUFF_DURATION,
-                alpha: 1.0
+                alpha: 1.0,
+                angle: 0
             });
         }
 
@@ -1201,6 +1202,25 @@
             if (hpRatio > 0.50) return starBlockImgs['75'];
             if (hpRatio > 0.25) return starBlockImgs['50'];
             return starBlockImgs['25'];
+        }
+
+        // 얼음1 디버프 존 이미지 프리로드
+        const ice1ZoneImg = new Image();
+        ice1ZoneImg.src = 'graphic/casualnobg/ice1_zone.png';
+
+        // 얼음1 블록 이미지 프리로드
+        const ice1BlockImgs = {};
+        ['100', '75', '50', '25'].forEach(hp => {
+            const img = new Image();
+            img.src = `graphic/casualnobg/ice1_${hp}.png`;
+            ice1BlockImgs[hp] = img;
+        });
+
+        function getIce1BlockImg(hpRatio) {
+            if (hpRatio > 0.75) return ice1BlockImgs['100'];
+            if (hpRatio > 0.50) return ice1BlockImgs['75'];
+            if (hpRatio > 0.25) return ice1BlockImgs['50'];
+            return ice1BlockImgs['25'];
         }
 
         // variant id -> type name 매핑
@@ -2590,6 +2610,7 @@
             // 얼음 디버프 영역 타이머 업데이트
             for (let i = iceDebuffs.length - 1; i >= 0; i--) {
                 iceDebuffs[i].remainTime -= dt;
+                iceDebuffs[i].angle += dt * 1.2; // 초당 ~1.2라디안 회전
                 iceDebuffs[i].alpha = Math.min(1.0, iceDebuffs[i].remainTime / 1.5);
                 if (iceDebuffs[i].remainTime <= 0) {
                     iceDebuffs.splice(i, 1);
@@ -2814,6 +2835,30 @@
                     continue;
                 }
 
+                // ── 얼음1 블록: 이미지로만 렌더링 (사각형/균열 생략) ──
+                if (b.blockType === 'ice1' && !isFeverMode) {
+                    const ice1HpRatio = b.hp / b.maxHp;
+                    const ice1Img = getIce1BlockImg(ice1HpRatio);
+                    if (ice1Img && ice1Img.complete) {
+                        const imgSize = Math.max(b.rectWidth, b.rectHeight) * 1.3;
+                        canvasCtx.save();
+                        canvasCtx.globalAlpha = 1.0;
+                        canvasCtx.shadowColor = '#00ccff';
+                        canvasCtx.shadowBlur = 25;
+                        canvasCtx.drawImage(ice1Img, b.position.x - imgSize / 2, b.position.y - imgSize / 2, imgSize, imgSize);
+                        // hitFlash
+                        if (b.hitFlash > 0) {
+                            canvasCtx.globalAlpha = b.hitFlash * 0.5;
+                            canvasCtx.filter = 'brightness(3)';
+                            canvasCtx.drawImage(ice1Img, b.position.x - imgSize / 2, b.position.y - imgSize / 2, imgSize, imgSize);
+                            canvasCtx.filter = 'none';
+                        }
+                        canvasCtx.restore();
+                    }
+                    canvasCtx.restore();
+                    continue;
+                }
+
                 // ── 기존 캔버스 드로잉 (이미지 없는 블록) ──
                 // 피버 모드면 블럭도 무지개처럼 영롱하게
                 if (isFeverMode) {
@@ -2821,13 +2866,6 @@
                     canvasCtx.fillStyle = 'rgba(255, 150, 255, 0.4)';
                     canvasCtx.shadowColor = '#ff00ff';
                     canvasCtx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-                } else if (b.blockType === 'ice1') {
-                    // 얼음1 블록: 하늘색 + 흰색 맥동
-                    const pulse = 0.6 + 0.3 * Math.sin(Date.now() / 200);
-                    canvasCtx.globalAlpha = pulse;
-                    canvasCtx.fillStyle = 'rgba(100, 200, 255, 0.7)';
-                    canvasCtx.shadowColor = '#00ccff';
-                    canvasCtx.strokeStyle = 'rgba(200, 240, 255, 1.0)';
                 } else {
                     // 서브타입별 비주얼 — 같은 색, 두께로만 구분
                     const v = b.iceVariant || 0;
@@ -2865,17 +2903,6 @@
                     }
                     canvasCtx.closePath();
                     canvasCtx.fill();
-                }
-
-                if (b.blockType === 'ice1' && !isFeverMode) {
-                    const iconSize = Math.max(28, b.rectWidth * 0.4);
-                    canvasCtx.globalAlpha = 1.0;
-                    canvasCtx.font = `${iconSize}px serif`;
-                    canvasCtx.textAlign = 'center';
-                    canvasCtx.textBaseline = 'middle';
-                    canvasCtx.shadowColor = '#00ccff';
-                    canvasCtx.shadowBlur = 30;
-                    canvasCtx.fillText('🧊', b.position.x, b.position.y);
                 }
 
                 // 일반 블록: 무거운 variant(서리/빙하)는 내부 빛줄기로 구분
@@ -3005,30 +3032,19 @@
                 canvasCtx.restore();
             }
 
-            // 얼음 디버프 영역 렌더링 (하늘색 반투명 원)
+            // 얼음 디버프 영역 렌더링 (ice1_zone.png 이미지 + 회전)
             for (const ice of iceDebuffs) {
                 canvasCtx.save();
                 const a = Math.max(0, ice.alpha);
-                // 바깥 테두리
-                canvasCtx.globalAlpha = a * 0.6;
-                canvasCtx.strokeStyle = `rgba(100, 200, 255, ${a})`;
-                canvasCtx.lineWidth = 6;
-                canvasCtx.shadowColor = '#00ccff';
-                canvasCtx.shadowBlur = 40;
-                canvasCtx.beginPath();
-                canvasCtx.arc(ice.x, ice.y, ice.radius, 0, Math.PI * 2);
-                canvasCtx.stroke();
-                // 안쪽 채우기
-                canvasCtx.globalAlpha = a * 0.12;
-                canvasCtx.fillStyle = 'rgba(100, 200, 255, 1)';
-                canvasCtx.fill();
-                // 눈꽃 아이콘
-                canvasCtx.globalAlpha = a * 0.8;
-                canvasCtx.font = '40px serif';
-                canvasCtx.textAlign = 'center';
-                canvasCtx.textBaseline = 'middle';
-                canvasCtx.fillStyle = '#ffffff';
-                canvasCtx.fillText('❄️', ice.x, ice.y);
+                const zoneSize = ice.radius * 2;
+                if (ice1ZoneImg.complete) {
+                    canvasCtx.globalAlpha = a * 0.7;
+                    canvasCtx.shadowColor = '#00ccff';
+                    canvasCtx.shadowBlur = 30;
+                    canvasCtx.translate(ice.x, ice.y);
+                    canvasCtx.rotate(ice.angle);
+                    canvasCtx.drawImage(ice1ZoneImg, -zoneSize / 2, -zoneSize / 2, zoneSize, zoneSize);
+                }
                 canvasCtx.restore();
             }
 
