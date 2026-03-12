@@ -2738,7 +2738,7 @@
 
                 // ── s1 이미지 블록 렌더링 (clear/snow/snow_round) ──
                 // 피버 모드: 모든 블록을 clear_25 (깨지기 직전) 이미지로 표시
-                const s1ImgVariant = ((currentStageIndex === 0 || currentStageIndex === 1) && b.blockType === 'normal') ? variantToType[b.iceVariant || 0] : null;
+                const s1ImgVariant = (b.blockType === 'normal') ? variantToType[b.iceVariant || 0] : null;
                 if (s1ImgVariant) {
                     const img = isFeverMode
                         ? s1BlockImgs['clear']['25']
