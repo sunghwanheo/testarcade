@@ -2890,15 +2890,18 @@
                 // 신체 크기 추정: 어깨 간 거리로 손/발 반경 결정
                 const lShoulder = kps[5];
                 const rShoulder = kps[6];
-                let bodyScale = 80;
+                // 해상도 보정: 3840x2160 기준으로 스케일링
+                const resFactor = W / 3840;
+
+                let bodyScale = 80 * resFactor;
                 if (lShoulder.score > 0.3 && rShoulder.score > 0.3) {
                     bodyScale = Math.hypot(
                         (lShoulder.x - rShoulder.x) / vidW * W,
                         (lShoulder.y - rShoulder.y) / vidH * H
                     );
                 }
-                const handRadius = Math.max(40, Math.min(bodyScale * 0.6, 180));
-                const footRadius = Math.max(35, Math.min(bodyScale * 0.5, 150));
+                const handRadius = Math.max(40 * resFactor, Math.min(bodyScale * 0.6, 180 * resFactor));
+                const footRadius = Math.max(35 * resFactor, Math.min(bodyScale * 0.5, 150 * resFactor));
 
                 // 좌표 변환 (영상→화면, 거울 반전)
                 const toScreen = (kp) => ({
