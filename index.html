@@ -439,8 +439,12 @@
     <!-- 테스터 선택 -->
     <div id="testerSelect">
         <h2>나는 누구일까요?</h2>
-        <p style="color:#aaa; margin-bottom:20px; font-size:1rem;">오늘의 내 동물 친구를 골라주세요!</p>
+        <p style="color:#aaa; margin-bottom:20px; font-size:1rem;">동물 친구를 고르거나, 이름을 직접 입력하세요!</p>
         <div class="tester-grid" id="testerGrid"></div>
+        <div style="margin-top:20px; display:flex; gap:10px; justify-content:center; align-items:center;">
+            <input id="customName" type="text" placeholder="이름 입력" style="padding:14px 20px; font-size:1.2rem; border-radius:12px; border:2px solid rgba(255,255,255,0.3); background:rgba(255,255,255,0.08); color:white; width:200px; text-align:center; outline:none;">
+            <button onclick="submitCustomName()" style="padding:14px 24px; font-size:1.1rem; font-weight:700; border-radius:12px; border:2px solid #6bcb77; background:rgba(107,203,119,0.15); color:#6bcb77; cursor:pointer; transition:all 0.3s;">확인</button>
+        </div>
     </div>
 
     <!-- 게임 목록 -->
@@ -562,6 +566,16 @@
                 grid.appendChild(btn);
             });
         }
+
+        function submitCustomName() {
+            const input = document.getElementById('customName');
+            const name = input.value.trim();
+            if (!name) { input.focus(); return; }
+            selectTester(name);
+        }
+        document.getElementById('customName').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitCustomName();
+        });
 
         function selectTester(name) {
             localStorage.setItem(TESTER_KEY, name);
