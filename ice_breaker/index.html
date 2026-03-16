@@ -2444,6 +2444,7 @@
         }
 
         function showEndResult() {
+            if (typeof trackComplete === 'function') trackComplete();
             let isLastStage = (currentStageIndex >= STAGES.length - 1);
             showRewardScreen(score, isLastStage);
 
