@@ -384,9 +384,11 @@
     </style>
     <!-- 플레이 트래킹 -->
     <script src="/testarcade/tracking.js" data-game="쾅쾅 얼음깨기"></script>
-    <!-- MediaPipe files -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <!-- TensorFlow.js + MoveNet MultiPose (2인 지원) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
     <!-- Matter.js Physics Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
 </head>
@@ -1057,8 +1059,6 @@
                     bass.stop(now + beatMs / 1000 * 2);
                     bassIdx++;
                 }
-
-                // 패드 음 천천히 변경
                 pad.frequency.setTargetAtTime(cfg.notes[noteIdx % cfg.notes.length] / 2, now, 0.5);
 
                 noteIdx++;
@@ -1109,8 +1109,128 @@
         let tutorialPhaseTimer = 0;   // 단계 타이머
 
         let isWaitingStart = false;   // 시작 블록 대기 중
-        let startBlocks = [];         // 시작 블록들 (최대 3개)
+        let startBlocks = [];         // 시작 블록들 참조
         let startBlockReady = false;  // 블록이 제자리에 도착했는지
+
+        function spawnStartBlock() {
+            const W = canvasElement.width, H = canvasElement.height;
+            const scaleFactor = 4;
+            const size = 60 * scaleFactor; // 240px — 크고 잘 보임
+            
+            startBlocks = [];
+
+            if (currentStageIndex === 0) {
+                // Lv.1: 가운데, 왼쪽, 오른쪽 3개
+                const positions = [
+                    { x: W / 2, y: H / 2 },          // 중앙
+                    { x: W / 2 - size * 1.2, y: H / 2 }, // 왼쪽
+                    { x: W / 2 + size * 1.2, y: H / 2 }  // 오른쪽
+                ];
+
+                positions.forEach(pos => {
+                    const block = Bodies.rectangle(pos.x, pos.y, size, size, {
+                        isStatic: true,
+                        restitution: 0,
+                        friction: 1
+                    });
+                    setupBlock(block, size, scaleFactor);
+                    Composite.add(world, block);
+                    startBlocks.push(block);
+                });
+            } else {
+                // 상용: 기존 중앙 1개
+                const x = W / 2;
+                const y = H / 2;
+                const block = Bodies.rectangle(x, y, size, size, {
+                    isStatic: true,
+                    restitution: 0,
+                    friction: 1
+                });
+                setupBlock(block, size, scaleFactor);
+                Composite.add(world, block);
+                startBlocks.push(block);
+            }
+
+            isWaitingStart = true;
+            startBlockReady = true;
+            guidePhase = 0;
+            guideFromLeft = true;
+            guidePauseTimer = 0;
+            guideHitDone = false;
+            guidePos = null;
+        }
+
+        function setupBlock(block, size, scaleFactor) {
+            block.isBlock = true;
+            block.maxHp = 5;         // 5번 때려야 깨짐
+            block.hp = 5;
+            block.hitCooldown = 0;
+            block.timeSinceSpawn = 0;
+            block.rectWidth = size;
+            block.rectHeight = size;
+            block.scaleFactor = scaleFactor;
+            block.nudgeTimer = 0;
+            block.hasEnteredScreen = true;
+            block.blockType = 'normal';
+            block.iceVariant = 0;
+            block.isStartBlock = true; // 시작 블록 표식
+        }
+
+        function onStartBlockDestroyed() {
+            isWaitingStart = false;
+            startBlockReady = false;
+            
+            // 모든 시작 블록 제거 (동시 파괴 연출)
+            startBlocks.forEach(b => {
+                if (Composite.allBodies(world).includes(b)) {
+                    spawnShatter(b.position.x, b.position.y, 60, false);
+                    spawnImpactBurst(b.position.x, b.position.y, 0, -1, 4);
+                    playDestroy(currentStageIndex, b.blockType, b.iceVariant);
+                    Composite.remove(world, b);
+                }
+            });
+            startBlocks = [];
+
+            tutorialPhase = -1; // 튜토리얼 종료
+            isPlaying = false; // 카운트다운 중 일시정지
+
+            // 화려한 피날레 이펙트 후 카운트다운
+            screenShake(500, 10);
+            flashAlpha = 0.5;
+
+            setTimeout(() => {
+                showStagePreview(() => {
+                    // 카운트다운 끝 → 진짜 게임 시작!
+                    gameTimeLeft = 60.0;
+                    blockSpawnTimer = 1.0;
+                    isPlaying = true;
+                    if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                    lastTime = performance.now();
+                    gameLoop(lastTime);
+                    updateUI();
+                    recordPlay(); // 기록 시작
+                });
+            }, 800);
+        }
+
+        // 트래킹 스크립트 (gateway와 연동)
+        function recordPlay() {
+            const STORAGE_KEY = 'jemjem_tracking';
+            const TESTER_KEY = 'jemjem_current_tester';
+            const tester = localStorage.getItem(TESTER_KEY) || 'Unknown';
+            try {
+                const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                records.push({
+                    tester: tester,
+                    game: '쾅쾅 얼음깨기',
+                    type: 'play',
+                    time: new Date().toISOString()
+                });
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            } catch(e) {
+                console.error('Tracking failed:', e);
+            }
+        }
 
         // 가이드 장갑 애니메이션
         let guidePhase = 0;           // 0→1 이동, 1→리셋
@@ -2718,84 +2838,101 @@
         }
 
         // -------------------------
-        // MediaPipe Pose
+        // MoveNet MultiPose (2인 지원)
         // -------------------------
-        const pose = new Pose({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-            }
-        });
+        // MoveNet keypoint indices:
+        // 0:nose 1:left_eye 2:right_eye 3:left_ear 4:right_ear
+        // 5:left_shoulder 6:right_shoulder 7:left_elbow 8:right_elbow
+        // 9:left_wrist 10:right_wrist 11:left_hip 12:right_hip
+        // 13:left_knee 14:right_knee 15:left_ankle 16:right_ankle
 
-        pose.setOptions({
-            modelComplexity: 1,
-            smoothLandmarks: false,
-            minDetectionConfidence: 0.6,
-            minTrackingConfidence: 0.6
-        });
+        let detector = null;
 
-        pose.onResults((results) => {
+        async function initDetector() {
+            await tf.ready();
+            const model = poseDetection.SupportedModels.MoveNet;
+            detector = await poseDetection.createDetector(model, {
+                modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING,
+                enableSmoothing: true,
+                maxPoses: 2
+            });
+            console.log('[MoveNet MultiPose] 초기화 완료');
+        }
+
+        async function detectPoses() {
+            if (!detector || videoElement.paused) return;
+            try {
+                const poses = await detector.estimatePoses(videoElement);
+                processMultiPose(poses);
+            } catch(e) {}
+        }
+
+        function processMultiPose(poses) {
             bodyPoints = [];
-            if (results.poseLandmarks) {
-                const lms = results.poseLandmarks;
-                const W = canvasElement.width;
-                const H = canvasElement.height;
+            const W = canvasElement.width;
+            const H = canvasElement.height;
+            const vidW = videoElement.videoWidth || 1280;
+            const vidH = videoElement.videoHeight || 720;
 
-                // 화면 좌표 변환 (거울 반전)
-                const toScreen = (lm) => ({
-                    x: (1 - lm.x) * W,
-                    y: lm.y * H
+            for (let personIdx = 0; personIdx < poses.length; personIdx++) {
+                const kps = poses[personIdx].keypoints;
+                if (!kps || kps.length < 17) continue;
+
+                // 신체 크기 추정: 어깨 간 거리로 손/발 반경 결정
+                const lShoulder = kps[5];
+                const rShoulder = kps[6];
+                let bodyScale = 80;
+                if (lShoulder.score > 0.3 && rShoulder.score > 0.3) {
+                    bodyScale = Math.hypot(
+                        (lShoulder.x - rShoulder.x) / vidW * W,
+                        (lShoulder.y - rShoulder.y) / vidH * H
+                    );
+                }
+                const handRadius = Math.max(40, Math.min(bodyScale * 0.6, 180));
+                const footRadius = Math.max(35, Math.min(bodyScale * 0.5, 150));
+
+                // 좌표 변환 (영상→화면, 거울 반전)
+                const toScreen = (kp) => ({
+                    x: (1 - kp.x / vidW) * W,
+                    y: (kp.y / vidH) * H
                 });
 
-                // 두 landmark 사이의 픽셀 거리
-                const dist2D = (a, b) => {
-                    const ax = (1 - a.x) * W, ay = a.y * H;
-                    const bx = (1 - b.x) * W, by = b.y * H;
-                    return Math.hypot(ax - bx, ay - by);
+                // 고유 ID: personIdx * 100 + keypoint index
+                const base = personIdx * 100;
+
+                // 손목 → 주먹 위치 추정 (팔꿈치→손목 방향으로 연장)
+                const trackHand = (wristIdx, elbowIdx) => {
+                    const wrist = kps[wristIdx];
+                    const elbow = kps[elbowIdx];
+                    if (!wrist || wrist.score < 0.3) return null;
+                    const wPos = toScreen(wrist);
+                    // 팔꿈치가 보이면 팔꿈치→손목 방향으로 40% 연장하여 주먹 위치 추정
+                    if (elbow && elbow.score > 0.3) {
+                        const ePos = toScreen(elbow);
+                        const dx = wPos.x - ePos.x;
+                        const dy = wPos.y - ePos.y;
+                        wPos.x += dx * 0.4;
+                        wPos.y += dy * 0.4;
+                    }
+                    return { x: wPos.x, y: wPos.y, radius: handRadius, type: 'hand', id: base + wristIdx };
                 };
 
-                // 손 추적: 손목(wristIdx)과 검지(indexIdx) 사이 거리를 손 크기로 사용
-                const trackHand = (wristIdx, indexIdx, pinkyIdx) => {
-                    const wrist = lms[wristIdx];
-                    const index = lms[indexIdx];
-                    if (!wrist || !index) return null;
-                    if (wrist.visibility < 0.4 || index.visibility < 0.4) return null;
-
-                    // 손 크기: 손목~검지 픽셀 거리
-                    let handSize = dist2D(wrist, index);
-
-                    // 최소/최대 클램프 (너무 가까이/멀리 있을 때 대비)
-                    handSize = Math.max(40, Math.min(handSize, 220));
-
-                    // 중심 = 손목과 검지의 중간
-                    const cx = (1 - (wrist.x + index.x) / 2) * W;
-                    const cy = ((wrist.y + index.y) / 2) * H;
-
-                    return { x: cx, y: cy, radius: handSize, type: 'hand', id: wristIdx };
+                // 발목 = 발
+                const trackFoot = (idx) => {
+                    const kp = kps[idx];
+                    if (!kp || kp.score < 0.3) return null;
+                    const pos = toScreen(kp);
+                    return { x: pos.x, y: pos.y, radius: footRadius, type: 'foot', id: base + idx };
                 };
 
-                // 발 추적: 발목~발끝 거리를 발 크기로 사용
-                const trackFoot = (ankleIdx, toeIdx) => {
-                    const ankle = lms[ankleIdx];
-                    const toe   = lms[toeIdx];
-                    if (!ankle || !toe) return null;
-                    if (ankle.visibility < 0.4 || toe.visibility < 0.4) return null;
+                const parts = [
+                    trackHand(9, 7),   // left wrist, left elbow
+                    trackHand(10, 8),  // right wrist, right elbow
+                    trackFoot(15),  // left ankle
+                    trackFoot(16),  // right ankle
+                ].filter(Boolean);
 
-                    let footSize = dist2D(ankle, toe);
-                    footSize = Math.max(35, Math.min(footSize, 180));
-
-                    const cx = (1 - (ankle.x + toe.x) / 2) * W;
-                    const cy = ((ankle.y + toe.y) / 2) * H;
-
-                    return { x: cx, y: cy, radius: footSize, type: 'foot', id: ankleIdx };
-                };
-
-                const leftHand  = trackHand(15, 19, 17);
-                const rightHand = trackHand(16, 20, 18);
-                const leftFoot  = trackFoot(27, 31);
-                const rightFoot = trackFoot(28, 32);
-
-                const allParts = [leftHand, rightHand, leftFoot, rightFoot].filter(Boolean);
-                for (const p of allParts) {
+                for (const p of parts) {
                     const prev = prevBodyPos[p.id];
                     if (prev) {
                         p.vx = (p.x - prev.x);
@@ -2808,7 +2945,7 @@
                     bodyPoints.push(p);
                 }
             }
-        });
+        }
 
         // -------------------------
         // 게임 루프
@@ -3577,24 +3714,26 @@
 
             try {
                 if (!cameraStarted) {
+                    // 카메라 시작
+                    loadingMsg.innerText = '카메라 연결 중...';
                     const stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
-                            facingMode: "user"
-                        }
+                        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
                     });
                     videoElement.srcObject = stream;
+                    await videoElement.play();
 
-                    const camera = new Camera(videoElement, {
-                        onFrame: async () => {
-                            await pose.send({ image: videoElement });
-                        },
-                        width: 1280,
-                        height: 720
-                    });
+                    // MoveNet 초기화
+                    loadingMsg.innerText = 'AI 모델 로딩 중... (첫 로딩은 좀 걸려요)';
+                    await initDetector();
 
-                    await camera.start();
+                    // 검출 루프 (30fps)
+                    let detecting = false;
+                    setInterval(async () => {
+                        if (detecting || videoElement.paused) return;
+                        detecting = true;
+                        await detectPoses();
+                        detecting = false;
+                    }, 33);
                     cameraStarted = true;
                 }
 
