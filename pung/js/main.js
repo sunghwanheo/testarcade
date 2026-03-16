@@ -397,6 +397,7 @@ function endFever() {
 }
 
 function endGame() {
+  if (typeof trackComplete === 'function') trackComplete();
   phase = 'end';
   audio.stopBGM();
   audio.playApplause();

@@ -304,6 +304,45 @@
             position: relative;
         }
 
+        .exit-btn {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            padding: 6px 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255, 107, 107, 0.15);
+            color: #ff6b6b;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 42px;
+            height: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+        }
+        .exit-btn:hover {
+            background: rgba(255, 107, 107, 0.4);
+            transform: scale(1.15);
+        }
+        .exit-btn.clicked {
+            background: #ff6b6b;
+            color: white;
+            animation: heartPop 0.4s ease;
+        }
+        .exit-count {
+            position: absolute;
+            top: 12px;
+            left: 58px;
+            font-size: 0.85rem;
+            color: #ff6b6b;
+            font-weight: 700;
+            z-index: 2;
+        }
+
         /* ── 통계 모달 ── */
         #statsModal {
             display: none;
@@ -465,6 +504,8 @@
                 <div class="play-btn">PLAY</div>
                 <button class="want-more-btn" onclick="wantMore(event,'풍선 팡팡')">💗</button>
                 <div class="want-count" id="want-풍선 팡팡"></div>
+                <button class="exit-btn" onclick="markExit(event,'풍선 팡팡')">🚪</button>
+                <div class="exit-count" id="exit-풍선 팡팡"></div>
             </a>
 
             <a class="game-card" href="pung/index.html" target="_blank" data-game="방귀대장 뿡뿡이">
@@ -475,6 +516,8 @@
                 <div class="play-btn">PLAY</div>
                 <button class="want-more-btn" onclick="wantMore(event,'방귀대장 뿡뿡이')">💗</button>
                 <div class="want-count" id="want-방귀대장 뿡뿡이"></div>
+                <button class="exit-btn" onclick="markExit(event,'방귀대장 뿡뿡이')">🚪</button>
+                <div class="exit-count" id="exit-방귀대장 뿡뿡이"></div>
             </a>
 
             <a class="game-card" href="ice_breaker/index.html" target="_blank" data-game="쾅쾅 얼음깨기">
@@ -485,6 +528,8 @@
                 <div class="play-btn">PLAY</div>
                 <button class="want-more-btn" onclick="wantMore(event,'쾅쾅 얼음깨기')">💗</button>
                 <div class="want-count" id="want-쾅쾅 얼음깨기"></div>
+                <button class="exit-btn" onclick="markExit(event,'쾅쾅 얼음깨기')">🚪</button>
+                <div class="exit-count" id="exit-쾅쾅 얼음깨기"></div>
             </a>
 
             <a class="game-card" href="mole/index.html" target="_blank" data-game="두더지 잡기">
@@ -495,6 +540,8 @@
                 <div class="play-btn">PLAY</div>
                 <button class="want-more-btn" onclick="wantMore(event,'두더지 잡기')">💗</button>
                 <div class="want-count" id="want-두더지 잡기"></div>
+                <button class="exit-btn" onclick="markExit(event,'두더지 잡기')">🚪</button>
+                <div class="exit-count" id="exit-두더지 잡기"></div>
             </a>
 
             <a class="game-card" href="lion/index.html" target="_blank" data-game="와구와구 게임">
@@ -505,6 +552,8 @@
                 <div class="play-btn">PLAY</div>
                 <button class="want-more-btn" onclick="wantMore(event,'와구와구 게임')">💗</button>
                 <div class="want-count" id="want-와구와구 게임"></div>
+                <button class="exit-btn" onclick="markExit(event,'와구와구 게임')">🚪</button>
+                <div class="exit-count" id="exit-와구와구 게임"></div>
             </a>
         </div>
     </div>
@@ -546,6 +595,10 @@
 
         function getWantCount(tester, game) {
             return getRecords().filter(r => r.tester === tester && r.game === game && r.type === 'want_more').length;
+        }
+
+        function getExitCount(tester, game) {
+            return getRecords().filter(r => r.tester === tester && r.game === game && r.type === 'exit').length;
         }
 
         function getTotalByTester(tester) {
@@ -640,6 +693,35 @@
             document.getElementById('gameSection').style.display = 'none';
         }
 
+        // ── "이탈" 기록 ──
+        function markExit(event, game) {
+            event.preventDefault();
+            event.stopPropagation();
+            const tester = localStorage.getItem(TESTER_KEY);
+            if (!tester) return;
+
+            const records = getRecords();
+
+            // 해당 테스터+게임의 마지막 플레이 기록에서 시간 가져오기
+            let playDuration = 0;
+            for (let i = records.length - 1; i >= 0; i--) {
+                const r = records[i];
+                if (r.tester === tester && r.game === game && (!r.type || r.type === 'play')) {
+                    playDuration = r.duration || 0;
+                    break;
+                }
+            }
+
+            records.push({ tester, game, type: 'exit', time: new Date().toISOString(), duration: playDuration });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+
+            const btn = event.target;
+            btn.classList.add('clicked');
+            setTimeout(() => btn.classList.remove('clicked'), 600);
+
+            updatePlayCounts();
+        }
+
         // ── "더 하고 싶어요" 기록 ──
         function wantMore(event, game) {
             event.preventDefault();
@@ -675,6 +757,11 @@
                 if (wantEl) {
                     const wc = getWantCount(tester, game);
                     wantEl.textContent = wc > 0 ? `${wc}` : '';
+                }
+                const exitEl = document.getElementById('exit-' + game);
+                if (exitEl) {
+                    const ec = getExitCount(tester, game);
+                    exitEl.textContent = ec > 0 ? `${ec}` : '';
                 }
             });
         }
@@ -760,6 +847,43 @@
             html += `<td class="total" style="color:#4d96ff;">${fmtDur(durGrand)}</td></tr>`;
             html += '</tbody></table>';
 
+            // ── 🚪 이탈 테이블 ──
+            html += '<h3 style="margin:20px 0 10px; color:#ff6b6b;">🚪 이탈 횟수</h3>';
+            html += '<table class="stats-table"><thead><tr><th>친구</th>';
+            GAMES.forEach(g => html += `<th>${g}</th>`);
+            html += '<th class="total">합계</th></tr></thead><tbody>';
+
+            const hasExit = records.some(r => r.type === 'exit');
+            if (!hasExit) {
+                html += '<tr><td colspan="' + (GAMES.length + 2) + '" style="color:#888;">아직 기록이 없습니다</td></tr>';
+            } else {
+                const exitGameTotals = {};
+                GAMES.forEach(g => exitGameTotals[g] = 0);
+                let exitGrand = 0;
+
+                allTesters.forEach(tester => {
+                    let hasAny = false;
+                    GAMES.forEach(g => { if (getExitCount(tester, g) > 0) hasAny = true; });
+                    if (!hasAny) return;
+
+                    html += `<tr><td style="font-weight:600;">${tester}</td>`;
+                    let rowTotal = 0;
+                    GAMES.forEach(game => {
+                        const ec = getExitCount(tester, game);
+                        exitGameTotals[game] += ec;
+                        rowTotal += ec;
+                        html += `<td style="color:#ff6b6b;">${ec || '-'}</td>`;
+                    });
+                    exitGrand += rowTotal;
+                    html += `<td class="total" style="color:#ff6b6b;">${rowTotal}</td></tr>`;
+                });
+
+                html += '<tr style="border-top:2px solid rgba(255,255,255,0.3);"><td style="font-weight:700;color:#ffd93d;">합계</td>';
+                GAMES.forEach(g => html += `<td class="total" style="color:#ff6b6b;">${exitGameTotals[g] || '-'}</td>`);
+                html += `<td class="total" style="color:#ff6b6b;">${exitGrand}</td></tr>`;
+            }
+            html += '</tbody></table>';
+
             // ── 💗 더 하고 싶어요 테이블 ──
             const hasWant = records.some(r => r.type === 'want_more');
             html += '<h3 style="margin:20px 0 10px; color:#ff6ba6;">💗 더 하고 싶어요</h3>';
@@ -810,7 +934,7 @@
             let csv = '\uFEFF친구,게임,구분,시각,플레이시간(초)\n'; // BOM for Excel
             records.forEach(r => {
                 const time = new Date(r.time).toLocaleString('ko-KR');
-                const type = r.type === 'want_more' ? '더하고싶어요' : '플레이';
+                const type = r.type === 'want_more' ? '더하고싶어요' : r.type === 'exit' ? '이탈' : '플레이';
                 const dur = r.duration || '';
                 csv += `${r.tester},${r.game},${type},${time},${dur}\n`;
             });
@@ -844,6 +968,21 @@
                         .reduce((sum, r) => sum + (r.duration || 0), 0);
                     csv += ',' + dur;
                     total += dur;
+                });
+                csv += ',' + total + '\n';
+            });
+
+            // 이탈 요약
+            csv += '\n\n이탈 요약\n친구';
+            GAMES.forEach(g => csv += ',' + g);
+            csv += ',합계\n';
+            activTesters.forEach(tester => {
+                csv += tester;
+                let total = 0;
+                GAMES.forEach(game => {
+                    const ec = getExitCount(tester, game);
+                    csv += ',' + ec;
+                    total += ec;
                 });
                 csv += ',' + total + '\n';
             });
@@ -889,7 +1028,7 @@
             selectTester(savedTester);
         }
     </script>
-    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.1.1 (2026-03-16)</div>
+    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.1.4 (2026-03-16)</div>
 </body>
 
 </html>
