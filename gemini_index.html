@@ -1905,23 +1905,71 @@
                         return { variant: 1, sizeMin: 3, sizeMax: 4, isRound: false };   // 눈 소
                 }
             } else if (stage === 1) {
-                // Lv.2: 얼음 소/중, 눈 소, 동그란눈 소/중
+                // Lv.2: 시간에 따라 점진적 난이도
                 const r = Math.random();
-                if (r < 0.35)
-                    return { variant: 0, sizeMin: 3, sizeMax: 5.5, isRound: false };     // 얼음 소~중
-                else if (r < 0.55)
-                    return { variant: 1, sizeMin: 3, sizeMax: 4, isRound: false };        // 눈 소
-                else
-                    return { variant: 5, sizeMin: 3, sizeMax: 5.5, isRound: true };       // 동그란눈 소~중
+                if (elapsed < 15) {
+                    // 0~15초: 얼음 소만 (HP1) — Lv.1처럼 쉽게 시작
+                    return { variant: 0, sizeMin: 3, sizeMax: 4, isRound: false };
+                } else if (elapsed < 30) {
+                    // 15~30초: 얼음 소/중 + 동그란눈 소 등장
+                    if (r < 0.5)
+                        return { variant: 0, sizeMin: 3, sizeMax: 5, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 4, isRound: true };
+                } else if (elapsed < 45) {
+                    // 30~45초: 얼음 중 + 눈 소 + 동그란눈 소/중
+                    if (r < 0.35)
+                        return { variant: 0, sizeMin: 3.5, sizeMax: 5.5, isRound: false };
+                    else if (r < 0.55)
+                        return { variant: 1, sizeMin: 3, sizeMax: 4, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 5, isRound: true };
+                } else {
+                    // 45~60초: 전부 나옴, 중형까지
+                    if (r < 0.3)
+                        return { variant: 0, sizeMin: 3, sizeMax: 5.5, isRound: false };
+                    else if (r < 0.5)
+                        return { variant: 1, sizeMin: 3, sizeMax: 4.5, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 5.5, isRound: true };
+                }
             } else {
-                // Lv.3: 전부 나옴, 대형도 등장
+                // Lv.3: 시간에 따라 점진적 난이도
                 const r = Math.random();
-                if (r < 0.3)
-                    return { variant: 0, sizeMin: 3, sizeMax: 7, isRound: false };        // 얼음 소~대
-                else if (r < 0.5)
-                    return { variant: 1, sizeMin: 3, sizeMax: 7, isRound: false };        // 눈 소~대
-                else
-                    return { variant: 5, sizeMin: 3, sizeMax: 7, isRound: true };          // 동그란눈 소~대
+                if (elapsed < 10) {
+                    // 0~10초: 얼음 소만 (HP2) — 워밍업
+                    return { variant: 0, sizeMin: 3, sizeMax: 4, isRound: false };
+                } else if (elapsed < 20) {
+                    // 10~20초: 얼음 소/중 + 동그란눈 소
+                    if (r < 0.5)
+                        return { variant: 0, sizeMin: 3, sizeMax: 5.5, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 4, isRound: true };
+                } else if (elapsed < 35) {
+                    // 20~35초: 얼음 중 + 눈 소/중 + 동그란눈 중
+                    if (r < 0.3)
+                        return { variant: 0, sizeMin: 3.5, sizeMax: 5.5, isRound: false };
+                    else if (r < 0.55)
+                        return { variant: 1, sizeMin: 3, sizeMax: 5.5, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 5.5, isRound: true };
+                } else if (elapsed < 50) {
+                    // 35~50초: 대형 등장
+                    if (r < 0.3)
+                        return { variant: 0, sizeMin: 4, sizeMax: 7, isRound: false };
+                    else if (r < 0.55)
+                        return { variant: 1, sizeMin: 3.5, sizeMax: 7, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3.5, sizeMax: 7, isRound: true };
+                } else {
+                    // 50~60초: 전부 최대 난이도
+                    if (r < 0.3)
+                        return { variant: 0, sizeMin: 4, sizeMax: 7, isRound: false };
+                    else if (r < 0.5)
+                        return { variant: 1, sizeMin: 4, sizeMax: 7, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 4, sizeMax: 7, isRound: true };
+                }
             }
         }
 
