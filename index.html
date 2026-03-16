@@ -439,12 +439,9 @@
     <!-- 테스터 선택 -->
     <div id="testerSelect">
         <h2>나는 누구일까요?</h2>
-        <p style="color:#aaa; margin-bottom:20px; font-size:1rem;">동물 친구를 고르거나, 이름을 직접 입력하세요!</p>
+        <p style="color:#aaa; margin-bottom:20px; font-size:1rem;">오늘의 내 동물 친구를 골라주세요!</p>
         <div class="tester-grid" id="testerGrid"></div>
-        <div style="margin-top:20px; display:flex; gap:10px; justify-content:center; align-items:center;">
-            <input id="customName" type="text" placeholder="이름 입력" style="padding:14px 20px; font-size:1.2rem; border-radius:12px; border:2px solid rgba(255,255,255,0.3); background:rgba(255,255,255,0.08); color:white; width:200px; text-align:center; outline:none;">
-            <button onclick="submitCustomName()" style="padding:14px 24px; font-size:1.1rem; font-weight:700; border-radius:12px; border:2px solid #6bcb77; background:rgba(107,203,119,0.15); color:#6bcb77; cursor:pointer; transition:all 0.3s;">확인</button>
-        </div>
+        <button onclick="openNameEditor()" style="margin-top:20px; padding:10px 20px; font-size:0.85rem; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background:transparent; color:rgba(255,255,255,0.4); cursor:pointer;">이름 편집</button>
     </div>
 
     <!-- 게임 목록 -->
@@ -557,8 +554,70 @@
 
         // ── 테스터 선택 ──
         function initTesterGrid() {
+            refreshTesterGrid();
+        }
+
+        // ── 이름 편집 ──
+        const ICONS = TESTERS.map(t => t.split(' ')[0]); // 이모지만 추출
+        const NAME_KEY = 'gemgem_custom_names';
+
+        function getCustomNames() {
+            try { return JSON.parse(localStorage.getItem(NAME_KEY)) || null; }
+            catch(e) { return null; }
+        }
+
+        function getDisplayTesters() {
+            const custom = getCustomNames();
+            if (!custom) return [...TESTERS];
+            return ICONS.map((icon, i) => icon + ' ' + (custom[i] || TESTERS[i].split(' ').slice(1).join(' ')));
+        }
+
+        function openNameEditor() {
+            const current = getCustomNames() || TESTERS.map(t => t.split(' ').slice(1).join(' '));
+            let html = '<div style="background:#1a1a4e; border-radius:20px; padding:30px; max-width:500px; width:100%;">';
+            html += '<h2 style="color:#ffd93d; margin-bottom:20px;">이름 편집</h2>';
+            html += '<div style="display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:center; margin-bottom:20px;">';
+            ICONS.forEach((icon, i) => {
+                html += `<div style="font-size:1.5rem; text-align:center;">${icon}</div>`;
+                html += `<input id="name-edit-${i}" value="${current[i]}" style="padding:10px; font-size:1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.3); background:rgba(255,255,255,0.08); color:white; outline:none;">`;
+            });
+            html += '</div>';
+            html += '<div style="display:flex; gap:10px; justify-content:center;">';
+            html += '<button onclick="saveNames()" style="padding:10px 24px; font-size:1rem; font-weight:600; border-radius:10px; border:none; background:#6bcb77; color:#0a0a2e; cursor:pointer;">저장</button>';
+            html += '<button onclick="resetNames()" style="padding:10px 24px; font-size:1rem; font-weight:600; border-radius:10px; border:none; background:#ff6b6b; color:white; cursor:pointer;">초기화</button>';
+            html += '<button onclick="closeNameEditor()" style="padding:10px 24px; font-size:1rem; font-weight:600; border-radius:10px; border:none; background:rgba(255,255,255,0.15); color:white; cursor:pointer;">닫기</button>';
+            html += '</div></div>';
+
+            const modal = document.createElement('div');
+            modal.id = 'nameEditorModal';
+            modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:100; display:flex; justify-content:center; align-items:center; padding:20px;';
+            modal.innerHTML = html;
+            document.body.appendChild(modal);
+        }
+
+        function saveNames() {
+            const names = ICONS.map((_, i) => document.getElementById('name-edit-' + i).value.trim() || TESTERS[i].split(' ').slice(1).join(' '));
+            localStorage.setItem(NAME_KEY, JSON.stringify(names));
+            closeNameEditor();
+            refreshTesterGrid();
+        }
+
+        function resetNames() {
+            localStorage.removeItem(NAME_KEY);
+            closeNameEditor();
+            refreshTesterGrid();
+        }
+
+        function closeNameEditor() {
+            const modal = document.getElementById('nameEditorModal');
+            if (modal) modal.remove();
+        }
+
+        function refreshTesterGrid() {
             const grid = document.getElementById('testerGrid');
-            TESTERS.forEach(name => {
+            grid.innerHTML = '';
+            const display = getDisplayTesters();
+            display.forEach(name => {
                 const btn = document.createElement('button');
                 btn.className = 'tester-btn';
                 btn.textContent = name;
@@ -566,16 +625,6 @@
                 grid.appendChild(btn);
             });
         }
-
-        function submitCustomName() {
-            const input = document.getElementById('customName');
-            const name = input.value.trim();
-            if (!name) { input.focus(); return; }
-            selectTester(name);
-        }
-        document.getElementById('customName').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') submitCustomName();
-        });
 
         function selectTester(name) {
             localStorage.setItem(TESTER_KEY, name);
