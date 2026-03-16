@@ -8,12 +8,12 @@
  * - 게임 페이지 열릴 때 1회 기록
  * - trackPlay() 호출 시 추가 기록 (게임 내 "다시하기" 버튼에 연결)
  *
- * 데이터는 localStorage("jemjem_tracking")에 저장
+ * 데이터는 localStorage("gemgem_tracking")에 저장
  */
 
 (function () {
-    const STORAGE_KEY = 'jemjem_tracking';
-    const TESTER_KEY = 'jemjem_current_tester';
+    const STORAGE_KEY = 'gemgem_tracking';
+    const TESTER_KEY = 'gemgem_current_tester';
 
     // 현재 테스터
     function getCurrentTester() {
@@ -60,6 +60,5 @@
     // 전역에 노출
     window.trackPlay = trackPlay;
 
-    // 페이지 로드 시 자동 1회 기록
-    trackPlay();
+    // 자동 기록 제거 — 각 게임에서 시작 버튼 클릭 시 trackPlay() 호출
 })();

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💨 방귀대장 뿡뿡이</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="../tracking.js" data-game="방귀대장 뿡뿡이"></script>
+</head>
+<body>
+
+<!-- ── 게임 컨테이너 ── -->
+<div id="game-container">
+  <video id="input-video" playsinline muted></video>
+  <canvas id="game-canvas"></canvas>
+
+  <!-- 게이지 UI (레벨배지 + 게이지 가로 배치) -->
+  <div id="gauge-wrap" style="display:none">
+    <div id="gauge-row">
+      <div id="level-badge">
+        <div id="level-icon">🔴</div>
+        <div id="level-num">Lv.1</div>
+        <div id="level-label-text">빨강</div>
+      </div>
+      <div id="gauge-track-area">
+        <div id="gauge-label">💨 방귀 게이지</div>
+        <div id="gauge-track">
+          <div id="gauge-fill"></div>
+          <span id="gauge-poop">💩</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 방귀 카운터 (우측 하단 고정) -->
+  <div id="fart-counter" style="display:none">
+    <div id="fart-count-num">0</div>
+    <div id="fart-count-label">💨 총 방귀</div>
+  </div>
+
+  <!-- 무지개 진행 슬롯 (하단 중앙) -->
+  <div id="color-progress" style="display:none">
+    <span class="cp-slot">🔴</span>
+    <span class="cp-slot">🟠</span>
+    <span class="cp-slot">🟡</span>
+    <span class="cp-slot">🟢</span>
+    <span class="cp-slot">🔵</span>
+    <span class="cp-slot">🟣</span>
+    <span class="cp-slot">🌈</span>
+  </div>
+</div>
+
+<!-- ── 시작 화면 ── -->
+<div id="screen-start" class="screen">
+  <div class="card">
+    <div class="title-emoji">💨💩</div>
+    <h1>방귀대장 뿡뿡이</h1>
+    <p class="subtitle">앉았다 일어나면<br>방귀가 나와요!</p>
+    <p class="subtitle2">방귀를 <strong id="display-target">5</strong>번 뀌면<br>💩이 날아가요!</p>
+
+    <div class="settings">
+      <label>방귀 횟수
+        <select id="sel-target">
+          <option value="3" selected>3번</option>
+          <option value="5">5번</option>
+          <option value="7">7번</option>
+          <option value="10">10번</option>
+        </select>
+      </label>
+      <label>소리 크기
+        <input type="range" id="rng-volume" min="0" max="1" step="0.1" value="0.7">
+      </label>
+      <label>이펙트
+        <select id="sel-effect">
+          <option value="low">약하게</option>
+          <option value="medium">보통</option>
+          <option value="strong" selected>강하게</option>
+        </select>
+      </label>
+      <label>피버타임
+        <select id="sel-fever">
+          <option value="3">3초</option>
+          <option value="5" selected>5초</option>
+          <option value="7">7초</option>
+        </select>
+      </label>
+    </div>
+
+    <button id="btn-start">시작하기! 🚀</button>
+  </div>
+</div>
+
+<!-- ── 캘리브레이션 화면 ── -->
+<div id="screen-calib" class="screen" style="display:none">
+  <div class="card">
+    <div class="title-emoji">🧍</div>
+    <h2>똑바로 서 주세요!</h2>
+    <p>2초 동안 기다려요…</p>
+    <div id="calib-bar-wrap"><div id="calib-bar"></div></div>
+  </div>
+</div>
+
+<!-- ── 게임 목표 인트로 (캘리브 직후) ── -->
+<div id="screen-intro" style="display:none; position:fixed; inset:0; z-index:50; background:rgba(0,0,0,0.88); flex-direction:column; align-items:center; justify-content:center; gap:20px; text-align:center; padding:40px;">
+  <div id="intro-title">🌈 무지개 똥을 완성해봐요! 🌈</div>
+  <div id="intro-slots">
+    <span>🔴</span><span class="arr">→</span>
+    <span>🟠</span><span class="arr">→</span>
+    <span>🟡</span><span class="arr">→</span>
+    <span>🟢</span><span class="arr">→</span>
+    <span>🔵</span><span class="arr">→</span>
+    <span>🟣</span><span class="arr">→</span>
+    <span>🌈</span>
+  </div>
+  <div id="intro-sub">방귀를 모아서 색깔 똥을 하나씩 쌓아요!</div>
+</div>
+
+<!-- ── 레벨 전환 알림 ── -->
+<div id="screen-level-announce" style="display:none; position:fixed; inset:0; z-index:40; pointer-events:none; flex-direction:column; align-items:center; justify-content:center; gap:8px;">
+  <div id="level-ann-next">다음은</div>
+  <div id="level-ann-color">🟠 주황!</div>
+</div>
+
+<!-- ── 빅 이벤트 (똥 발사!) 오버레이 ── -->
+<div id="screen-poop" class="screen" style="display:none; pointer-events:none">
+  <div id="poop-text">💩 발사!</div>
+</div>
+
+<!-- ── 카운트다운 오버레이 ── -->
+<div id="screen-countdown" class="screen" style="display:none; pointer-events:none; background:rgba(0,0,0,0.70);">
+  <div id="countdown-number">3</div>
+</div>
+
+<!-- ── 피버타임 타이틀 (잠깐 표시) ── -->
+<div id="fever-announce" style="display:none; position:fixed; inset:0; z-index:25; pointer-events:none; align-items:center; justify-content:center;">
+  <div id="fever-title-text">🔥 피버타임!! 🔥</div>
+</div>
+
+<!-- ── 피버 타이머 (우상단) ── -->
+<div id="fever-timer" style="display:none;"></div>
+
+<!-- ── 게임 클리어 화면 ── -->
+<div id="screen-end" class="screen" style="display:none; background:rgba(0,0,0,0.75);">
+  <div class="card">
+    <div class="title-emoji" style="font-size:5rem; animation:bounce 0.8s infinite;">🎉</div>
+    <h1>게임 클리어!</h1>
+    <p class="subtitle">7단계 모두 완주했어요! 최고야!</p>
+    <div id="end-farts-display">
+      <div id="end-fart-num">0</div>
+      <div id="end-fart-label">💨 총 방귀 횟수</div>
+    </div>
+    <button id="btn-restart">다시 하기! 🔄</button>
+  </div>
+</div>
+
+<!-- ── CDN ── -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+<!-- ── 게임 스크립트 ── -->
+<script src="js/audio.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/main.js"></script>
+
+</body>
+</html>

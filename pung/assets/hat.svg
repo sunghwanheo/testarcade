@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100">
+  <defs>
+    <linearGradient id="hatBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2d2d2d"/>
+      <stop offset="100%" style="stop-color:#111"/>
+    </linearGradient>
+    <linearGradient id="bandGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   style="stop-color:#ff6b6b"/>
+      <stop offset="25%"  style="stop-color:#ffd93d"/>
+      <stop offset="50%"  style="stop-color:#6bcb77"/>
+      <stop offset="75%"  style="stop-color:#4d96ff"/>
+      <stop offset="100%" style="stop-color:#ff6bff"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- 챙(brim) -->
+  <ellipse cx="60" cy="78" rx="55" ry="14"
+    fill="#1a1a1a" filter="url(#shadow)"/>
+  <ellipse cx="60" cy="74" rx="50" ry="10" fill="#222"/>
+
+  <!-- 모자 몸체 -->
+  <rect x="28" y="14" width="64" height="62" rx="6"
+    fill="url(#hatBody)"/>
+
+  <!-- 무지개 밴드 -->
+  <rect x="26" y="62" width="68" height="12" rx="3"
+    fill="url(#bandGrad)"/>
+
+  <!-- 하이라이트 -->
+  <rect x="35" y="18" width="7" height="42" rx="4"
+    fill="rgba(255,255,255,0.08)"/>
+
+  <!-- 별 장식 -->
+  <text x="60" y="52" font-size="22" text-anchor="middle" fill="#ffd93d">★</text>
+</svg>
