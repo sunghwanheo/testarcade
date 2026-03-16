@@ -1,0 +1,492 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #000;
+  overflow: hidden;
+  font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
+  user-select: none;
+}
+
+/* ── 게임 컨테이너 ── */
+#game-container {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#input-video {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px; height: 1px;
+}
+
+#game-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── 게이지 (레벨배지 + 게이지트랙 가로 배치) ── */
+#gauge-wrap {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 92%;
+  max-width: 860px;
+  z-index: 10;
+}
+
+#gauge-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* 레벨 배지 (게이지 왼쪽) */
+#level-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, rgba(0,0,0,0.75), rgba(30,30,60,0.85));
+  border: 3px solid rgba(255,255,255,0.45);
+  border-radius: 18px;
+  padding: 10px 14px;
+  min-width: 76px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  line-height: 1.2;
+  transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+#level-icon       { font-size: 2rem; }
+#level-num        { font-size: 0.85rem; font-weight: bold; color: #fff; }
+#level-label-text { font-size: 0.85rem; font-weight: bold; color: #ffd54f; }
+
+/* 게이지 영역 */
+#gauge-track-area { flex: 1; }
+
+#gauge-label {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+  margin-bottom: 6px;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+#gauge-track {
+  position: relative;
+  background: rgba(0,0,0,0.55);
+  border: 4px solid rgba(255,255,255,0.7);
+  border-radius: 50px;
+  height: 62px;
+  overflow: visible;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.6), 0 0 0 2px rgba(255,255,255,0.1);
+}
+
+#gauge-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 50px;
+  background: linear-gradient(90deg, #a8e063, #56ab2f);
+  transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: inset 0 -3px 8px rgba(0,0,0,0.2);
+}
+
+#gauge-poop {
+  position: absolute;
+  right: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 2.8rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+  transition: transform 0.2s;
+}
+
+/* ── 방귀 카운터 (우측 하단 고정, 크게 강조) ── */
+#fart-counter {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: rgba(0,0,0,0.72);
+  border: 3px solid rgba(255,255,255,0.35);
+  border-radius: 22px;
+  padding: 12px 22px;
+  text-align: center;
+  z-index: 10;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+}
+
+#fart-count-num {
+  font-size: 3.2rem;
+  font-weight: 900;
+  color: #ffd54f;
+  text-shadow: 0 0 18px rgba(255,213,79,0.7);
+  line-height: 1;
+}
+
+#fart-count-label {
+  font-size: 1rem;
+  color: #e0e0e0;
+  margin-top: 4px;
+  letter-spacing: 1px;
+}
+
+/* ── 공통 오버레이 화면 ── */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(6px);
+}
+
+/* ── 카드 ── */
+.card {
+  background: linear-gradient(160deg, #1a1a2e, #16213e, #0f3460);
+  border: 3px solid rgba(255,255,255,0.2);
+  border-radius: 30px;
+  padding: 40px 50px;
+  text-align: center;
+  color: #fff;
+  max-width: 520px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  animation: card-in 0.4s ease;
+}
+
+@keyframes card-in {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.title-emoji {
+  font-size: 4rem;
+  margin-bottom: 10px;
+  animation: bounce 1.2s infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-12px); }
+}
+
+.card h1 {
+  font-size: 2.2rem;
+  margin-bottom: 16px;
+  background: linear-gradient(90deg, #f9d423, #ff4e50);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card h2 { font-size: 1.8rem; margin-bottom: 12px; }
+
+.subtitle  { font-size: 1.2rem; color: #cce5ff; margin-bottom: 8px; line-height: 1.6; }
+.subtitle2 { font-size: 1.1rem; color: #ffe0b2; margin-bottom: 24px; line-height: 1.6; }
+.subtitle2 strong { color: #ffd54f; font-size: 1.4rem; }
+
+/* ── 설정 ── */
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 28px;
+  text-align: left;
+}
+
+.settings label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+  color: #e0e0e0;
+  gap: 12px;
+}
+
+.settings select,
+.settings input[type="range"] {
+  background: rgba(255,255,255,0.1);
+  border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 10px;
+  color: #fff;
+  padding: 6px 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  outline: none;
+  min-width: 100px;
+}
+
+.settings select option { background: #1a1a2e; }
+
+/* ── 버튼 ── */
+#btn-start, #btn-restart {
+  background: linear-gradient(135deg, #f9d423, #ff4e50);
+  border: none;
+  border-radius: 50px;
+  padding: 16px 50px;
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 25px rgba(255,78,80,0.5);
+  transition: transform 0.15s, box-shadow 0.15s;
+  letter-spacing: 1px;
+  font-family: 'Arial Rounded MT Bold', 'Arial', sans-serif;
+}
+
+#btn-start:hover,  #btn-restart:hover  { transform: scale(1.06); box-shadow: 0 8px 30px rgba(255,78,80,0.7); }
+#btn-start:active, #btn-restart:active { transform: scale(0.97); }
+
+/* ── 캘리브레이션 바 ── */
+#calib-bar-wrap {
+  background: rgba(255,255,255,0.15);
+  border-radius: 20px;
+  height: 18px;
+  margin-top: 20px;
+  overflow: hidden;
+}
+
+#calib-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 20px;
+  background: linear-gradient(90deg, #4fc3f7, #4db6ac);
+  transition: width 0.1s linear;
+}
+
+/* ── 똥 발사 텍스트 ── */
+#poop-text {
+  font-size: 5rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.8), 0 0 40px #f9d423;
+  animation: poop-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  pointer-events: none;
+}
+
+@keyframes poop-pop {
+  0%   { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+  60%  { transform: scale(1.2) rotate(5deg);   opacity: 1; }
+  100% { transform: scale(1)   rotate(0deg);   opacity: 1; }
+}
+
+/* ── 레벨업 플래시 ── */
+@keyframes level-flash {
+  0%, 100% { opacity: 0; }
+  30%, 70%  { opacity: 1; }
+}
+
+/* ── 카운트다운 ── */
+#countdown-number {
+  font-size: 22vw;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 80px #ff4e50, 0 0 30px #f9d423;
+  line-height: 1;
+}
+#countdown-number.pop {
+  animation: count-pop 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes count-pop {
+  from { transform: scale(2.8); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+
+/* ── 피버타임 타이틀 ── */
+#fever-announce { display: none; }
+#fever-title-text {
+  font-size: clamp(3rem, 8vw, 6rem);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 40px #ff4400, 0 0 80px #ff8800;
+  animation: fever-title-pop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  text-align: center;
+}
+@keyframes fever-title-pop {
+  from { transform: scale(0.2) rotate(-12deg); opacity: 0; }
+  to   { transform: scale(1)   rotate(0deg);   opacity: 1; }
+}
+
+/* ── 피버 게이지 애니메이션 ── */
+@keyframes rainbow-shift {
+  0%   { filter: hue-rotate(0deg)   brightness(1.1); }
+  50%  { filter: hue-rotate(180deg) brightness(1.4); }
+  100% { filter: hue-rotate(360deg) brightness(1.1); }
+}
+
+/* 단계별 색상 피버: 해당 색으로 밝게 반짝임 */
+@keyframes fever-glow {
+  from {
+    filter: brightness(1.1) saturate(1.2);
+    box-shadow: 0 0 12px 4px rgba(255,255,255,0.3),
+                inset 0 0 10px rgba(255,255,255,0.2);
+  }
+  to {
+    filter: brightness(1.85) saturate(2.0);
+    box-shadow: 0 0 36px 14px rgba(255,255,255,0.75),
+                inset 0 0 22px rgba(255,255,255,0.5);
+  }
+}
+
+/* ── 피버 타이머 ── */
+#fever-timer {
+  position: fixed;
+  top: 80px;
+  right: 28px;
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #ff4400;
+  text-shadow: 0 0 14px #ff8800;
+  background: rgba(0,0,0,0.55);
+  padding: 8px 20px;
+  border-radius: 20px;
+  border: 3px solid #ff5500;
+  z-index: 30;
+  backdrop-filter: blur(4px);
+}
+
+/* ── 게임 목표 인트로 ── */
+#intro-title {
+  font-size: clamp(1.8rem, 4.5vw, 3rem);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 30px #ff88ff, 0 0 60px #ff44aa;
+  animation: intro-in 0.6s ease both;
+}
+
+#intro-slots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  animation: intro-in 0.6s 0.2s ease both;
+  opacity: 0;
+  animation-fill-mode: both;
+}
+
+#intro-slots .arr {
+  font-size: 1.4rem;
+  color: rgba(255,255,255,0.5);
+}
+
+#intro-sub {
+  font-size: clamp(1rem, 2.5vw, 1.4rem);
+  color: #cce5ff;
+  animation: intro-in 0.6s 0.4s ease both;
+  opacity: 0;
+  animation-fill-mode: both;
+}
+
+#screen-intro {
+  transition: opacity 0.5s ease;
+}
+
+@keyframes intro-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ── 레벨 전환 알림 ── */
+#level-ann-next {
+  font-size: clamp(1.2rem, 3vw, 1.8rem);
+  color: rgba(255,255,255,0.75);
+  font-weight: bold;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+}
+
+#level-ann-color {
+  font-size: clamp(3.5rem, 9vw, 6rem);
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 40px rgba(255,255,255,0.8), 0 4px 20px rgba(0,0,0,0.6);
+  animation: level-ann-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+#screen-level-announce {
+  transition: opacity 0.5s ease;
+}
+
+@keyframes level-ann-pop {
+  from { transform: scale(0.3) rotate(-8deg); opacity: 0; }
+  to   { transform: scale(1)   rotate(0deg);  opacity: 1; }
+}
+
+/* ── 무지개 진행 슬롯 ── */
+#color-progress {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  background: rgba(0,0,0,0.60);
+  border-radius: 50px;
+  padding: 8px 20px;
+  border: 2px solid rgba(255,255,255,0.25);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.cp-slot {
+  font-size: 2rem;
+  filter: brightness(0.35) grayscale(0.8);
+  transition: filter 0.4s, transform 0.4s;
+  display: inline-block;
+}
+
+.cp-slot.done {
+  filter: brightness(1.2) drop-shadow(0 0 10px rgba(255,255,255,0.9));
+  transform: scale(1.15);
+  animation: slot-pop 0.45s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+.cp-slot.current {
+  filter: brightness(0.85) grayscale(0.3);
+  animation: slot-pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes slot-pop {
+  from { transform: scale(0.5); opacity: 0; }
+  to   { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes slot-pulse {
+  from { transform: scale(1.0);  filter: brightness(0.7); }
+  to   { transform: scale(1.18); filter: brightness(1.1); }
+}
+
+/* ── 게임 클리어 화면 ── */
+#end-farts-display {
+  margin: 20px 0 28px;
+  background: rgba(255,213,79,0.12);
+  border: 3px solid rgba(255,213,79,0.4);
+  border-radius: 20px;
+  padding: 16px 24px;
+}
+
+#end-fart-num {
+  font-size: 4.5rem;
+  font-weight: 900;
+  color: #ffd54f;
+  text-shadow: 0 0 30px rgba(255,213,79,0.8);
+  line-height: 1;
+}
+
+#end-fart-label {
+  font-size: 1.2rem;
+  color: #e0e0e0;
+  margin-top: 6px;
+}
