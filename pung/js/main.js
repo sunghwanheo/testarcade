@@ -785,6 +785,7 @@ window.addEventListener('keydown', e => {
 
 // ── 다시 하기 버튼 ──────────────────────────────────────
 document.getElementById('btn-restart').addEventListener('click', () => {
+  if (typeof trackPlay === 'function') trackPlay();
   $screenEnd.style.display = 'none';
   fx.fallingPoops = [];
   // 상태 초기화
