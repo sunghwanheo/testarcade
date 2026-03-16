@@ -1099,6 +1099,74 @@
         let hitFlashMap = {}; // id -> { timer, maxTimer } 손/발 타격 플래시
         let blockSpawnTimer = 0;
 
+        // ── 스테이지 시작 블록 (격파하면 게임 시작) ──
+        let isWaitingStart = false;   // 시작 블록 대기 중
+        let startBlock = null;        // 시작 블록 참조
+        let startBlockReady = false;  // 블록이 제자리에 도착했는지
+
+        // 가이드 장갑 애니메이션
+        let guidePhase = 0;           // 0→1 이동, 1→리셋
+        let guideFromLeft = true;     // 좌우 번갈아
+        let guidePauseTimer = 0;      // 부딪힌 후 대기
+        let guideHitDone = false;     // 이번 사이클 부딪침 완료
+        let guidePos = null;          // { x, y }
+
+        function spawnStartBlock() {
+            const W = canvasElement.width, H = canvasElement.height;
+            const scaleFactor = 4;
+            const size = 60 * scaleFactor; // 240px — 크고 잘 보임
+            const x = W / 2;
+            const y = H / 2;
+
+            const block = Bodies.rectangle(x, y, size, size, {
+                isStatic: true,  // 가만히 있음
+                restitution: 0,
+                friction: 1
+            });
+
+            block.isBlock = true;
+            block.maxHp = 5;         // 5번 때려야 깨짐
+            block.hp = 5;
+            block.hitCooldown = 0;
+            block.timeSinceSpawn = 0;
+            block.rectWidth = size;
+            block.rectHeight = size;
+            block.scaleFactor = scaleFactor;
+            block.nudgeTimer = 0;
+            block.hasEnteredScreen = true;
+            block.blockType = 'normal';
+            block.iceVariant = 0;
+            block.isStartBlock = true; // 시작 블록 표식
+
+            Composite.add(world, block);
+            startBlock = block;
+            isWaitingStart = true;
+            startBlockReady = true;
+            guidePhase = 0;
+            guideFromLeft = true;
+            guidePauseTimer = 0;
+            guideHitDone = false;
+            guidePos = null;
+        }
+
+        function onStartBlockDestroyed() {
+            isWaitingStart = false;
+            startBlock = null;
+            startBlockReady = false;
+            // 블록 스폰/타이머 아직 멈춘 상태로 카운트다운
+            isPlaying = false; // 카운트다운 중 일시정지
+            showStagePreview(() => {
+                // 카운트다운 끝 → 진짜 게임 시작!
+                gameTimeLeft = 60.0;
+                blockSpawnTimer = 1.0;
+                isPlaying = true;
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                lastTime = performance.now();
+                gameLoop(lastTime);
+                updateUI();
+            });
+        }
+
         // 폭탄 충격파 이펙트
         let shockwaves = [];
         function spawnShockwave(x, y, maxRadius) {
@@ -1881,6 +1949,15 @@
 
             // Time Text Update
             if (isExploding) return;
+            if (isWaitingStart) {
+                timeBox.innerText = 'READY';
+                timeBox.style.fontSize = '52px';
+                timeBox.style.color = '#00ffcc';
+                timeBox.style.textShadow = '0 0 20px rgba(0,255,200,0.8), 2px 2px 4px rgba(0,0,0,0.8)';
+                timeBox.style.animation = 'pulse 1s infinite alternate';
+                return;
+            }
+            timeBox.style.animation = 'none';
             let m = Math.floor(gameTimeLeft / 60);
             let s = Math.floor(gameTimeLeft % 60);
             timeBox.innerText = `0${m}:${s < 10 ? '0' + s : s}`;
@@ -2444,7 +2521,7 @@
             gameTimeLeft = 60.0;
             particles = [];
             bodyPoints = [];
-            blockSpawnTimer = 1.0;
+            blockSpawnTimer = 999; // 시작 블록 깨기 전까지 스폰 안 함
             shockwaves = [];
             iceDebuffs = [];
             deactivateFever();
@@ -2452,6 +2529,9 @@
             updateUI();
             isPlaying = true;
             startBgm(currentStageIndex);
+
+            // 시작 블록 배치 (깨면 게임 시작)
+            spawnStartBlock();
 
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
             lastTime = performance.now();
@@ -2573,8 +2653,9 @@
             // 플래시 감소
             if (flashAlpha > 0) flashAlpha -= dtRaw * 1.5;
 
-            gameTimeLeft -= dt;
-            gameTime     += dt;
+            // 시작 블록 대기 중에는 게임 타이머 멈춤
+            if (!isWaitingStart) gameTimeLeft -= dt;
+            gameTime += dt;
 
             // ── 10초 카운트다운 째깍 소리 ──
             if (isPlaying && gameTimeLeft > 0 && gameTimeLeft <= 10) {
@@ -2602,7 +2683,7 @@
             Engine.update(engine, dt * 1000);
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-            if (isPlaying) {
+            if (isPlaying && !isWaitingStart) {
             blockSpawnTimer -= dt;
             if (blockSpawnTimer <= 0) {
                 spawnBlock();
@@ -2740,6 +2821,11 @@
                                 hitStopTimer = 0.03 + impactSize * 0.04;
                                 flashAlpha = 0.15 + impactSize * 0.2;
 
+                                // 시작 블록 격파 → 게임 시작!
+                                if (b.isStartBlock) {
+                                    onStartBlockDestroyed();
+                                }
+
                                 Composite.remove(world, b);
                             } else {
                                 // 파괴 못했을 경우 — 타격감만, 물리 밀기 없음
@@ -2751,12 +2837,14 @@
                     }
 
 
-                // 바닥에서 멈춘 블럭 제거 (모든 스테이지 공통)
-                if (b.timeSinceSpawn > 20.0 && Math.abs(b.velocity.y) < 0.5) {
-                    spawnShatter(b.position.x, b.position.y, 10);
-                    Composite.remove(world, b);
+                // 바닥에서 멈춘 블럭 제거 (모든 스테이지 공통, 시작 블록은 제외)
+                if (!b.isStartBlock) {
+                    if (b.timeSinceSpawn > 20.0 && Math.abs(b.velocity.y) < 0.5) {
+                        spawnShatter(b.position.x, b.position.y, 10);
+                        Composite.remove(world, b);
+                    }
+                    if (b.position.y > canvasElement.height + 600) Composite.remove(world, b);
                 }
-                if (b.position.y > canvasElement.height + 600) Composite.remove(world, b);
             }
 
             // 블럭 렌더링
@@ -3105,6 +3193,94 @@
                     p.draw(canvasCtx);
                 }
             }
+            // 시작 블록 안내 + 가이드 장갑 애니메이션
+            if (isWaitingStart && startBlock && Composite.allBodies(world).includes(startBlock)) {
+                const sbx = startBlock.position.x;
+                const sby = startBlock.position.y;
+                const halfW = startBlock.rectWidth / 2;
+                const bounce = Math.sin(gameTime * 4) * 8;
+
+                // ── 가이드 장갑 업데이트 ──
+                if (guidePauseTimer > 0) {
+                    guidePauseTimer -= dtRaw;
+                    if (guidePauseTimer <= 0) {
+                        guidePhase = 0;
+                        guideHitDone = false;
+                        guideFromLeft = !guideFromLeft;
+                    }
+                } else {
+                    guidePhase += dtRaw * 0.55;
+
+                    const offsetX = guideFromLeft ? -280 : 280;
+                    const startX = sbx + offsetX;
+                    const startY = sby + 100;
+                    const endX = sbx + (guideFromLeft ? -halfW * 0.15 : halfW * 0.15);
+                    const endY = sby;
+
+                    if (guidePhase < 1.0) {
+                        // ease-in: 처음 느리고 끝에 빠르게 (때리는 느낌)
+                        const t = guidePhase;
+                        const ease = t < 0.6
+                            ? 0.5 * Math.pow(t / 0.6, 2) * 0.6
+                            : 0.3 + (t - 0.6) / 0.4 * 0.7;
+                        guidePos = {
+                            x: startX + (endX - startX) * ease,
+                            y: startY + (endY - startY) * ease
+                        };
+                    } else if (!guideHitDone) {
+                        // 부딪침!
+                        guidePos = { x: endX, y: endY };
+                        guideHitDone = true;
+                        guidePauseTimer = 1.0;
+                        // 부딪힘 이펙트
+                        playHit(currentStageIndex, 'normal', 0, startBlock.scaleFactor);
+                        spawnShatter(sbx, sby, 10, false);
+                        const dirX = guideFromLeft ? 1 : -1;
+                        spawnImpactBurst(sbx - dirX * halfW * 0.3, sby, dirX, 0, startBlock.scaleFactor);
+                        startBlock.hitFlash = 0.2;
+                        screenShake(60, 3);
+                    }
+                }
+
+                // ── 가이드 장갑 그리기 ──
+                if (guidePos && guidePauseTimer <= 0.7) {
+                    canvasCtx.save();
+                    const isHitting = guidePhase >= 0.9;
+                    canvasCtx.globalAlpha = isHitting ? 0.85 : (0.45 + 0.15 * Math.sin(gameTime * 3));
+                    const guideR = isHitting ? 85 : 75;
+                    const guideP = { x: guidePos.x, y: guidePos.y, radius: guideR, type: 'hand', id: 'guide' };
+                    drawWeapon(canvasCtx, guideP, currentStageIndex, false, gameTime, isHitting ? { timer: 0.1, maxTimer: 0.15 } : null);
+                    canvasCtx.restore();
+                }
+
+                // ── "깨서 시작!" 텍스트 ──
+                canvasCtx.save();
+                canvasCtx.globalAlpha = 0.8 + 0.2 * Math.sin(gameTime * 3);
+                canvasCtx.font = 'bold 56px sans-serif';
+                canvasCtx.textAlign = 'center';
+                canvasCtx.textBaseline = 'bottom';
+                canvasCtx.fillStyle = '#ffdd00';
+                canvasCtx.shadowColor = '#ff8800';
+                canvasCtx.shadowBlur = 25;
+                canvasCtx.fillText('👊 깨서 시작!', sbx, sby - halfW - 30 + bounce);
+
+                // 화살표 (아래로)
+                const arrowTop = sby - halfW - 20 + bounce;
+                canvasCtx.strokeStyle = '#ffdd00';
+                canvasCtx.lineWidth = 5;
+                canvasCtx.shadowColor = '#ffdd00';
+                canvasCtx.shadowBlur = 15;
+                canvasCtx.beginPath();
+                canvasCtx.moveTo(sbx, arrowTop);
+                canvasCtx.lineTo(sbx, arrowTop + 25);
+                canvasCtx.moveTo(sbx - 12, arrowTop + 13);
+                canvasCtx.lineTo(sbx, arrowTop + 25);
+                canvasCtx.lineTo(sbx + 12, arrowTop + 13);
+                canvasCtx.stroke();
+
+                canvasCtx.restore();
+            }
+
             // 화면 번쩍임 (흰색 플래시)
             if (flashAlpha > 0) {
                 canvasCtx.save();
@@ -3165,10 +3341,8 @@
                 overlay.style.display = 'none';
                 loadingMsg.style.display = 'none';
 
-                // 스테이지 프리뷰를 보여준 뒤 게임 시작
-                showStagePreview(() => {
-                    resetGame();
-                });
+                // 바로 READY 상태로 진입 (시작 블록 격파 후 카운트다운)
+                resetGame();
             } catch (e) {
                 alert("카메라 권한을 부여하거나 연결에 실패했습니다.\n" + e.message);
                 startButton.style.display = 'block';
