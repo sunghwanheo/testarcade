@@ -1784,7 +1784,8 @@
             ctx.restore();
         }
 
-        // Stage 2: 번개 검 — 손에서 에너지 검이 뻗어나옴 + 전기 아크
+        // Stage 2: 번개 검 — 손에서 에너지 검이 위쪽으로 뻗어나옴 + 전기 아크
+        const BLADE_LEN_MULT = 2.8; // 검 길이 배수 (충돌 판정에도 사용)
         function drawLightningBlade(ctx, x, y, r, t) {
             ctx.save();
             ctx.translate(x, y);
@@ -1800,7 +1801,7 @@
             ctx.globalCompositeOperation = 'source-over';
 
             // 검 본체 (위쪽으로 뻗음)
-            const bladeLen = r * 3.8;
+            const bladeLen = r * BLADE_LEN_MULT;
             const bladeW   = r * 0.28;
             const bladeGrad = ctx.createLinearGradient(0, -r * 0.5, 0, -r * 0.5 - bladeLen);
             bladeGrad.addColorStop(0,   'rgba(255, 255, 255, 0.98)');
@@ -3086,8 +3087,21 @@
                     let dy = b.position.y - p.y;
                     let dist = Math.sqrt(dx * dx + dy * dy);
 
+                    // 3스테이지 번개검: 검 끝(위쪽)까지 충돌 범위 확장
+                    let hitRadius = p.radius;
+                    if (currentStageIndex === 2 && !isFeverMode && p.type === 'hand') {
+                        const bladeReach = p.radius * BLADE_LEN_MULT;
+                        // 검이 위로 뻗으므로, 블록이 손 위쪽에 있으면 검 범위 히트
+                        if (b.position.y < p.y && Math.abs(b.position.x - p.x) < p.radius + b.rectWidth / 2) {
+                            const vertDist = p.y - b.position.y;
+                            if (vertDist < bladeReach + b.rectHeight / 2) {
+                                dist = 0; // 강제 히트
+                            }
+                        }
+                    }
+
                     const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-                    if (dist < p.radius + (b.rectWidth / 2) && b.hitCooldown <= 0 && speed > 20) {
+                    if (dist < hitRadius + (b.rectWidth / 2) && b.hitCooldown <= 0 && speed > 20) {
 
                             // 무쌍(피버 모드)일 경우 데미지가 무한대!
                             // 얼음 디버프 영역 안이면 파워 1/5 (피버 모드엔 무시)
@@ -3735,14 +3749,14 @@
                     loadingMsg.innerText = 'AI 모델 로딩 중... (첫 로딩은 좀 걸려요)';
                     await initDetector();
 
-                    // 검출 루프 (20fps - 속도 최적화)
+                    // 검출 루프 (30fps)
                     let detecting = false;
                     setInterval(async () => {
                         if (detecting || videoElement.paused) return;
                         detecting = true;
                         await detectPoses();
                         detecting = false;
-                    }, 50);
+                    }, 33);
                     cameraStarted = true;
                 }
 
