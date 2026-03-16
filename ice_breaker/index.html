@@ -2506,8 +2506,6 @@
             const btnEl = document.getElementById('rewardBtn');
             btnEl.textContent = isAllClear ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!';
             btnEl.onclick = function () {
-                // 다시하기 = 새 플레이 기록
-                if (typeof trackPlay === 'function') trackPlay();
                 screen.style.display = 'none';
                 clearConfetti(screen);
                 overlay.style.display = 'flex';
