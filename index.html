@@ -722,6 +722,44 @@
             html += `<td class="total">${grandTotal}</td></tr>`;
             html += '</tbody></table>';
 
+            // ── 플레이 시간 테이블 ──
+            function getTotalDuration(tester, game) {
+                return records.filter(r => r.tester === tester && r.game === game && (!r.type || r.type === 'play') && r.duration)
+                    .reduce((sum, r) => sum + (r.duration || 0), 0);
+            }
+            function fmtDur(sec) {
+                if (!sec) return '-';
+                const m = Math.floor(sec / 60);
+                const s = sec % 60;
+                return m > 0 ? `${m}분 ${s}초` : `${s}초`;
+            }
+            html += '<h3 style="margin:20px 0 10px; color:#4d96ff;">⏱ 플레이 시간</h3>';
+            html += '<table class="stats-table"><thead><tr><th>친구</th>';
+            GAMES.forEach(g => html += `<th>${g}</th>`);
+            html += '<th class="total">합계</th></tr></thead><tbody>';
+
+            const durGameTotals = {};
+            GAMES.forEach(g => durGameTotals[g] = 0);
+            let durGrand = 0;
+
+            allTesters.forEach(tester => {
+                html += `<tr><td style="font-weight:600;">${tester}</td>`;
+                let rowDur = 0;
+                GAMES.forEach(game => {
+                    const dur = getTotalDuration(tester, game);
+                    durGameTotals[game] += dur;
+                    rowDur += dur;
+                    html += `<td style="color:#4d96ff;">${fmtDur(dur)}</td>`;
+                });
+                durGrand += rowDur;
+                html += `<td class="total" style="color:#4d96ff;">${fmtDur(rowDur)}</td></tr>`;
+            });
+
+            html += '<tr style="border-top:2px solid rgba(255,255,255,0.3);"><td style="font-weight:700;color:#ffd93d;">합계</td>';
+            GAMES.forEach(g => html += `<td class="total" style="color:#4d96ff;">${fmtDur(durGameTotals[g])}</td>`);
+            html += `<td class="total" style="color:#4d96ff;">${fmtDur(durGrand)}</td></tr>`;
+            html += '</tbody></table>';
+
             // ── 💗 더 하고 싶어요 테이블 ──
             const hasWant = records.some(r => r.type === 'want_more');
             html += '<h3 style="margin:20px 0 10px; color:#ff6ba6;">💗 더 하고 싶어요</h3>';
@@ -769,11 +807,12 @@
 
         function downloadCSV() {
             const records = getRecords();
-            let csv = '\uFEFF친구,게임,구분,시각\n'; // BOM for Excel
+            let csv = '\uFEFF친구,게임,구분,시각,플레이시간(초)\n'; // BOM for Excel
             records.forEach(r => {
                 const time = new Date(r.time).toLocaleString('ko-KR');
                 const type = r.type === 'want_more' ? '더하고싶어요' : '플레이';
-                csv += `${r.tester},${r.game},${type},${time}\n`;
+                const dur = r.duration || '';
+                csv += `${r.tester},${r.game},${type},${time},${dur}\n`;
             });
 
             // 플레이 요약
@@ -789,6 +828,22 @@
                     const count = getCount(tester, game);
                     csv += ',' + count;
                     total += count;
+                });
+                csv += ',' + total + '\n';
+            });
+
+            // 플레이 시간 요약 (초)
+            csv += '\n\n플레이시간 요약(초)\n친구';
+            GAMES.forEach(g => csv += ',' + g);
+            csv += ',합계\n';
+            activTesters.forEach(tester => {
+                csv += tester;
+                let total = 0;
+                GAMES.forEach(game => {
+                    const dur = records.filter(r => r.tester === tester && r.game === game && (!r.type || r.type === 'play') && r.duration)
+                        .reduce((sum, r) => sum + (r.duration || 0), 0);
+                    csv += ',' + dur;
+                    total += dur;
                 });
                 csv += ',' + total + '\n';
             });
@@ -834,7 +889,7 @@
             selectTester(savedTester);
         }
     </script>
-    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.1.0 (2026-03-16)</div>
+    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.1.1 (2026-03-16)</div>
 </body>
 
 </html>
