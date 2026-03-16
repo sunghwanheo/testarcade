@@ -60,6 +60,5 @@
     // 전역에 노출
     window.trackPlay = trackPlay;
 
-    // 페이지 로드 시 자동 1회 기록
-    trackPlay();
+    // 자동 기록 제거 — 각 게임에서 시작 버튼 클릭 시 trackPlay() 호출
 })();

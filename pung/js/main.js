@@ -117,6 +117,7 @@ document.getElementById('sel-fever').addEventListener('change', e => {
 
 // ── 시작 버튼 ─────────────────────────────────────────────
 document.getElementById('btn-start').addEventListener('click', () => {
+  if (typeof trackPlay === 'function') trackPlay();
   audio.init();
   audio.setVolume(cfg.volume);
   $start.style.display = 'none';
