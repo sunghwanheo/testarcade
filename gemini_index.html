@@ -1873,59 +1873,169 @@
             }
         }
 
+        // ── 외형 = HP 고정 테이블 ──
+        // 크기: 소(sf 3~4), 중(sf 4~5.5), 대(sf 5.5~7)
+        const BLOCK_HP = {
+            // 얼음(clear): 소=1, 중=2, 대=3
+            clear:      [1, 2, 3],
+            // 눈(snow): 소=2, 중=3, 대=4
+            snow:       [2, 3, 4],
+            // 동그란 눈: 소=2, 중=3, 대=4
+            snow_round: [2, 3, 4],
+            // 스타: 고정
+            star:       [1, 2, 3],   // [Lv.1, Lv.2, Lv.3]
+            // 얼음1(디버프): 고정
+            ice1:       3,
+        };
+
+        function getSizeClass(sf) {
+            return sf < 4 ? 0 : sf < 5.5 ? 1 : 2; // 0=소, 1=중, 2=대
+        }
+
+        // ── 스테이지별 스폰 풀 (어떤 블록이 언제 나오는지) ──
+        // 반환: { type, variant, sizeRange, isRound }
+        function pickBlockType(stage, elapsed) {
+            if (stage === 0) {
+                // Lv.1: 얼음 소만 (HP1), 30초 이후 눈 소도 등장 (HP2)
+                if (elapsed < 30) {
+                    return { variant: 0, sizeMin: 3, sizeMax: 4, isRound: false };       // 얼음 소
+                } else {
+                    const r = Math.random();
+                    if (r < 0.6)
+                        return { variant: 0, sizeMin: 3, sizeMax: 4, isRound: false };   // 얼음 소
+                    else
+                        return { variant: 1, sizeMin: 3, sizeMax: 4, isRound: false };   // 눈 소
+                }
+            } else if (stage === 1) {
+                // Lv.2: 시간에 따라 점진적 난이도
+                const r = Math.random();
+                if (elapsed < 15) {
+                    // 0~15초: 얼음 소만 (HP1) — Lv.1처럼 쉽게 시작
+                    return { variant: 0, sizeMin: 3, sizeMax: 4, isRound: false };
+                } else if (elapsed < 30) {
+                    // 15~30초: 얼음 소/중 + 동그란눈 소 등장
+                    if (r < 0.5)
+                        return { variant: 0, sizeMin: 3, sizeMax: 5, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 4, isRound: true };
+                } else if (elapsed < 45) {
+                    // 30~45초: 얼음 중 + 눈 소 + 동그란눈 소/중
+                    if (r < 0.35)
+                        return { variant: 0, sizeMin: 3.5, sizeMax: 5.5, isRound: false };
+                    else if (r < 0.55)
+                        return { variant: 1, sizeMin: 3, sizeMax: 4, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 5, isRound: true };
+                } else {
+                    // 45~60초: 전부 나옴, 중형까지
+                    if (r < 0.3)
+                        return { variant: 0, sizeMin: 3, sizeMax: 5.5, isRound: false };
+                    else if (r < 0.5)
+                        return { variant: 1, sizeMin: 3, sizeMax: 4.5, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 5.5, isRound: true };
+                }
+            } else {
+                // Lv.3: 시간에 따라 점진적 난이도
+                const r = Math.random();
+                if (elapsed < 10) {
+                    // 0~10초: 얼음 소만 (HP2) — 워밍업
+                    return { variant: 0, sizeMin: 3, sizeMax: 4, isRound: false };
+                } else if (elapsed < 20) {
+                    // 10~20초: 얼음 소/중 + 동그란눈 소
+                    if (r < 0.5)
+                        return { variant: 0, sizeMin: 3, sizeMax: 5.5, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 4, isRound: true };
+                } else if (elapsed < 35) {
+                    // 20~35초: 얼음 중 + 눈 소/중 + 동그란눈 중
+                    if (r < 0.3)
+                        return { variant: 0, sizeMin: 3.5, sizeMax: 5.5, isRound: false };
+                    else if (r < 0.55)
+                        return { variant: 1, sizeMin: 3, sizeMax: 5.5, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3, sizeMax: 5.5, isRound: true };
+                } else if (elapsed < 50) {
+                    // 35~50초: 대형 등장
+                    if (r < 0.3)
+                        return { variant: 0, sizeMin: 4, sizeMax: 7, isRound: false };
+                    else if (r < 0.55)
+                        return { variant: 1, sizeMin: 3.5, sizeMax: 7, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 3.5, sizeMax: 7, isRound: true };
+                } else {
+                    // 50~60초: 전부 최대 난이도
+                    if (r < 0.3)
+                        return { variant: 0, sizeMin: 4, sizeMax: 7, isRound: false };
+                    else if (r < 0.5)
+                        return { variant: 1, sizeMin: 4, sizeMax: 7, isRound: false };
+                    else
+                        return { variant: 5, sizeMin: 4, sizeMax: 7, isRound: true };
+                }
+            }
+        }
+
         function spawnBlock() {
             const stageData  = STAGES[currentStageIndex];
             const phys       = STAGE_PHYSICS[currentStageIndex];
             const stage      = currentStageIndex;
-
-            let scaleFactor  = 3 + Math.random() * 4.0;
-            let size         = 60 * scaleFactor;
+            const elapsed    = 60.0 - gameTimeLeft;
             const W = canvasElement.width, H = canvasElement.height;
 
-            // 스테이지별 스폰 위치 및 형태
-            let x, y;
+            // 특수 블록 체크 (스타, 얼음1)
+            const rng = Math.random();
+            let isSpecial = false;
+            let specialType = null;
+
+            if (rng < 0.12) {
+                specialType = 'bomb';
+                isSpecial = true;
+            } else if (stage === 2 && rng < 0.22) {
+                specialType = 'ice1';
+                isSpecial = true;
+            }
+
+            // 블록 타입/크기 결정
+            let scaleFactor, variant, isRound;
+            if (isSpecial) {
+                scaleFactor = 3 + Math.random() * 2; // 특수블록은 소~중
+                variant = 0;
+                isRound = false;
+            } else {
+                const pick = pickBlockType(stage, elapsed);
+                variant = pick.variant;
+                isRound = pick.isRound;
+                scaleFactor = pick.sizeMin + Math.random() * (pick.sizeMax - pick.sizeMin);
+            }
+
+            let size = 60 * scaleFactor;
             const options = phys.bodyOpts(scaleFactor);
             let block;
             let customVelocitySet = false;
+            let x, y;
 
-            if (stage === 1 || stage === 2) {
-                // Lv.2/3: 동그란 눈덩이(좌우 포물선) or 네모 블록(위에서 낙하)
-                // Lv.2: clear rect + snow_round circle
-                // Lv.3: clear rect + snow rect + snow_round circle
-                const roundChance = stage === 2 ? 0.4 : 0.5;
-                const isRound = Math.random() < roundChance;
-                const mg2 = size + 50;
-                if (isRound) {
-                    // 동그란 눈덩이: 좌/우에서 자연스러운 포물선으로 진입
-                    const fromLeft = Math.random() < 0.5;
-                    x = fromLeft ? 5 : W - 5;
-                    y = -size - 50;
-                    block = Bodies.circle(x, y, size / 2, options);
-                    Body.set(block, 'isStatic', false);
-                    // 포물선: 수평으로 강하게 + 약간 아래로
-                    const hSpd = 13 + Math.random() * 8;
-                    const vx = fromLeft ? hSpd : -hSpd;
-                    const vy = 1 + Math.random() * 2;
-                    Body.setVelocity(block, { x: vx, y: vy });
-                    Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.3);
-                    block.isRoundSnow = true;
-                } else {
-                    // 네모 블록: 위에서 낙하 (Lv.1과 동일)
-                    x = mg2 + Math.random() * (W - mg2 * 2);
-                    y = -size - 100;
-                    block = Bodies.rectangle(x, y, size, size, options);
-                }
-                customVelocitySet = isRound; // 원형만 속도 직접 설정
-
+            if (isRound) {
+                // 동그란 눈덩이: 좌/우에서 포물선
+                const fromLeft = Math.random() < 0.5;
+                x = fromLeft ? 5 : W - 5;
+                y = -size - 50;
+                block = Bodies.circle(x, y, size / 2, options);
+                Body.set(block, 'isStatic', false);
+                const hSpd = 13 + Math.random() * 8;
+                const vx = fromLeft ? hSpd : -hSpd;
+                const vy = 1 + Math.random() * 2;
+                Body.setVelocity(block, { x: vx, y: vy });
+                Body.setAngularVelocity(block, (Math.random() - 0.5) * 0.3);
+                block.isRoundSnow = true;
+                customVelocitySet = true;
             } else {
-                // Lv.1: 위에서 낙하
+                // 네모 블록: 위에서 낙하
                 const margin = size + 50;
                 x = margin + Math.random() * (W - margin * 2);
                 y = -size - 100;
                 block = Bodies.rectangle(x, y, size, size, options);
             }
 
-            // 초기 속도 & 회전
             if (!customVelocitySet) {
                 const vel = phys.initVel();
                 Body.setVelocity(block, vel);
@@ -1933,62 +2043,55 @@
             }
 
             block.isBlock         = true;
-            block.maxHp           = Math.max(1, Math.floor(scaleFactor * stageData.hpMultiplier));
-            block.hp              = block.maxHp;
+            block.maxHp           = 1;
+            block.hp              = 1;
             block.hitCooldown     = 0;
             block.timeSinceSpawn  = 0;
             block.rectWidth       = size;
             block.rectHeight      = size;
             block.scaleFactor     = scaleFactor;
-            block.nudgeTimer      = 0; // Lv.3 랜덤 방향 재부여용
-            block.hasEnteredScreen = false; // Lv.2 화면 진입 추적용
+            block.nudgeTimer      = 0;
+            block.hasEnteredScreen = false;
 
-            // 특수 블록 결정
-            const rng = Math.random();
-            if (rng < 0.12) {
-                // 스타 블록 (12%) - 터뜨리면 주변 블록도 같이 폭발!
-                block.blockType = 'bomb';
-                block.hp    = 5;
-                block.maxHp = 5;
-                Body.set(block, 'restitution', 0.01);
-                Body.set(block, 'friction', 1.0);
-                Body.set(block, 'frictionAir', 0.15);  // 공기저항 높여서 안 튀게
-            } else if (stage === 2 && rng < 0.22) {
-                // 얼음1 블록 (스테이지3 전용, 10%) - 터뜨리면 주변 영역 7초간 파워 1/5
-                block.blockType = 'ice1';
-                block.hp    = 3;
-                block.maxHp = 3;
-                Body.set(block, 'restitution', 0.01);
-                Body.set(block, 'friction', 1.0);
-                Body.set(block, 'frictionAir', 0.15);
+            const sizeClass = getSizeClass(scaleFactor);
+
+            if (isSpecial) {
+                if (specialType === 'bomb') {
+                    block.blockType = 'bomb';
+                    block.maxHp = BLOCK_HP.star[stage];
+                    block.hp    = block.maxHp;
+                    Body.set(block, 'restitution', 0.01);
+                    Body.set(block, 'friction', 1.0);
+                    Body.set(block, 'frictionAir', 0.15);
+                } else {
+                    block.blockType = 'ice1';
+                    block.maxHp = BLOCK_HP.ice1;
+                    block.hp    = block.maxHp;
+                    Body.set(block, 'restitution', 0.01);
+                    Body.set(block, 'friction', 1.0);
+                    Body.set(block, 'frictionAir', 0.15);
+                }
             } else {
                 block.blockType = 'normal';
-                if (block.isRoundSnow) {
-                    // 동그란 눈덩이 (모든 스테이지 공통)
-                    block.iceVariant = 5; // snow_round
+                if (isRound) {
+                    block.iceVariant = 5;
+                    block.maxHp = BLOCK_HP.snow_round[sizeClass];
                     Body.set(block, 'density', block.density * 3.0);
-                    Body.set(block, 'restitution', 0.2);
-                    Body.set(block, 'friction', 0.5);
-                    Body.set(block, 'frictionAir', 0.01);
+                    Body.set(block, 'restitution', 0.7);
+                    Body.set(block, 'friction', 0.3);
+                    Body.set(block, 'frictionAir', 0.005);
+                } else if (variant === 1) {
+                    block.iceVariant = 1;
+                    block.maxHp = BLOCK_HP.snow[sizeClass];
+                    Body.set(block, 'density', block.density * 4.0);
+                    Body.set(block, 'restitution', 0.01);
+                    Body.set(block, 'friction', 1.0);
+                    Body.set(block, 'frictionAir', 0.12);
                 } else {
-                    // 네모 블록 스테이지별 배리에이션
-                    const allVariants = [
-                        { id: 0, name: 'clear', densityMul: 1.0 },
-                        { id: 1, name: 'snow',  densityMul: 4.0 },
-                    ];
-                    // Lv.1/3: clear+snow, Lv.2: clear만 (동그란 눈덩이가 snow 역할)
-                    const pool = stage === 1
-                        ? [allVariants[0]]
-                        : [allVariants[0], allVariants[1]];
-                    const v = pool[Math.floor(Math.random() * pool.length)];
-                    block.iceVariant = v.id;
-                    Body.set(block, 'density', block.density * v.densityMul);
-                    if (v.id === 1) {
-                        Body.set(block, 'restitution', 0.01);
-                        Body.set(block, 'friction', 1.0);
-                        Body.set(block, 'frictionAir', 0.12);
-                    }
+                    block.iceVariant = 0;
+                    block.maxHp = BLOCK_HP.clear[sizeClass];
                 }
+                block.hp = block.maxHp;
             }
 
             Composite.add(world, block);
@@ -2771,15 +2874,45 @@
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
             if (isPlaying && !isWaitingStart && tutorialPhase < 0) {
+            const elapsed = 60.0 - gameTimeLeft;
+            const stage = currentStageIndex;
+
+            // 화면에 있는 블록 수
+            const currentBlocks = Composite.allBodies(world).filter(b => b.isBlock && !b.isStartBlock).length;
+
+            // 스테이지별 최소 블록 수 (항상 화면에 이만큼은 있게)
+            let minBlocks;
+            if (stage === 0) {
+                // Lv.1: 1개 → 2개
+                minBlocks = Math.floor(1 + elapsed / 60 * 1);
+            } else if (stage === 1) {
+                // Lv.2: 1개 → 3개
+                minBlocks = Math.floor(1 + elapsed / 60 * 2);
+            } else {
+                // Lv.3: 2개 → 4개
+                minBlocks = Math.floor(2 + elapsed / 60 * 2);
+            }
+
+            // 최소 블록 수 미달이면 즉시 스폰
+            if (currentBlocks < minBlocks) {
+                spawnBlock();
+                blockSpawnTimer = 0.15; // 연속 스폰 시 약간의 간격
+            }
+
             blockSpawnTimer -= dt;
             if (blockSpawnTimer <= 0) {
                 spawnBlock();
-                // 피버 모드일 때는 블럭 스폰 속도가 폭발적으로 증가
                 if (isFeverMode) {
-                    blockSpawnTimer = 0.4 + Math.random() * 0.2;
+                    blockSpawnTimer = 0.3 + Math.random() * 0.15;
+                } else if (stage === 0) {
+                    // Lv.1: 2초 → 점점 빨라져서 0.8초
+                    blockSpawnTimer = Math.max(0.8, 2.0 - elapsed / 60 * 1.2) + Math.random() * 0.4;
+                } else if (stage === 1) {
+                    // Lv.2: 1.5초 → 0.6초
+                    blockSpawnTimer = Math.max(0.6, 1.5 - elapsed / 60 * 0.9) + Math.random() * 0.3;
                 } else {
-                    let difficultSpeed = Math.min(score * 0.003, 0.8);
-                    blockSpawnTimer = 2.5 - difficultSpeed + Math.random() * 0.8;
+                    // Lv.3: 1.2초 → 0.5초
+                    blockSpawnTimer = Math.max(0.5, 1.2 - elapsed / 60 * 0.7) + Math.random() * 0.3;
                 }
             }
             }
