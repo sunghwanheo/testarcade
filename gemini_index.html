@@ -382,6 +382,8 @@
             100% { transform: translateY(0); opacity: 1; }
         }
     </style>
+    <!-- 플레이 트래킹 -->
+    <script src="/testarcade/tracking.js" data-game="쾅쾅 얼음깨기"></script>
     <!-- MediaPipe files -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
@@ -2279,6 +2281,8 @@
             const btnEl = document.getElementById('rewardBtn');
             btnEl.textContent = isAllClear ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!';
             btnEl.onclick = function () {
+                // 다시하기 = 새 플레이 기록
+                if (typeof trackPlay === 'function') trackPlay();
                 screen.style.display = 'none';
                 clearConfetti(screen);
                 overlay.style.display = 'flex';
