@@ -217,6 +217,7 @@ function processCalibration(topPoses) {
     }
   }
   $calib.style.display = 'none';
+  phase = 'intro';
   showIntro(() => startPlaying());
 }
 
