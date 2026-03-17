@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>코스튬 테스트</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#111827; font-family:'Malgun Gothic',sans-serif; color:#fff;
+  height:100vh; display:flex; align-items:center; justify-content:center; gap:32px;
+  overflow:hidden;
+}
+
+#preview { position:relative; }
+canvas {
+  width:560px; height:420px;
+  border-radius:24px; display:block;
+  box-shadow:0 8px 40px rgba(0,0,0,0.6);
+}
+#statusLabel {
+  position:absolute; bottom:12px; left:0; right:0;
+  text-align:center; font-size:13px; color:rgba(255,255,255,0.4);
+  pointer-events:none;
+}
+
+#panel {
+  display:flex; flex-direction:column; gap:10px;
+  min-width:180px;
+}
+#panel h2 { font-size:15px; color:#C77DFF; margin-bottom:6px; }
+.btn {
+  padding:12px 20px; border-radius:14px;
+  border:2px solid rgba(255,255,255,0.12);
+  background:rgba(255,255,255,0.06); color:#fff;
+  font-size:15px; cursor:pointer; text-align:left;
+  transition:all 0.15s; font-family:inherit;
+}
+.btn:hover { background:rgba(199,125,255,0.18); border-color:#C77DFF; }
+.btn.active {
+  background:rgba(199,125,255,0.28); border-color:#C77DFF;
+  box-shadow:0 0 12px rgba(199,125,255,0.4);
+}
+.btn .sub {
+  display:block; font-size:10px;
+  color:rgba(255,255,255,0.35); margin-top:2px;
+}
+</style>
+</head>
+<body>
+
+<div id="preview">
+  <canvas id="c" width="560" height="420"></canvas>
+  <div id="statusLabel">카메라 로딩 중...</div>
+</div>
+
+<div id="panel">
+  <h2>🎭 코스튬 선택</h2>
+</div>
+
+<video id="video" style="display:none" playsinline></video>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script>
+'use strict';
+
+// ══════════════════════════════════════════
+// ★ 코스튬 추가는 여기에만 하면 됩니다 ★
+// offsetY: 양수=아래로, 음수=위로 (기본 0)
+// scale: 크기 배율 (기본 1.0)
+const COSTUMES = [
+  { label: '없음',    emoji: '⬜', file: null },
+  { label: '왕관',    emoji: '👑', file: 'assets/crown.png',   offsetY: 0,    scale: 1.0 },
+  { label: '실크햇',  emoji: '🎩', file: 'assets/tophat.png',  offsetY: 0,    scale: 1.0 },
+  { label: '토끼귀',  emoji: '🐰', file: 'assets/bunny.png',   offsetY: -0.15, scale: 1.0 },
+  // { label: '선글라스',emoji: '🕶️', file: 'assets/sunglasses.png', offsetY: 0, scale: 1.0 },
+];
+// ══════════════════════════════════════════
+
+const canvas  = document.getElementById('c');
+const ctx     = canvas.getContext('2d');
+const videoEl = document.getElementById('video');
+const W = canvas.width, H = canvas.height;
+
+let faceData      = null;
+let currentImg    = null;
+let currentOffsetY = 0;
+let currentScale   = 1.0;
+let currentLabel  = '없음';
+
+// ── 이미지 캐시 ──
+const imgCache = {};
+function loadImg(file) {
+  if (!file) return Promise.resolve(null);
+  if (imgCache[file]) return Promise.resolve(imgCache[file]);
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload  = () => { imgCache[file]=img; res(img); };
+    img.onerror = () => rej(new Error('로드 실패: '+file));
+    img.src = file;
+  });
+}
+
+// ── FaceMesh 결과 파싱 ──
+function onFaceResults(results) {
+  if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length===0) {
+    faceData = null; return;
+  }
+  const lms = results.multiFaceLandmarks[0];
+  const p = i => ({ x:(1-lms[i].x)*W, y:lms[i].y*H });
+  const top   = p(10);
+  const chin  = p(152);
+  const faceL = p(234);
+  const faceR = p(454);
+  const eyeL  = p(159);
+  const eyeR  = p(386);
+  const fw    = Math.abs(faceR.x - faceL.x) * 1.15;
+  const fh    = Math.abs(chin.y  - top.y)   * 1.1;
+  const cx    = (faceL.x + faceR.x) / 2;
+  const cy    = (top.y   + chin.y)  / 2;
+  const topY  = top.y - fh * 0.08;
+  faceData = { cx, cy, fw, fh, topY, eyeL, eyeR };
+}
+
+// ── 코스튬 그리기 ──
+function drawCostumeImg(img, offsetY=0, scale=1.0) {
+  if (!faceData || !img) return;
+  const {cx, topY, fw} = faceData;
+  const w = fw * 1.1 * scale;
+  const h = w * (img.naturalHeight / img.naturalWidth);
+  // offsetY: fw 기준 비율 (예: -0.3 = fw*0.3 만큼 위로)
+  const dy = fw * offsetY;
+  ctx.save();
+  ctx.drawImage(img, cx-w/2, topY - h*0.82 + dy, w, h);
+  ctx.restore();
+}
+
+// ── 메인 렌더 루프 ──
+function render() {
+  // 카메라 영상 (미러)
+  ctx.save();
+  ctx.translate(W, 0); ctx.scale(-1, 1);
+  ctx.drawImage(videoEl, 0, 0, W, H);
+  ctx.restore();
+
+  // 코스튬
+  if (currentImg && faceData) drawCostumeImg(currentImg, currentOffsetY, currentScale);
+
+  // 얼굴 없을 때 안내
+  if (currentImg && !faceData) {
+    ctx.save();
+    ctx.fillStyle='rgba(255,200,0,0.7)';
+    ctx.font='14px Malgun Gothic';
+    ctx.textAlign='center';
+    ctx.fillText('얼굴을 카메라에 맞춰주세요', W/2, H-20);
+    ctx.restore();
+  }
+
+  document.getElementById('statusLabel').textContent =
+    faceData ? `✅ 얼굴 인식됨 · ${currentLabel}` : `👤 얼굴 감지 대기 중 · ${currentLabel}`;
+
+  requestAnimationFrame(render);
+}
+
+// ── MediaPipe 초기화 ──
+async function init() {
+  const faceMesh = new FaceMesh({
+    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
+  });
+  faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:false,
+    minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+  faceMesh.onResults(onFaceResults);
+  await faceMesh.initialize();
+
+  const camera = new Camera(videoEl, {
+    onFrame: async () => {
+      if (videoEl.readyState >= 2) await faceMesh.send({ image: videoEl });
+    },
+    width: 560, height: 420
+  });
+  await camera.start();
+  requestAnimationFrame(render);
+}
+
+// ── 버튼 생성 ──
+const panel = document.getElementById('panel');
+let activeBtn = null;
+
+COSTUMES.forEach((costume, i) => {
+  const {label, emoji, file} = costume;
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.innerHTML = `${emoji} ${label}<span class="sub">${file || '코스튬 없음'}</span>`;
+
+  btn.addEventListener('click', async () => {
+    if (activeBtn) activeBtn.classList.remove('active');
+    btn.classList.add('active');
+    activeBtn = btn;
+    currentLabel  = `${emoji} ${label}`;
+    currentOffsetY = costume.offsetY ?? 0;
+    currentScale   = costume.scale  ?? 1.0;
+
+    if (!file) { currentImg = null; return; }
+    try {
+      currentImg = await loadImg(file);
+    } catch(e) {
+      currentImg = null;
+      alert('이미지 로드 실패: ' + file);
+    }
+  });
+
+  panel.appendChild(btn);
+  if (i===0) btn.click();
+});
+
+init();
+</script>
+</body>
+</html>
