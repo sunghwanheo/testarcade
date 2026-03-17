@@ -12,6 +12,7 @@ class AudioEngine {
     this.feverFartBuffer  = null; // fart_0.ogg  (가장 큰 소리, 피버 전용)
     this.voiceBuffer      = null; // start_voice.mp3
     this.feverVoiceBuffer = null; // fever_voice.mp3 (응가타임)
+    this.cheerBuffers     = [];   // voice_cheer_04/07/09/12.wav
     this._bgmNode    = null; // BGM 루프 timeout handle
     this._bgmStep    = 0;
   }
@@ -63,6 +64,15 @@ class AudioEngine {
       const buf = await this.actx.decodeAudioData(await res.arrayBuffer());
       this.feverVoiceBuffer = buf;
     } catch (e) { console.warn('fever_voice.mp3 로드 실패', e); }
+
+    // 칭찬 음성 4종 (04, 07, 09, 12)
+    for (const n of ['04', '07', '09', '12']) {
+      try {
+        const res = await fetch(`assets/voice_cheer_${n}.wav`);
+        const buf = await this.actx.decodeAudioData(await res.arrayBuffer());
+        this.cheerBuffers.push({ id: n, buf });
+      } catch (e) { console.warn(`voice_cheer_${n}.wav 로드 실패`, e); }
+    }
   }
 
   // ── 브라운 노이즈 버퍼 생성 ──
@@ -296,6 +306,22 @@ class AudioEngine {
     if (this.voiceBuffer) {
       this._playBuffer(this.voiceBuffer, 1.0);
     }
+  }
+
+  // ── 칭찬 음성 랜덤 (4종 중 1개) ──
+  playCheer() {
+    if (!this.ready || this.cheerBuffers.length === 0) return;
+    const pick = this.cheerBuffers[Math.floor(Math.random() * this.cheerBuffers.length)];
+    this._playBuffer(pick.buf, 1.0);
+  }
+
+  // ── 피버 종료 칭찬 (04 제외, 3종 중 1개) ──
+  playFeverEndCheer() {
+    if (!this.ready || this.cheerBuffers.length === 0) return;
+    const pool = this.cheerBuffers.filter(c => c.id !== '04');
+    if (pool.length === 0) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    this._playBuffer(pick.buf, 1.0);
   }
 
   // ── 피버타임 음성 (응가타임) ──

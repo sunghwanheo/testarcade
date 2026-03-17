@@ -1,14 +1,14 @@
 // ============================================================
 //  main.js  — 게임 루프, 포즈 감지, 렌더링 (이미지 에셋 포함)
+//  2인 지원: MoveNet MultiPose Lightning
 // ============================================================
 
-// ── 랜드마크 인덱스 ──────────────────────────────────────
+// ── MoveNet 키포인트 인덱스 (COCO 17) ──────────────────────
 const LM = {
   NOSE: 0,
   L_EYE: 1, R_EYE: 2,
-  L_SHOULDER: 11, R_SHOULDER: 12,
-  L_HIP: 23, R_HIP: 24,
-  L_KNEE: 25, R_KNEE: 26,
+  L_SHOULDER: 5, R_SHOULDER: 6,
+  L_HIP: 11, R_HIP: 12,
 };
 
 // ── 레벨별 테마 (빨주노초파보 + 무지개 7단계) ──────────────
@@ -38,26 +38,36 @@ let phase      = 'start';
 let gauge      = 0;
 let level      = 1;
 let roundFarts = 0;
-let totalFarts = 0;    // 전체 누적 방귀 횟수
+let totalFarts = 0;
 
 // 피버타임
 let feverMode    = false;
 let feverEndTime = 0;
 
-// 동작 감지 (스쿼트 OR 상체 숙이기)
-let standingHipY      = null;
-let standingShoulderY = null;
-let calibFrames       = [];
-let calibShoulderFrames = [];
-const CALIB_FRAMES  = 60;
-const SQUAT_THRESH  = 0.07;   // 폴백 (동적 임계값 우선)
-let isSquatting  = false;
-let canTrigger   = true;
+// ── 2인 플레이어 상태 ─────────────────────────────────────
+function makePlayer() {
+  return {
+    standingHipY:      null,
+    standingShoulderY: null,
+    calibFrames:       [],
+    calibShoulderFrames: [],
+    isSquatting: false,
+    canTrigger:  true,
+  };
+}
+let players = [makePlayer(), makePlayer()];
+
+const CALIB_FRAMES = 60;
+const SQUAT_THRESH = 0.07;  // 폴백 (동적 임계값 우선)
+
+// ── 포즈 감지 상태 ────────────────────────────────────────
+let detector    = null;
+let latestPoses = [null, null];  // [좌측 플레이어, 우측 플레이어]
+let isDetecting = false;
 
 // ── 렌더링 ───────────────────────────────────────────────
 let canvas, ctx, video;
 let CW = 1280, CH = 720;
-let latestResults = null;
 
 // ── 게이지 파티클 ─────────────────────────────────────────
 let gaugeParticles = [];
@@ -98,6 +108,7 @@ const $fartNum  = document.getElementById('fart-count-num');
 const $calibBar = document.getElementById('calib-bar');
 const $dispTgt  = document.getElementById('display-target');
 const $screenEnd= document.getElementById('screen-end');
+const $btnStart = document.getElementById('btn-start');
 
 // ── 설정 UI ──────────────────────────────────────────────
 document.getElementById('sel-target').addEventListener('change', e => {
@@ -116,8 +127,8 @@ document.getElementById('sel-fever').addEventListener('change', e => {
 });
 
 // ── 시작 버튼 ─────────────────────────────────────────────
-document.getElementById('btn-start').addEventListener('click', () => {
-  if (typeof trackPlay === 'function') trackPlay();
+$btnStart.addEventListener('click', () => {
+  if (!detector) return;  // 모델 로딩 중엔 무시
   audio.init();
   audio.setVolume(cfg.volume);
   $start.style.display = 'none';
@@ -125,47 +136,100 @@ document.getElementById('btn-start').addEventListener('click', () => {
 });
 
 // ============================================================
+//  MoveNet 유틸
+// ============================================================
+
+// MoveNet 키포인트(픽셀좌표) → 정규화된 랜드마크 배열
+function poseToLm(pose, vW, vH) {
+  return pose.keypoints.map(kp => ({
+    x:          kp.x / vW,
+    y:          kp.y / vH,
+    visibility: kp.score,
+  }));
+}
+
+// 포즈의 바운딩박스 크기 (가까울수록 큰 값)
+function poseSize(pose) {
+  const vis = pose.keypoints.filter(kp => kp.score > 0.15);
+  if (vis.length < 3) return 0;
+  const xs = vis.map(kp => kp.x);
+  const ys = vis.map(kp => kp.y);
+  return (Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys));
+}
+
+// 가장 앞에 있는(크게 보이는) 2명을 선택, 왼쪽→오른쪽 슬롯 정렬
+function selectTopTwo(poses) {
+  const valid = (poses || []).filter(p => p.score > 0.12);
+  const top   = [...valid].sort((a, b) => poseSize(b) - poseSize(a)).slice(0, 2);
+  top.sort((a, b) => {
+    const ax = a.keypoints.reduce((s, k) => s + k.x, 0) / a.keypoints.length;
+    const bx = b.keypoints.reduce((s, k) => s + k.x, 0) / b.keypoints.length;
+    return ax - bx;  // 왼쪽 → 슬롯 0, 오른쪽 → 슬롯 1
+  });
+  return [top[0] || null, top[1] || null];
+}
+
+// ============================================================
 //  캘리브레이션
 // ============================================================
 function startCalibration() {
-  phase = 'calibrating';
-  standingHipY      = null;
-  standingShoulderY = null;
-  calibFrames         = [];
-  calibShoulderFrames = [];
+  phase   = 'calibrating';
+  players = [makePlayer(), makePlayer()];
   $calib.style.display = 'flex';
   $calibBar.style.width = '0%';
 }
 
-function processCalibration(landmarks) {
+function processCalibration(topPoses) {
   if (phase !== 'calibrating') return;
-  const lh = landmarks[LM.L_HIP], rh = landmarks[LM.R_HIP];
-  const ls = landmarks[LM.L_SHOULDER], rs = landmarks[LM.R_SHOULDER];
-  if (!lh || !rh || (lh.visibility < 0.25 && rh.visibility < 0.25)) return;
+  const vW = video.videoWidth  || 1280;
+  const vH = video.videoHeight || 720;
 
-  calibFrames.push((lh.y + rh.y) / 2);
-  if (ls && rs) calibShoulderFrames.push((ls.y + rs.y) / 2);
-  $calibBar.style.width = ((calibFrames.length / CALIB_FRAMES) * 100) + '%';
+  let maxProgress = 0;
+  for (let i = 0; i < 2; i++) {
+    const pose = topPoses[i];
+    if (!pose) continue;
+    const lm = poseToLm(pose, vW, vH);
+    const lh = lm[LM.L_HIP], rh = lm[LM.R_HIP];
+    const ls = lm[LM.L_SHOULDER], rs = lm[LM.R_SHOULDER];
+    if (!lh || !rh || (lh.visibility < 0.2 && rh.visibility < 0.2)) continue;
 
-  if (calibFrames.length >= CALIB_FRAMES) {
-    standingHipY = calibFrames.reduce((s, v) => s + v, 0) / calibFrames.length;
-    if (calibShoulderFrames.length > 0) {
-      standingShoulderY = calibShoulderFrames.reduce((s, v) => s + v, 0) / calibShoulderFrames.length;
+    players[i].calibFrames.push((lh.y + rh.y) / 2);
+    if (ls && rs && (ls.visibility > 0.2 || rs.visibility > 0.2)) {
+      players[i].calibShoulderFrames.push((ls.y + rs.y) / 2);
     }
-    $calib.style.display = 'none';
-    showIntro(() => startPlaying());
+    maxProgress = Math.max(maxProgress, players[i].calibFrames.length);
   }
+
+  $calibBar.style.width = ((maxProgress / CALIB_FRAMES) * 100) + '%';
+
+  // 주요 플레이어(슬롯0 우선, 없으면 슬롯1)가 CALIB_FRAMES 채우면 완료
+  const primary = players[0].calibFrames.length >= players[1].calibFrames.length ? 0 : 1;
+  if (players[primary].calibFrames.length < CALIB_FRAMES) return;
+
+  // 각 플레이어 기준값 확정
+  for (let i = 0; i < 2; i++) {
+    const p = players[i];
+    if (p.calibFrames.length >= 10) {
+      p.standingHipY = p.calibFrames.reduce((s, v) => s + v, 0) / p.calibFrames.length;
+    }
+    if (p.calibShoulderFrames.length >= 5) {
+      p.standingShoulderY = p.calibShoulderFrames.reduce((s, v) => s + v, 0) / p.calibShoulderFrames.length;
+    }
+  }
+  $calib.style.display = 'none';
+  phase = 'intro';
+  showIntro(() => startPlaying());
 }
 
 // ============================================================
 //  플레이 시작
 // ============================================================
 function startPlaying() {
+  if (typeof trackPlay === 'function') trackPlay();
   phase      = 'playing';
   gauge      = 0;
   roundFarts = 0;
-  isSquatting= false;
-  canTrigger = true;
+  players.forEach(p => { p.isSquatting = false; p.canTrigger = true; });
   $gaugeWrap.style.display = 'block';
   $fartCnt.style.display   = 'block';
   document.getElementById('color-progress').style.display = 'flex';
@@ -173,7 +237,7 @@ function startPlaying() {
   updateGaugeUI();
   updateHUD();
   audio.playVoice();
-  setTimeout(() => audio.startBGM(), 2000); // 음성 재생 후 BGM 시작
+  setTimeout(() => audio.startBGM(), 2000);
 }
 
 // ── 게임 목표 인트로 ──
@@ -189,20 +253,18 @@ function showIntro(onDone) {
 
 // ── 레벨 전환 알림 ──
 function showLevelAnnounce() {
-  const names = ['빨강', '주황', '노랑', '초록', '파랑', '보라', '무지개'];
-  const icons = ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '🌈'];
+  const names  = ['빨강', '주황', '노랑', '초록', '파랑', '보라', '무지개'];
+  const icons  = ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '🌈'];
   const colors = ['#ff5555','#ff9944','#ffe033','#55dd55','#4499ff','#bb66ff','#ff88ee'];
   const idx = Math.min(level - 1, 6);
 
-  const el   = document.getElementById('screen-level-announce');
-  const col  = document.getElementById('level-ann-color');
+  const el  = document.getElementById('screen-level-announce');
+  const col = document.getElementById('level-ann-color');
   col.textContent  = `${icons[idx]} ${names[idx]}!`;
   col.style.textShadow = `0 0 40px ${colors[idx]}, 0 0 80px ${colors[idx]}, 0 4px 20px rgba(0,0,0,0.6)`;
-
-  // 애니메이션 재트리거
-  col.style.animation = 'none';
+  col.style.animation  = 'none';
   void col.offsetWidth;
-  col.style.animation = '';
+  col.style.animation  = '';
 
   el.style.display = 'flex';
   el.style.opacity = '1';
@@ -217,46 +279,67 @@ function updateColorProgress() {
   const slots = document.querySelectorAll('.cp-slot');
   slots.forEach((slot, i) => {
     slot.className = 'cp-slot';
-    if (i < level - 1)      slot.classList.add('done');
+    if (i < level - 1)       slot.classList.add('done');
     else if (i === level - 1) slot.classList.add('current');
   });
 }
 
 // ============================================================
-//  스쿼트 감지
+//  스쿼트 감지 (2인)
 // ============================================================
-function detectSquat(landmarks) {
-  if ((phase !== 'playing' && phase !== 'fever') || !standingHipY) return;
-  const lh = landmarks[LM.L_HIP],  rh = landmarks[LM.R_HIP];
-  const ls = landmarks[LM.L_SHOULDER], rs = landmarks[LM.R_SHOULDER];
-  if (!lh || !rh || (lh.visibility < 0.25 && rh.visibility < 0.25)) return;
+function detectSquat(topPoses) {
+  if (phase !== 'playing' && phase !== 'fever') return;
+  const vW = video.videoWidth  || 1280;
+  const vH = video.videoHeight || 720;
 
-  const hipY      = (lh.y + rh.y) / 2;
+  for (let i = 0; i < 2; i++) {
+    const pose   = topPoses[i];
+    const player = players[i];
+
+    if (!pose) {
+      // 프레임에서 사라졌으면 스쿼트 상태 해제
+      if (player.isSquatting) {
+        player.isSquatting = false;
+        setTimeout(() => { player.canTrigger = true; }, 250);
+      }
+      continue;
+    }
+    if (!player.standingHipY) continue;  // 캘리브 안 된 플레이어는 스킵
+
+    detectPlayerSquat(poseToLm(pose, vW, vH), player);
+  }
+}
+
+function detectPlayerSquat(lm, player) {
+  const lh = lm[LM.L_HIP],      rh = lm[LM.R_HIP];
+  const ls = lm[LM.L_SHOULDER],  rs = lm[LM.R_SHOULDER];
+  if (!lh || !rh || (lh.visibility < 0.2 && rh.visibility < 0.2)) return;
+
+  const hipY     = (lh.y + rh.y) / 2;
   const shoulderY = (ls && rs) ? (ls.y + rs.y) / 2 : null;
 
   // 몸 크기에 비례한 동적 임계값 — 멀리 서 있어도 인식
   let thresh = SQUAT_THRESH;
-  if (shoulderY !== null && (ls.visibility > 0.2 || rs.visibility > 0.2)) {
+  if (shoulderY !== null && (ls.visibility > 0.15 || rs.visibility > 0.15)) {
     const bodyH = Math.abs(hipY - shoulderY);
     if (bodyH > 0.05) thresh = bodyH * 0.22;
   }
 
-  // ① 얕은 스쿼트: 엉덩이가 아래로
-  const isSquatPose = hipY > standingHipY + thresh;
-
-  // ② 상체 숙이기: 어깨가 서있을 때보다 아래로 (앞으로 구부릴 때)
-  const isLeanPose = shoulderY !== null && standingShoulderY !== null &&
-                     shoulderY > standingShoulderY + thresh * 0.9;
+  // ① 얕은 스쿼트
+  const isSquatPose = hipY > player.standingHipY + thresh;
+  // ② 상체 숙이기
+  const isLeanPose  = shoulderY !== null && player.standingShoulderY !== null &&
+                      shoulderY > player.standingShoulderY + thresh * 0.9;
 
   const triggered = isSquatPose || isLeanPose;
 
-  if (triggered && !isSquatting && canTrigger) {
-    isSquatting = true;
-    canTrigger  = false;
-    onFart(landmarks);
-  } else if (!triggered && isSquatting) {
-    isSquatting = false;
-    setTimeout(() => { canTrigger = true; }, 250);
+  if (triggered && !player.isSquatting && player.canTrigger) {
+    player.isSquatting = true;
+    player.canTrigger  = false;
+    onFart(lm);
+  } else if (!triggered && player.isSquatting) {
+    player.isSquatting = false;
+    setTimeout(() => { player.canTrigger = true; }, 250);
   }
 }
 
@@ -287,9 +370,9 @@ function onFart(landmarks) {
   // 가스 스폰 (일반 플레이만)
   fx.spawnFart(hx, hy, currentHue(), cfg.effectLevel);
 
-  // ── 일반 플레이 ──
   gauge++;
   audio.playFart(gauge / cfg.fartTarget);
+  if (gauge === 2) audio.playCheer();
 
   fx.shake.t         = 0.65;
   fx.shake.intensity = 16;
@@ -315,7 +398,6 @@ function pulseGauge() {
   setTimeout(() => { p.style.transform = 'translateY(-50%) scale(1)'; }, 270);
 }
 
-// 게이지 파티클: 방귀 위치에서 화면 상단 게이지 쪽으로 날아감
 function spawnGaugeParticles(hx, hy) {
   const count = 12;
   for (let i = 0; i < count; i++) {
@@ -323,7 +405,7 @@ function spawnGaugeParticles(hx, hy) {
     gaugeParticles.push({
       x:    hx + (Math.random() - 0.5) * 60,
       y:    hy + (Math.random() - 0.5) * 40,
-      tx:   CW * 0.3 + Math.random() * CW * 0.4,  // 게이지 상단으로
+      tx:   CW * 0.3 + Math.random() * CW * 0.4,
       ty:   30 + Math.random() * 30,
       life: 1.0,
       size: 6 + Math.random() * 8,
@@ -336,7 +418,6 @@ function spawnGaugeParticles(hx, hy) {
 function drawGaugeParticles() {
   gaugeParticles = gaugeParticles.filter(p => {
     p.life -= 0.03;
-    // lerp toward target
     p.x += (p.tx - p.x) * p.speed;
     p.y += (p.ty - p.y) * p.speed;
     if (p.life <= 0) return false;
@@ -357,20 +438,17 @@ function drawGaugeParticles() {
 //  똥 발사 빅이벤트
 // ============================================================
 function triggerBigPoop(hx, hy) {
-  // ── 피버타임 시작 ──
   feverMode    = true;
   feverEndTime = Date.now() + cfg.feverDuration * 1000;
   phase        = 'fever';
   gauge        = 0;
   roundFarts   = 0;
-  isSquatting  = false;
-  canTrigger   = true;
+  players.forEach(p => { p.isSquatting = false; p.canTrigger = true; });
 
   audio.playBigPoop();
   audio.playFeverVoice();
   fx.launchPoop(hx, hy, CW, cfg.effectLevel, currentHue(), theme().rainbow);
 
-  // 피버 타이틀 잠깐 표시
   const ann = document.getElementById('fever-announce');
   ann.style.display = 'flex';
   setTimeout(() => { ann.style.display = 'none'; }, 700);
@@ -383,13 +461,12 @@ function triggerBigPoop(hx, hy) {
 
 function endFever() {
   feverMode = false;
-  // 똥은 사라지지 않음 — 화면에 계속 쌓임
-  document.getElementById('fever-timer').style.display = 'none';
+  document.getElementById('fever-timer').style.display   = 'none';
   document.getElementById('fever-announce').style.display = 'none';
   $gaugeFill.style.animation = '';
+  audio.playFeverEndCheer();
 
   if (level >= 7) {
-    // 7단계 완료 → 게임 클리어!
     setTimeout(endGame, 500);
   } else {
     nextRound();
@@ -403,18 +480,14 @@ function endGame() {
   audio.playApplause();
   fx.spawnEndGamePoops(CW, CH);
   document.getElementById('end-fart-num').textContent = totalFarts;
-  // 슬롯 전체 완료 표시
-  document.querySelectorAll('.cp-slot').forEach(s => {
-    s.className = 'cp-slot done';
-  });
-  // 똥 이펙트 3초 감상 후 종료 UI 표시
+  document.querySelectorAll('.cp-slot').forEach(s => { s.className = 'cp-slot done'; });
   setTimeout(() => { $screenEnd.style.display = 'flex'; }, 3000);
 }
 
 function nextRound() {
   level++;
   gauge = 0; roundFarts = 0;
-  isSquatting = false; canTrigger = true;
+  players.forEach(p => { p.isSquatting = false; p.canTrigger = true; });
   phase = 'playing';
 
   audio.playLevelUp();
@@ -438,12 +511,10 @@ function updateGaugeUI() {
   if (feverMode) {
     $gaugeFill.style.width = '100%';
     if (theme().rainbow) {
-      // 무지개 레벨만 무지개 게이지
       $gaugeFill.style.background =
         'linear-gradient(90deg,#ff0000,#ff7700,#ffff00,#00ff00,#0088ff,#8800ff,#ff0088)';
       $gaugeFill.style.animation = 'rainbow-shift 0.6s linear infinite';
     } else {
-      // 일반 레벨: 해당 레벨 색으로 밝게 빛남
       const [c1, c2] = theme().gaugeGrad;
       $gaugeFill.style.background = `linear-gradient(90deg,${c1},${c2})`;
       $gaugeFill.style.animation  = 'fever-glow 0.65s ease-in-out infinite alternate';
@@ -472,17 +543,6 @@ function updateHUD() {
 }
 
 // ============================================================
-//  포즈 결과 콜백
-// ============================================================
-function onPoseResults(results) {
-  latestResults = results;
-  if (!results.poseLandmarks) return;
-  const lm = results.poseLandmarks;
-  if (phase === 'calibrating') processCalibration(lm);
-  else if (phase === 'playing' || phase === 'fever') detectSquat(lm);
-}
-
-// ============================================================
 //  렌더 루프
 // ============================================================
 function render() {
@@ -493,11 +553,11 @@ function render() {
   ctx.translate(sh.x, sh.y);
 
   // ── 카메라 피드 (좌우 반전) ──
-  if (latestResults && latestResults.image) {
+  if (video && video.readyState >= 2) {
     ctx.save();
     ctx.scale(-1, 1);
     ctx.translate(-CW, 0);
-    ctx.drawImage(latestResults.image, 0, 0, CW, CH);
+    ctx.drawImage(video, 0, 0, CW, CH);
     ctx.restore();
   } else {
     ctx.fillStyle = '#111';
@@ -516,9 +576,15 @@ function render() {
     if (Date.now() >= feverEndTime) endFever();
   }
 
-  // ── 캐릭터 오버레이 ──
-  if (latestResults && latestResults.poseLandmarks && phase !== 'start') {
-    drawCharacter(latestResults.poseLandmarks);
+  // ── 캐릭터 오버레이 (최대 2명) ──
+  if (phase !== 'start') {
+    const vW = video.videoWidth  || 1280;
+    const vH = video.videoHeight || 720;
+    for (let i = 0; i < 2; i++) {
+      if (latestPoses[i]) {
+        drawCharacter(poseToLm(latestPoses[i], vW, vH), players[i]);
+      }
+    }
   }
 
   // ── 모든 이펙트 (캐릭터 앞 최상위) ──
@@ -534,10 +600,8 @@ function render() {
 }
 
 // ============================================================
-//  음성 파일 재생
+//  카운트다운
 // ============================================================
-
-// ── 카운트다운 3, 2, 1, 시작! ──
 function startCountdown(onDone) {
   const overlay = document.getElementById('screen-countdown');
   const numEl   = document.getElementById('countdown-number');
@@ -579,7 +643,6 @@ function drawFeverOverlay() {
   ctx.strokeRect(bw + 8, bw + 8, CW - (bw + 8) * 2, CH - (bw + 8) * 2);
   ctx.restore();
 
-  // 스파클 스폰 (성능: 빈도 감소)
   if (Math.random() < 0.10) {
     fx.spawnFeverSparkle(Math.random() * CW, Math.random() * CH * 0.80);
   }
@@ -638,7 +701,7 @@ function drawFartTexts() {
 // ============================================================
 //  캐릭터 오버레이 — 2등신 코믹 디자인
 // ============================================================
-function drawCharacter(lm) {
+function drawCharacter(lm, player) {
   const nose      = mp(lm[LM.NOSE]);
   const lEye      = mp(lm[LM.L_EYE]);
   const rEye      = mp(lm[LM.R_EYE]);
@@ -647,16 +710,14 @@ function drawCharacter(lm) {
 
   if (!nose || !lShoulder || !rShoulder) return;
 
-  const sw    = Math.abs(rShoulder.x - lShoulder.x);   // 어깨 폭
+  const sw    = Math.abs(rShoulder.x - lShoulder.x);
   const midSX = (lShoulder.x + rShoulder.x) / 2;
-  const headH = sw * 1.25;   // 머리 높이 기준
+  const headH = sw * 1.25;
 
-  // ── 눈 Y 좌표 (모자 위치 기준) ──
   const eyeY = (lEye && rEye)
     ? (lEye.y + rEye.y) / 2
     : nose.y - headH * 0.28;
 
-  // ── 몸통 코스튬 (어깨 위에 붙임) ──
   const shoulderY = (lShoulder.y + rShoulder.y) / 2 - headH * 0.30;
   const bodyW = sw * 2.6;
   const bodyH = headH * 2.2;
@@ -668,11 +729,9 @@ function drawCharacter(lm) {
     ctx.restore();
   }
 
-  // ── 모자 (SVG) — 눈썹 위에 딱 맞게 ──
   if (assets.hat) {
     const hw = headH * 1.15;
     const hh = headH * 0.95;
-    // SVG 챙(brim) 하단이 전체 높이의 ~88% → 눈 바로 위(eyebrowY)에 맞춤
     const eyebrowY = eyeY - headH * 0.18;
     ctx.drawImage(assets.hat, midSX - hw / 2, eyebrowY - hh * 0.88, hw, hh);
   } else {
@@ -682,12 +741,11 @@ function drawCharacter(lm) {
     ctx.fillText('🎩', midSX, eyeY - headH * 0.12);
   }
 
-  // ── 귀여운 볼 터치 ──
   const cheekY = nose.y + headH * 0.04;
   const cheekW = sw * 0.14;
   const cheekH = sw * 0.08;
   ctx.save();
-  ctx.globalAlpha = isSquatting ? 0.72 : 0.35;
+  ctx.globalAlpha = player.isSquatting ? 0.72 : 0.35;
   ctx.fillStyle = '#ff9eb5';
   ctx.beginPath();
   ctx.ellipse(nose.x - sw * 0.30, cheekY, cheekW, cheekH, 0, 0, Math.PI * 2);
@@ -696,8 +754,7 @@ function drawCharacter(lm) {
   ctx.ellipse(nose.x + sw * 0.30, cheekY, cheekW, cheekH, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // ── 스쿼트 중 땀 💦 ──
-  if (isSquatting) {
+  if (player.isSquatting) {
     ctx.globalAlpha = 0.90;
     ctx.font = `${sw * 0.70}px serif`;
     ctx.textAlign = 'center';
@@ -707,13 +764,12 @@ function drawCharacter(lm) {
   ctx.restore();
 }
 
-// 미러 좌표 변환
+// 미러 좌표 변환 (정규화 → 캔버스 픽셀, 좌우반전)
 function mp(lm) {
   if (!lm) return null;
   return { x: (1 - lm.x) * CW, y: lm.y * CH };
 }
 
-// 안내 텍스트
 function drawHint() {
   ctx.save();
   ctx.globalAlpha  = 0.82 + 0.18 * Math.sin(Date.now() / 420);
@@ -728,7 +784,7 @@ function drawHint() {
 }
 
 // ============================================================
-//  MediaPipe 초기화
+//  TF.js MoveNet 초기화
 // ============================================================
 async function initPose() {
   video  = document.getElementById('input-video');
@@ -742,29 +798,55 @@ async function initPose() {
   resize();
   window.addEventListener('resize', resize);
 
-  // 에셋 로드
   await loadAssets();
 
-  // MediaPipe Pose (CDN 전역 객체)
-  const pose = new window.Pose({
-    locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`
+  // 카메라 스트림 시작
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
   });
-  pose.setOptions({
-    modelComplexity: 1,
-    smoothLandmarks: true,
-    enableSegmentation: false,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  });
-  pose.onResults(onPoseResults);
+  video.srcObject = stream;
+  await new Promise(res => { video.onloadedmetadata = res; });
+  await video.play();
 
-  const cam = new window.Camera(video, {
-    onFrame: async () => { await pose.send({ image: video }); },
-    width: 1280,
-    height: 720
-  });
+  // TF.js 백엔드 초기화
+  await tf.setBackend('webgl');
+  await tf.ready();
 
-  cam.start().then(() => requestAnimationFrame(render));
+  // MoveNet MultiPose Lightning 로드
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet,
+    {
+      modelType:    poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING,
+      enableTracking: true,
+      trackerType:  poseDetection.TrackerType.BoundingBox,
+      minPoseScore: 0.12,
+    }
+  );
+
+  // 모델 준비 완료 → 버튼 활성화
+  $btnStart.textContent = '시작하기! 🚀';
+  $btnStart.disabled    = false;
+
+  // 렌더 루프 & 감지 루프 시작
+  requestAnimationFrame(render);
+  detectLoop();
+}
+
+// 감지 루프 (렌더와 독립적으로 ~30fps)
+async function detectLoop() {
+  if (detector && video.readyState >= 2 && !isDetecting) {
+    isDetecting = true;
+    try {
+      const poses = await detector.estimatePoses(video, { flipHorizontal: false });
+      const top2  = selectTopTwo(poses);
+      latestPoses = top2;
+
+      if (phase === 'calibrating') processCalibration(top2);
+      else if (phase === 'playing' || phase === 'fever') detectSquat(top2);
+    } catch (_) { /* ignore */ }
+    isDetecting = false;
+  }
+  setTimeout(detectLoop, 33);  // ~30fps
 }
 
 // ── 스페이스바 → 방귀 테스트 ──
@@ -772,11 +854,11 @@ window.addEventListener('keydown', e => {
   if (e.code !== 'Space') return;
   e.preventDefault();
   if (phase !== 'playing' && phase !== 'fever') return;
-  // 가짜 랜드마크로 onFart 호출
-  if (latestResults && latestResults.poseLandmarks) {
-    onFart(latestResults.poseLandmarks);
+  const vW = video.videoWidth  || 1280;
+  const vH = video.videoHeight || 720;
+  if (latestPoses[0]) {
+    onFart(poseToLm(latestPoses[0], vW, vH));
   } else {
-    // 랜드마크 없으면 화면 중앙 기준
     const fakeLm = [];
     fakeLm[LM.L_HIP] = { x: 0.45, y: 0.65, visibility: 1 };
     fakeLm[LM.R_HIP] = { x: 0.55, y: 0.65, visibility: 1 };
@@ -786,7 +868,6 @@ window.addEventListener('keydown', e => {
 
 // ── 다시 하기 버튼 ──────────────────────────────────────
 document.getElementById('btn-restart').addEventListener('click', () => {
-  if (typeof trackPlay === 'function') trackPlay();
   $screenEnd.style.display = 'none';
   fx.fallingPoops = [];
   // 상태 초기화
@@ -795,13 +876,8 @@ document.getElementById('btn-restart').addEventListener('click', () => {
   gauge      = 0;
   roundFarts = 0;
   feverMode  = false;
-  isSquatting = false;
-  canTrigger  = true;
-  standingHipY      = null;
-  standingShoulderY = null;
-  calibFrames         = [];
-  calibShoulderFrames = [];
-  phase = 'start';
+  players    = [makePlayer(), makePlayer()];
+  phase      = 'start';
   $gaugeWrap.style.display = 'none';
   $fartCnt.style.display   = 'none';
   document.getElementById('color-progress').style.display = 'none';
@@ -814,5 +890,9 @@ document.getElementById('btn-restart').addEventListener('click', () => {
   updateHUD();
   $start.style.display = 'flex';
 });
+
+// 시작 버튼 초기 상태 (모델 로딩 중)
+$btnStart.textContent = '모델 로딩 중... ⏳';
+$btnStart.disabled    = true;
 
 window.addEventListener('DOMContentLoaded', initPose);

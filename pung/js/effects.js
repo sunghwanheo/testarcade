@@ -357,35 +357,56 @@ class FallingPoop {
   }
 }
 
-// ── PhysicsPoop : 피버타임 전용 — 바운스 + 원-원 충돌로 자연스럽게 쌓임 ──
+// ── PhysicsPoop : 피버타임 전용 — 발사시 크고, 착지하면 작아짐, 새 방귀에 통통 튀김 ──
 class PhysicsPoop {
-  constructor(cx, cy, img, canvasH, canvasW, allPoops) {
+  constructor(cx, cy, img, canvasH, canvasW, allPoops, colorHue, rainbow) {
     this.x = cx; this.y = cy;
-    // 폭죽처럼 위로 발사 — vx는 좌우 퍼짐, vy는 강하게 위로
     this.vx = (Math.random() - 0.5) * 32;
     this.vy = -(18 + Math.random() * 18);
-    this.r    = 26 + Math.random() * 20;
-    this.size = this.r * 2;
-    this.rot  = Math.random() * Math.PI * 2;
-    this.rotSpd = (Math.random() - 0.5) * 0.25;
-    this.img  = img;
-    this.settled  = false;
-    this._ch  = canvasH;
-    this._cw  = canvasW;
-    this._all = allPoops;
+    this.r       = 16 + Math.random() * 12;   // 충돌 반경 (작아짐)
+    this.drawR   = this.r * 2.6;              // 표시 크기 — 발사 시 크게!
+    this._airR   = this.r * 2.2;              // 공중 표시 크기
+    this._landR  = this.r * 0.90;             // 착지 후 표시 크기 (작게)
+    this.rot     = Math.random() * Math.PI * 2;
+    this.rotSpd  = (Math.random() - 0.5) * 0.28;
+    this.img     = img;
+    this.settled = false;
+    this._ch     = canvasH;
+    this._cw     = canvasW;
+    this._all    = allPoops;
     this._bounces = 0;
+    this.rainbow   = rainbow || false;
+    this.hueRotate = (!rainbow && colorHue !== undefined && colorHue >= 0)
+                     ? (colorHue - 25 + 360) % 360 : null;
+  }
+
+  // 새 방귀가 터질 때 쌓인 똥들을 통통 튀기게
+  bump() {
+    this.settled   = false;
+    this._bounces  = 0;
+    this.vx       += (Math.random() - 0.5) * 10;
+    this.vy       -= 5 + Math.random() * 7;
+    this.rotSpd    = (Math.random() - 0.5) * 0.45;
+    this.drawR     = this._landR * 1.7;  // 잠깐 커졌다가 다시 작아짐
   }
 
   update() {
-    if (this.settled) return;
+    if (this.settled) {
+      // 착지 후 표시 크기를 천천히 줄임
+      this.drawR += (this._landR - this.drawR) * 0.09;
+      return;
+    }
 
     this.x  += this.vx;
     this.y  += this.vy;
-    this.vy += 0.85;   // 중력
-    this.vx *= 0.995;  // 공기저항
+    this.vy += 0.85;
+    this.vx *= 0.995;
     this.rot += this.rotSpd;
 
-    // ── 바닥 충돌 (통통 튕김) ──
+    // 공중에서는 _airR 쪽으로 수렴
+    this.drawR += (this._airR - this.drawR) * 0.05;
+
+    // 바닥 충돌
     if (this.y + this.r >= this._ch) {
       this.y = this._ch - this.r;
       this.vy = -Math.abs(this.vy) * 0.40;
@@ -394,51 +415,50 @@ class PhysicsPoop {
       this._bounces++;
     }
 
-    // ── 벽 충돌 ──
-    if (this.x - this.r < 0)       { this.x = this.r;        this.vx =  Math.abs(this.vx) * 0.5; }
-    if (this.x + this.r > this._cw){ this.x = this._cw - this.r; this.vx = -Math.abs(this.vx) * 0.5; }
+    // 벽 충돌
+    if (this.x - this.r < 0)        { this.x = this.r;            this.vx =  Math.abs(this.vx) * 0.5; }
+    if (this.x + this.r > this._cw) { this.x = this._cw - this.r; this.vx = -Math.abs(this.vx) * 0.5; }
 
-    // ── 쌓인 똥 위에 원-원 충돌 ──
+    // 원-원 충돌 (쌓인 똥 위)
     for (const s of this._all) {
       if (s === this || !s.settled) continue;
-      const dx   = this.x - s.x;
-      const dy   = this.y - s.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const minD = this.r + s.r * 0.88;  // 약간 겹치게 (자연스러운 힙)
+      const dx = this.x - s.x, dy = this.y - s.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const minD = this.r + s.r * 0.88;
       if (dist < minD && dist > 0.1) {
-        const nx = dx / dist, ny = dy / dist;
-        // 위치 보정
+        const nx = dx/dist, ny = dy/dist;
         this.x = s.x + nx * minD;
         this.y = s.y + ny * minD;
-        // 충돌 반사
-        const dot = this.vx * nx + this.vy * ny;
+        const dot = this.vx*nx + this.vy*ny;
         if (dot < 0) {
-          this.vx = (this.vx - dot * nx) * 0.55;
-          this.vy = (this.vy - dot * ny) * 0.55;
+          this.vx = (this.vx - dot*nx) * 0.55;
+          this.vy = (this.vy - dot*ny) * 0.55;
           this._bounces++;
         }
       }
     }
 
-    // ── 속도가 충분히 작으면 settle ──
     const speed = Math.abs(this.vx) + Math.abs(this.vy);
     if (this._bounces >= 2 && speed < 1.2) {
-      this.settled = true;
-      this.vx = 0; this.vy = 0; this.rotSpd = 0;
+      this.settled = true; this.vx = this.vy = this.rotSpd = 0;
     }
-    // 너무 오래 튕기면 강제 settle
     if (this._bounces >= 8) {
-      this.settled = true;
-      this.vx = 0; this.vy = 0; this.rotSpd = 0;
+      this.settled = true; this.vx = this.vy = this.rotSpd = 0;
     }
   }
 
   draw(ctx) {
     ctx.save();
+    if (this.rainbow)                 ctx.filter = `hue-rotate(${(Date.now()/5)%360}deg) saturate(1.8)`;
+    else if (this.hueRotate !== null) ctx.filter = `hue-rotate(${this.hueRotate}deg) saturate(1.5)`;
     ctx.translate(this.x, this.y); ctx.rotate(this.rot);
-    const s = this.size;
+    const s = this.drawR * 2;
     if (this.img && this.img.complete) ctx.drawImage(this.img, -s/2, -s/2, s, s);
-    else { ctx.font=`${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('💩',0,0); }
+    else {
+      ctx.filter = 'none';
+      ctx.font = `${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('💩', 0, 0);
+    }
     ctx.restore();
   }
 }
@@ -520,7 +540,7 @@ class EffectsEngine {
     const launchPoopImg = this._getPoopImg(colorHue, rainbow);
     for (let i = 0; i < cnt; i++) {
       setTimeout(() => {
-        this.poops.push(new PoopObject(x, y, canvasW, launchPoopImg, undefined, false));
+        this.poops.push(new PoopObject(x, y, canvasW, launchPoopImg, colorHue, rainbow));
       }, i * 170);
     }
 
@@ -530,21 +550,27 @@ class EffectsEngine {
 
   /** 피버타임 — 사람 위치에서 펑! 똥이 사방으로 터져 하단에 쌓임 */
   spawnPoopFountain(x, y, canvasW, effectLevel, colorHue, rainbow, canvasH) {
-    const cx = x;
-    const cy = y;
+    const cx = x, cy = y;
+    const poopCnt = { low: 5, medium: 8, strong: 11 }[effectLevel] || 8;
 
-    const poopCnt = { low: 6, medium: 10, strong: 14 }[effectLevel] || 10;
-
-    // 플래시 + 웨이브만 (가스 없음)
     this.flashes.push(new ScreenFlash(colorHue));
     this.waves.push(new GasWave(cx, cy, colorHue, 0));
 
-    // 물리 똥 스폰 — 가스 없이 이미지만
-    const ch = canvasH || 720;
-    const cw = canvasW;
+    // 기존에 쌓인 똥들 통통 튀기기
+    for (const p of this.physicPoops) {
+      if (p.settled) p.bump();
+    }
+
+    // 새 똥 스폰 — 무지개 레벨은 무지개 똥만
+    const ch = canvasH || 720, cw = canvasW;
     for (let i = 0; i < poopCnt; i++) {
-      const img = rainbow ? this.poopImgs[i % 7] : this._getPoopImg(colorHue, false);
-      this.physicPoops.push(new PhysicsPoop(cx, cy, img, ch, cw, this.physicPoops));
+      const img = rainbow ? this.poopImgs[6] : this._getPoopImg(colorHue, false);
+      this.physicPoops.push(new PhysicsPoop(cx, cy, img, ch, cw, this.physicPoops, colorHue, rainbow));
+    }
+
+    // 총 개수 제한 (오래된 것부터 제거)
+    if (this.physicPoops.length > 28) {
+      this.physicPoops.splice(0, this.physicPoops.length - 28);
     }
 
     for (let i = 0; i < 12; i++) this.confetti.push(new Confetti(cx, cy, colorHue));
