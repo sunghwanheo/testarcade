@@ -222,8 +222,10 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
 <script>
 'use strict';
 
@@ -933,73 +935,106 @@ function drawEndConfetti() {
   }
 }
 
-// ── Pose detection (Gemini 방식) ──────────────────────────
-function onPoseResults(results) {
+// ── Pose detection (MoveNet MultiPose) ───────────────────
+// MoveNet keypoint indices:
+// 0:nose 1:left_eye 2:right_eye 3:left_ear 4:right_ear
+// 5:left_shoulder 6:right_shoulder 7:left_elbow 8:right_elbow
+// 9:left_wrist 10:right_wrist 11:left_hip 12:right_hip
+// 13:left_knee 14:right_knee 15:left_ankle 16:right_ankle
+let detector = null;
+const detectCanvas = document.createElement('canvas');
+detectCanvas.width = 320; detectCanvas.height = 180;
+const detectCtx = detectCanvas.getContext('2d');
+
+async function initDetector() {
+  await tf.setBackend('webgl');
+  await tf.ready();
+  detector = await poseDetection.createDetector(
+    poseDetection.SupportedModels.MoveNet, {
+      modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING,
+      enableSmoothing: false,
+      maxPoses: 2
+    }
+  );
+}
+
+async function detectPoses() {
+  if (!detector || videoEl.paused) return;
+  try {
+    detectCtx.drawImage(videoEl, 0, 0, 320, 180);
+    const poses = await detector.estimatePoses(detectCanvas);
+    processMultiPose(poses);
+  } catch(e) {}
+}
+
+function processMultiPose(poses) {
   bodyPoints = [];
-  if (!results.poseLandmarks) return;
+  const vidW = 320, vidH = 180;
 
-  const lms = results.poseLandmarks;
-  const dist2D = (a,b) => {
-    const ax=(1-a.x)*W, ay=a.y*H, bx=(1-b.x)*W, by=b.y*H;
-    return Math.hypot(ax-bx, ay-by);
-  };
+  for (let personIdx = 0; personIdx < poses.length; personIdx++) {
+    const kps = poses[personIdx].keypoints;
+    if (!kps || kps.length < 17) continue;
 
-  // ── 가장 앞 사람 필터 (어깨 너비 기준) ──
-  const ls = lms[11], rs = lms[12];
-  if (ls && rs && ls.visibility >= 0.4 && rs.visibility >= 0.4) {
-    const sw = dist2D(ls, rs);
-    if (baselineShoulderW === 0) {
-      baselineShoulderW = sw; // 첫 프레임 기준값 설정
-    } else if (sw < baselineShoulderW * 0.55) {
-      return; // 뒷사람 감지 → 무시
-    } else {
-      baselineShoulderW = baselineShoulderW * 0.97 + sw * 0.03; // 서서히 적응
+    const lShoulder = kps[5], rShoulder = kps[6];
+    const resFactor = W / 3840;
+    let bodyScale = 80 * resFactor;
+    if (lShoulder.score > 0.3 && rShoulder.score > 0.3) {
+      bodyScale = Math.hypot(
+        (lShoulder.x - rShoulder.x) / vidW * W,
+        (lShoulder.y - rShoulder.y) / vidH * H
+      );
+    }
+    const handRadius = Math.max(40 * resFactor, Math.min(bodyScale * 0.6, 180 * resFactor));
+    const footRadius = Math.max(35 * resFactor, Math.min(bodyScale * 0.5, 150 * resFactor));
+
+    const toScreen = (kp) => ({
+      x: (1 - kp.x / vidW) * W,
+      y: (kp.y / vidH) * H
+    });
+
+    const base = personIdx * 100;
+    const trackHand = (wristIdx, elbowIdx) => {
+      const wrist = kps[wristIdx], elbow = kps[elbowIdx];
+      if (!wrist || wrist.score < 0.3) return null;
+      const wPos = toScreen(wrist);
+      if (elbow && elbow.score > 0.3) {
+        const ePos = toScreen(elbow);
+        wPos.x += (wPos.x - ePos.x) * 0.4;
+        wPos.y += (wPos.y - ePos.y) * 0.4;
+      }
+      return { x: wPos.x, y: wPos.y, radius: handRadius, type: 'hand', id: base + wristIdx };
+    };
+    const trackFoot = (idx) => {
+      const kp = kps[idx];
+      if (!kp || kp.score < 0.3) return null;
+      const pos = toScreen(kp);
+      return { x: pos.x, y: pos.y, radius: footRadius, type: 'foot', id: base + idx };
+    };
+
+    const parts = [
+      trackHand(9, 7),   // left wrist
+      trackHand(10, 8),  // right wrist
+      trackFoot(15),     // left ankle
+      trackFoot(16),     // right ankle
+    ].filter(Boolean);
+
+    for (const p of parts) {
+      const prev = prevBodyPos[p.id];
+      p.vx = prev ? p.x - prev.x : 0;
+      p.vy = prev ? p.y - prev.y : 0;
+      prevBodyPos[p.id] = { x: p.x, y: p.y };
+      bodyPoints.push(p);
     }
   }
 
-  // 손 추적: 손목~검지 중심 + 실제 손 크기를 반경으로
-  const trackHand = (wristIdx, indexIdx) => {
-    const wrist=lms[wristIdx], index=lms[indexIdx];
-    if (!wrist||!index) return null;
-    if (wrist.visibility<0.4||index.visibility<0.4) return null;
-    let r = dist2D(wrist, index);
-    r = Math.max(40, Math.min(r, 220));
-    return { x:(1-(wrist.x+index.x)/2)*W, y:((wrist.y+index.y)/2)*H, radius:r, id:wristIdx, type:'hand' };
-  };
-
-  // 발 추적: 발목~발끝 중심 + 발 크기를 반경으로
-  const trackFoot = (ankleIdx, toeIdx) => {
-    const ankle=lms[ankleIdx], toe=lms[toeIdx];
-    if (!ankle||!toe) return null;
-    if (ankle.visibility<0.4||toe.visibility<0.4) return null;
-    let r = dist2D(ankle, toe);
-    r = Math.max(35, Math.min(r, 180));
-    return { x:(1-(ankle.x+toe.x)/2)*W, y:((ankle.y+toe.y)/2)*H, radius:r, id:ankleIdx, type:'foot' };
-  };
-
-  const parts = [
-    trackHand(15,19), // 왼손
-    trackHand(16,20), // 오른손
-    trackFoot(27,31), // 왼발
-    trackFoot(28,32), // 오른발
-  ].filter(Boolean);
-
-  for (const p of parts) {
-    const prev = prevBodyPos[p.id];
-    p.vx = prev ? p.x-prev.x : 0;
-    p.vy = prev ? p.y-prev.y : 0;
-    prevBodyPos[p.id] = {x:p.x, y:p.y};
-    bodyPoints.push(p);
-  }
-
-  if (gameState!=='playing'||!balloon||!canPop) return;
+  if (gameState !== 'playing' || !balloon || !canPop) return;
 
   const er = effectiveR();
   for (const p of bodyPoints) {
-    const dx=balloon.x-p.x, dy=balloon.y-p.y;
-    const dist=Math.sqrt(dx*dx+dy*dy);
-    const speed=Math.sqrt(p.vx*p.vx+p.vy*p.vy);
-    if (dist < p.radius+er && speed > HIT_SPEED_THRESH) {
+    const dx = balloon.x - p.x, dy = balloon.y - p.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+    if (dist < p.radius + er && speed > HIT_SPEED_THRESH) {
       doPop(); break;
     }
   }
@@ -1176,24 +1211,27 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 
-// ── MediaPipe ─────────────────────────────────────────────
+// ── MoveNet 초기화 ────────────────────────────────────────
 async function initMediaPipe() {
-  const pose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
-  pose.setOptions({
-    modelComplexity:1,
-    smoothLandmarks:false,
-    minDetectionConfidence:0.6,
-    minTrackingConfidence:0.6
-  });
-  pose.onResults(onPoseResults);
-
-  const camera=new Camera(videoEl,{
-    onFrame:async()=>{ await pose.send({image:videoEl}); },
-    width:1280,height:720
-  });
-  camera.start()
-    .then(()=>{cameraReady=true;initAudio();})
-    .catch(()=>{ initAudio(); });
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+    });
+    videoEl.srcObject = stream;
+    await videoEl.play();
+    cameraReady = true;
+    initAudio();
+    await initDetector();
+    let detecting = false;
+    setInterval(async () => {
+      if (detecting || videoEl.paused) return;
+      detecting = true;
+      await detectPoses();
+      detecting = false;
+    }, 33);
+  } catch(e) {
+    initAudio();
+  }
 }
 
 // ── 마우스/터치 폴백 ──────────────────────────────────────
