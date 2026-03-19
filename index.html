@@ -45,108 +45,10 @@
             margin-bottom: 50px;
         }
 
-        /* ── 테스터 선택 화면 ── */
-        #testerSelect {
-            text-align: center;
-            max-width: 700px;
-            width: 100%;
-        }
-
-        #testerSelect h2 {
-            font-size: 2rem;
-            margin-bottom: 30px;
-            color: #ffd93d;
-        }
-
-        .tester-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .tester-btn {
-            padding: 20px 10px;
-            font-size: 1.3rem;
-            font-weight: 700;
-            background: rgba(255, 255, 255, 0.08);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 15px;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-
-        .tester-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: #ffd93d;
-            transform: scale(1.05);
-        }
-
-        .tester-btn.active {
-            background: linear-gradient(135deg, #ffd93d33, #ff6b6b33);
-            border-color: #ffd93d;
-            box-shadow: 0 0 20px rgba(255, 217, 61, 0.3);
-        }
-
         /* ── 게임 목록 ── */
         #gameSection {
-            display: none;
             max-width: 1200px;
             width: 100%;
-        }
-
-        .current-tester-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
-            padding: 12px 24px;
-            margin-bottom: 30px;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .current-tester-bar .name {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #ffd93d;
-        }
-
-        .current-tester-bar .name span {
-            color: white;
-            font-weight: 400;
-        }
-
-        .bar-btns {
-            display: flex;
-            gap: 10px;
-        }
-
-        .bar-btn {
-            padding: 8px 18px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            background: transparent;
-            color: white;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .bar-btn:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .bar-btn.danger {
-            border-color: #ff6b6b;
-            color: #ff6b6b;
-        }
-
-        .bar-btn.danger:hover {
-            background: rgba(255, 107, 107, 0.2);
         }
 
         .game-grid {
@@ -238,220 +140,9 @@
             color: #0a0a2e;
         }
 
-        .play-count {
-            font-size: 0.85rem;
-            color: #6bcb77;
-            font-weight: 600;
-        }
 
-        .want-more-btn {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            padding: 6px 12px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            border-radius: 50%;
-            border: none;
-            background: rgba(255, 107, 166, 0.15);
-            color: #ff6ba6;
-            cursor: pointer;
-            transition: all 0.3s;
-            width: 42px;
-            height: 42px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2;
-        }
 
-        .want-more-btn:hover {
-            background: rgba(255, 107, 166, 0.4);
-            transform: scale(1.15);
-        }
-
-        .want-more-btn.clicked {
-            background: #ff6ba6;
-            color: white;
-            animation: heartPop 0.4s ease;
-        }
-
-        @keyframes heartPop {
-            0% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.4);
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
-        .want-count {
-            position: absolute;
-            top: 12px;
-            right: 58px;
-            font-size: 0.85rem;
-            color: #ff6ba6;
-            font-weight: 700;
-            z-index: 2;
-        }
-
-        .game-card {
-            position: relative;
-        }
-
-        .exit-btn {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            padding: 6px 12px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            border-radius: 50%;
-            border: none;
-            background: rgba(255, 107, 107, 0.15);
-            color: #ff6b6b;
-            cursor: pointer;
-            transition: all 0.3s;
-            width: 42px;
-            height: 42px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2;
-        }
-        .exit-btn:hover {
-            background: rgba(255, 107, 107, 0.4);
-            transform: scale(1.15);
-        }
-        .exit-btn.clicked {
-            background: #ff6b6b;
-            color: white;
-            animation: heartPop 0.4s ease;
-        }
-        .exit-count {
-            position: absolute;
-            top: 12px;
-            left: 58px;
-            font-size: 0.85rem;
-            color: #ff6b6b;
-            font-weight: 700;
-            z-index: 2;
-        }
-
-        /* ── 통계 모달 ── */
-        #statsModal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-
-        #statsModal.show {
-            display: flex;
-        }
-
-        .stats-box {
-            background: #1a1a4e;
-            border-radius: 20px;
-            padding: 30px;
-            max-width: 900px;
-            width: 100%;
-            max-height: 85vh;
-            overflow-y: auto;
-        }
-
-        .stats-box h2 {
-            margin-bottom: 20px;
-            color: #ffd93d;
-        }
-
-        .stats-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-
-        .stats-table th,
-        .stats-table td {
-            padding: 10px 14px;
-            text-align: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .stats-table th {
-            color: #ffd93d;
-            font-size: 0.9rem;
-        }
-
-        .stats-table td {
-            font-size: 0.95rem;
-        }
-
-        .stats-table tr:hover td {
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .stats-table .total {
-            color: #6bcb77;
-            font-weight: 700;
-        }
-
-        .stats-btns {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .stats-btns button {
-            padding: 10px 24px;
-            font-size: 0.95rem;
-            font-weight: 600;
-            border-radius: 10px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-csv {
-            background: #6bcb77;
-            color: #0a0a2e;
-        }
-
-        .btn-csv:hover {
-            background: #5ab868;
-        }
-
-        .btn-clear {
-            background: #ff6b6b;
-            color: white;
-        }
-
-        .btn-clear:hover {
-            background: #e55a5a;
-        }
-
-        .btn-close {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-        }
-
-        .btn-close:hover {
-            background: rgba(255, 255, 255, 0.25);
-        }
-
-        @media (max-width: 600px) {
+@media (max-width: 600px) {
             h1 {
                 font-size: 2rem;
             }
@@ -465,9 +156,6 @@
                 padding: 20px;
             }
 
-            .tester-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
         }
     </style>
 </head>
@@ -475,24 +163,8 @@
 <body>
     <h1>잼잼 대근육 재활놀이</h1>
 
-    <!-- 테스터 선택 -->
-    <div id="testerSelect">
-        <h2>나는 누구일까요?</h2>
-        <p style="color:#aaa; margin-bottom:20px; font-size:1rem;">오늘의 내 동물 친구를 골라주세요!</p>
-        <div class="tester-grid" id="testerGrid"></div>
-        <button onclick="openNameEditor()" style="margin-top:20px; padding:10px 20px; font-size:0.85rem; border-radius:10px; border:1px solid rgba(255,255,255,0.2); background:transparent; color:rgba(255,255,255,0.4); cursor:pointer;">이름 편집</button>
-    </div>
-
     <!-- 게임 목록 -->
     <div id="gameSection">
-        <div class="current-tester-bar">
-            <div class="name"><span>지금은:</span> <span id="currentTesterName"></span></div>
-            <div class="bar-btns">
-                <button class="bar-btn" onclick="showStats()">통계 보기</button>
-                <button class="bar-btn" onclick="changeTester()">동물 친구 바꾸기</button>
-            </div>
-        </div>
-
         <p class="subtitle">게임을 선택하고 플레이하세요!</p>
 
         <div class="game-grid" id="gameGrid">
@@ -500,535 +172,86 @@
                 <div class="game-icon">🎈</div>
                 <div class="game-title">풍선 팡팡</div>
                 <div class="game-desc">풍선 터뜨리기! 몸을 움직여 풍선을 팡팡 터뜨려보세요.</div>
-                <div class="play-count" id="count-풍선 팡팡"></div>
                 <div class="play-btn">PLAY</div>
-                <button class="want-more-btn" onclick="wantMore(event,'풍선 팡팡')">💗</button>
-                <div class="want-count" id="want-풍선 팡팡"></div>
-                <button class="exit-btn" onclick="markExit(event,'풍선 팡팡')">🚪</button>
-                <div class="exit-count" id="exit-풍선 팡팡"></div>
             </a>
 
             <a class="game-card" href="pung/index.html" target="_blank" data-game="방귀대장 뿡뿡이">
                 <div class="game-icon">💨</div>
                 <div class="game-title">방귀대장 뿡뿡이</div>
                 <div class="game-desc">방귀대장 뿡뿡이! 웃음 가득한 아케이드 게임에 도전하세요.</div>
-                <div class="play-count" id="count-방귀대장 뿡뿡이"></div>
                 <div class="play-btn">PLAY</div>
-                <button class="want-more-btn" onclick="wantMore(event,'방귀대장 뿡뿡이')">💗</button>
-                <div class="want-count" id="want-방귀대장 뿡뿡이"></div>
-                <button class="exit-btn" onclick="markExit(event,'방귀대장 뿡뿡이')">🚪</button>
-                <div class="exit-count" id="exit-방귀대장 뿡뿡이"></div>
             </a>
 
             <a class="game-card" href="ice_breaker/index.html" target="_blank" data-game="쾅쾅 얼음깨기">
                 <div class="game-icon">🧊</div>
                 <div class="game-title">쾅쾅 얼음깨기</div>
                 <div class="game-desc">물리 엔진 기반 얼음 깨기 게임! 몸을 움직여 얼음을 부숴보세요.</div>
-                <div class="play-count" id="count-쾅쾅 얼음깨기"></div>
                 <div class="play-btn">PLAY</div>
-                <button class="want-more-btn" onclick="wantMore(event,'쾅쾅 얼음깨기')">💗</button>
-                <div class="want-count" id="want-쾅쾅 얼음깨기"></div>
-                <button class="exit-btn" onclick="markExit(event,'쾅쾅 얼음깨기')">🚪</button>
-                <div class="exit-count" id="exit-쾅쾅 얼음깨기"></div>
             </a>
 
             <a class="game-card" href="mole/index.html" target="_blank" data-game="두더지 잡기">
                 <div class="game-icon">🐹</div>
                 <div class="game-title">두더지 잡기</div>
                 <div class="game-desc">두더지를 잡아라! 올라오는 두더지를 빠르게 잡아보세요.</div>
-                <div class="play-count" id="count-두더지 잡기"></div>
                 <div class="play-btn">PLAY</div>
-                <button class="want-more-btn" onclick="wantMore(event,'두더지 잡기')">💗</button>
-                <div class="want-count" id="want-두더지 잡기"></div>
-                <button class="exit-btn" onclick="markExit(event,'두더지 잡기')">🚪</button>
-                <div class="exit-count" id="exit-두더지 잡기"></div>
             </a>
 
             <a class="game-card" href="lion/index.html" target="_blank" data-game="와구와구 게임">
                 <div class="game-icon">🦁</div>
                 <div class="game-title">와구와구 게임</div>
                 <div class="game-desc">사자와 상추의 만남! 재미있는 액션 게임에 도전해보세요.</div>
-                <div class="play-count" id="count-와구와구 게임"></div>
                 <div class="play-btn">PLAY</div>
-                <button class="want-more-btn" onclick="wantMore(event,'와구와구 게임')">💗</button>
-                <div class="want-count" id="want-와구와구 게임"></div>
-                <button class="exit-btn" onclick="markExit(event,'와구와구 게임')">🚪</button>
-                <div class="exit-count" id="exit-와구와구 게임"></div>
             </a>
         </div>
     </div>
 
-    <!-- 통계 모달 -->
-    <div id="statsModal">
-        <div class="stats-box">
-            <h2>플레이 통계</h2>
-            <div id="statsContent"></div>
-            <div class="stats-btns">
-                <button class="btn-csv" onclick="downloadCSV()">CSV 다운로드</button>
-                <button class="btn-clear" onclick="clearData()">데이터 초기화</button>
-                <button class="btn-close" onclick="closeStats()">닫기</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
+<script>
         const STORAGE_KEY = 'gemgem_tracking';
-        const TESTER_KEY = 'gemgem_current_tester';
-        const TESTERS = [
-            '🦁 사자', '🐯 호랑이', '🐻 곰돌이', '🐰 토끼', '🦊 여우',
-            '🐼 판다', '🐶 강아지', '🐱 고양이', '🦄 유니콘', '🐧 펭귄'
-        ];
         const GAMES = ['쾅쾅 얼음깨기', '풍선 팡팡', '방귀대장 뿡뿡이', '두더지 잡기', '와구와구 게임'];
 
-        // ── 기록 관리 ──
-        function getRecords() {
-            try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-            catch (e) { return []; }
+        // ── Supabase 로그 설정 ──
+        const SUPABASE_URL = 'https://rwbgrdiecfkcedctnggv.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_uAWk5AgQeps9HxnkxtHXoQ_P3g5OeRP';
+        const SITE_KEY = 'gemgem_site';
+        const SESSION_KEY = 'gemgem_session_id';
+
+        // URL 파라미터에서 사이트 감지 (?site=hospital 또는 ?site=kang)
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            const site = params.get('site');
+            if (site) localStorage.setItem(SITE_KEY, site);
+        })();
+
+        function getSite() {
+            return localStorage.getItem(SITE_KEY) || 'hospital';
+        }
+        function getTable() {
+            return getSite() === 'kang' ? 'kang_logs' : 'hospital_logs';
+        }
+        function generateSessionId() {
+            return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        }
+        function sendLog(payload) {
+            fetch(`${SUPABASE_URL}/rest/v1/${getTable()}`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_KEY,
+                    'Authorization': `Bearer ${SUPABASE_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify(payload)
+            }).catch(e => console.warn('[로그] 전송 실패', e));
         }
 
-        function getCount(tester, game, type) {
-            return getRecords().filter(r =>
-                r.tester === tester && r.game === game &&
-                (type ? r.type === type : (!r.type || r.type === 'play'))
-            ).length;
-        }
-
-        function getWantCount(tester, game) {
-            return getRecords().filter(r => r.tester === tester && r.game === game && r.type === 'want_more').length;
-        }
-
-        function getExitCount(tester, game) {
-            return getRecords().filter(r => r.tester === tester && r.game === game && r.type === 'exit').length;
-        }
-
-        function getTotalByTester(tester) {
-            return getRecords().filter(r => r.tester === tester && (!r.type || r.type === 'play')).length;
-        }
-
-        // ── 테스터 선택 ──
-        function initTesterGrid() {
-            refreshTesterGrid();
-        }
-
-        // ── 이름 편집 ──
-        const ICONS = TESTERS.map(t => t.split(' ')[0]); // 이모지만 추출
-        const NAME_KEY = 'gemgem_custom_names';
-
-        function getCustomNames() {
-            try { return JSON.parse(localStorage.getItem(NAME_KEY)) || null; }
-            catch(e) { return null; }
-        }
-
-        function getDisplayTesters() {
-            const custom = getCustomNames();
-            if (!custom) return [...TESTERS];
-            return ICONS.map((icon, i) => icon + ' ' + (custom[i] || TESTERS[i].split(' ').slice(1).join(' ')));
-        }
-
-        function openNameEditor() {
-            const current = getCustomNames() || TESTERS.map(t => t.split(' ').slice(1).join(' '));
-            let html = '<div style="background:#1a1a4e; border-radius:20px; padding:30px; max-width:500px; width:100%;">';
-            html += '<h2 style="color:#ffd93d; margin-bottom:20px;">이름 편집</h2>';
-            html += '<div style="display:grid; grid-template-columns:auto 1fr; gap:10px; align-items:center; margin-bottom:20px;">';
-            ICONS.forEach((icon, i) => {
-                html += `<div style="font-size:1.5rem; text-align:center;">${icon}</div>`;
-                html += `<input id="name-edit-${i}" value="${current[i]}" style="padding:10px; font-size:1rem; border-radius:8px; border:1px solid rgba(255,255,255,0.3); background:rgba(255,255,255,0.08); color:white; outline:none;">`;
-            });
-            html += '</div>';
-            html += '<div style="display:flex; gap:10px; justify-content:center;">';
-            html += '<button onclick="saveNames()" style="padding:10px 24px; font-size:1rem; font-weight:600; border-radius:10px; border:none; background:#6bcb77; color:#0a0a2e; cursor:pointer;">저장</button>';
-            html += '<button onclick="resetNames()" style="padding:10px 24px; font-size:1rem; font-weight:600; border-radius:10px; border:none; background:#ff6b6b; color:white; cursor:pointer;">초기화</button>';
-            html += '<button onclick="closeNameEditor()" style="padding:10px 24px; font-size:1rem; font-weight:600; border-radius:10px; border:none; background:rgba(255,255,255,0.15); color:white; cursor:pointer;">닫기</button>';
-            html += '</div></div>';
-
-            const modal = document.createElement('div');
-            modal.id = 'nameEditorModal';
-            modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:100; display:flex; justify-content:center; align-items:center; padding:20px;';
-            modal.innerHTML = html;
-            document.body.appendChild(modal);
-        }
-
-        function saveNames() {
-            const names = ICONS.map((_, i) => document.getElementById('name-edit-' + i).value.trim() || TESTERS[i].split(' ').slice(1).join(' '));
-            localStorage.setItem(NAME_KEY, JSON.stringify(names));
-            closeNameEditor();
-            refreshTesterGrid();
-        }
-
-        function resetNames() {
-            localStorage.removeItem(NAME_KEY);
-            closeNameEditor();
-            refreshTesterGrid();
-        }
-
-        function closeNameEditor() {
-            const modal = document.getElementById('nameEditorModal');
-            if (modal) modal.remove();
-        }
-
-        function refreshTesterGrid() {
-            const grid = document.getElementById('testerGrid');
-            grid.innerHTML = '';
-            const display = getDisplayTesters();
-            display.forEach(name => {
-                const btn = document.createElement('button');
-                btn.className = 'tester-btn';
-                btn.textContent = name;
-                btn.onclick = () => selectTester(name);
-                grid.appendChild(btn);
-            });
-        }
-
-        function selectTester(name) {
-            localStorage.setItem(TESTER_KEY, name);
-            document.getElementById('testerSelect').style.display = 'none';
-            document.getElementById('gameSection').style.display = 'block';
-            document.getElementById('currentTesterName').textContent = name;
-            updatePlayCounts();
-        }
-
-        function changeTester() {
-            localStorage.removeItem(TESTER_KEY);
-            document.getElementById('testerSelect').style.display = 'block';
-            document.getElementById('gameSection').style.display = 'none';
-        }
-
-        // ── "이탈" 기록 ──
-        function markExit(event, game) {
-            event.preventDefault();
-            event.stopPropagation();
-            const tester = localStorage.getItem(TESTER_KEY);
-            if (!tester) return;
-
-            const records = getRecords();
-
-            // 해당 테스터+게임의 마지막 플레이 기록에서 시간 가져오기
-            let playDuration = 0;
-            for (let i = records.length - 1; i >= 0; i--) {
-                const r = records[i];
-                if (r.tester === tester && r.game === game && (!r.type || r.type === 'play')) {
-                    playDuration = r.duration || 0;
-                    break;
-                }
-            }
-
-            records.push({ tester, game, type: 'exit', time: new Date().toISOString(), duration: playDuration });
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-
-            const btn = event.target;
-            btn.classList.add('clicked');
-            setTimeout(() => btn.classList.remove('clicked'), 600);
-
-            updatePlayCounts();
-        }
-
-        // ── "더 하고 싶어요" 기록 ──
-        function wantMore(event, game) {
-            event.preventDefault();
-            event.stopPropagation();
-            const tester = localStorage.getItem(TESTER_KEY);
-            if (!tester) return;
-
-            const records = getRecords();
-            records.push({ tester, game, type: 'want_more', time: new Date().toISOString() });
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-
-            // 버튼 애니메이션
-            const btn = event.target;
-            btn.classList.add('clicked');
-            setTimeout(() => {
-                btn.classList.remove('clicked');
-            }, 600);
-
-            updatePlayCounts();
-        }
-
-        // ── 플레이 횟수 표시 ──
-        function updatePlayCounts() {
-            const tester = localStorage.getItem(TESTER_KEY);
-            if (!tester) return;
-            GAMES.forEach(game => {
-                const el = document.getElementById('count-' + game);
-                if (el) {
-                    const count = getCount(tester, game);
-                    el.textContent = count > 0 ? `플레이: ${count}회` : '';
-                }
-                const wantEl = document.getElementById('want-' + game);
-                if (wantEl) {
-                    const wc = getWantCount(tester, game);
-                    wantEl.textContent = wc > 0 ? `${wc}` : '';
-                }
-                const exitEl = document.getElementById('exit-' + game);
-                if (exitEl) {
-                    const ec = getExitCount(tester, game);
-                    exitEl.textContent = ec > 0 ? `${ec}` : '';
-                }
-            });
-        }
-
-        // 포커스 돌아올 때마다 갱신 (게임에서 돌아왔을 때)
-        window.addEventListener('focus', updatePlayCounts);
-
-        // ── 통계 ──
-        function showStats() {
-            const records = getRecords();
-
-            // ── 플레이 횟수 테이블 ──
-            let html = '<h3 style="margin-bottom:10px;">🎮 플레이 횟수</h3>';
-            html += '<table class="stats-table"><thead><tr><th>친구</th>';
-            GAMES.forEach(g => html += `<th>${g}</th>`);
-            html += '<th class="total">합계</th></tr></thead><tbody>';
-
-            const activTesters = [...new Set(records.map(r => r.tester))];
-            const allTesters = [...TESTERS.filter(t => activTesters.includes(t)),
-            ...activTesters.filter(t => !TESTERS.includes(t))];
-
-            if (allTesters.length === 0) {
-                html += '<tr><td colspan="' + (GAMES.length + 2) + '" style="color:#888;">아직 기록이 없습니다</td></tr>';
-            }
-
-            const gameTotals = {};
-            GAMES.forEach(g => gameTotals[g] = 0);
-            let grandTotal = 0;
-
-            allTesters.forEach(tester => {
-                html += `<tr><td style="font-weight:600;">${tester}</td>`;
-                let rowTotal = 0;
-                GAMES.forEach(game => {
-                    const count = getCount(tester, game);
-                    gameTotals[game] += count;
-                    rowTotal += count;
-                    html += `<td>${count || '-'}</td>`;
-                });
-                grandTotal += rowTotal;
-                html += `<td class="total">${rowTotal}</td></tr>`;
-            });
-
-            html += '<tr style="border-top:2px solid rgba(255,255,255,0.3);"><td style="font-weight:700;color:#ffd93d;">합계</td>';
-            GAMES.forEach(g => html += `<td class="total">${gameTotals[g] || '-'}</td>`);
-            html += `<td class="total">${grandTotal}</td></tr>`;
-            html += '</tbody></table>';
-
-            // ── 플레이 시간 테이블 ──
-            function getTotalDuration(tester, game) {
-                return records.filter(r => r.tester === tester && r.game === game && (!r.type || r.type === 'play') && r.duration)
-                    .reduce((sum, r) => sum + (r.duration || 0), 0);
-            }
-            function fmtDur(sec) {
-                if (!sec) return '-';
-                const m = Math.floor(sec / 60);
-                const s = sec % 60;
-                return m > 0 ? `${m}분 ${s}초` : `${s}초`;
-            }
-            html += '<h3 style="margin:20px 0 10px; color:#4d96ff;">⏱ 플레이 시간</h3>';
-            html += '<table class="stats-table"><thead><tr><th>친구</th>';
-            GAMES.forEach(g => html += `<th>${g}</th>`);
-            html += '<th class="total">합계</th></tr></thead><tbody>';
-
-            const durGameTotals = {};
-            GAMES.forEach(g => durGameTotals[g] = 0);
-            let durGrand = 0;
-
-            allTesters.forEach(tester => {
-                html += `<tr><td style="font-weight:600;">${tester}</td>`;
-                let rowDur = 0;
-                GAMES.forEach(game => {
-                    const dur = getTotalDuration(tester, game);
-                    durGameTotals[game] += dur;
-                    rowDur += dur;
-                    html += `<td style="color:#4d96ff;">${fmtDur(dur)}</td>`;
-                });
-                durGrand += rowDur;
-                html += `<td class="total" style="color:#4d96ff;">${fmtDur(rowDur)}</td></tr>`;
-            });
-
-            html += '<tr style="border-top:2px solid rgba(255,255,255,0.3);"><td style="font-weight:700;color:#ffd93d;">합계</td>';
-            GAMES.forEach(g => html += `<td class="total" style="color:#4d96ff;">${fmtDur(durGameTotals[g])}</td>`);
-            html += `<td class="total" style="color:#4d96ff;">${fmtDur(durGrand)}</td></tr>`;
-            html += '</tbody></table>';
-
-            // ── 🚪 이탈 테이블 ──
-            html += '<h3 style="margin:20px 0 10px; color:#ff6b6b;">🚪 이탈 횟수</h3>';
-            html += '<table class="stats-table"><thead><tr><th>친구</th>';
-            GAMES.forEach(g => html += `<th>${g}</th>`);
-            html += '<th class="total">합계</th></tr></thead><tbody>';
-
-            const hasExit = records.some(r => r.type === 'exit');
-            if (!hasExit) {
-                html += '<tr><td colspan="' + (GAMES.length + 2) + '" style="color:#888;">아직 기록이 없습니다</td></tr>';
-            } else {
-                const exitGameTotals = {};
-                GAMES.forEach(g => exitGameTotals[g] = 0);
-                let exitGrand = 0;
-
-                allTesters.forEach(tester => {
-                    let hasAny = false;
-                    GAMES.forEach(g => { if (getExitCount(tester, g) > 0) hasAny = true; });
-                    if (!hasAny) return;
-
-                    html += `<tr><td style="font-weight:600;">${tester}</td>`;
-                    let rowTotal = 0;
-                    GAMES.forEach(game => {
-                        const ec = getExitCount(tester, game);
-                        exitGameTotals[game] += ec;
-                        rowTotal += ec;
-                        html += `<td style="color:#ff6b6b;">${ec || '-'}</td>`;
-                    });
-                    exitGrand += rowTotal;
-                    html += `<td class="total" style="color:#ff6b6b;">${rowTotal}</td></tr>`;
-                });
-
-                html += '<tr style="border-top:2px solid rgba(255,255,255,0.3);"><td style="font-weight:700;color:#ffd93d;">합계</td>';
-                GAMES.forEach(g => html += `<td class="total" style="color:#ff6b6b;">${exitGameTotals[g] || '-'}</td>`);
-                html += `<td class="total" style="color:#ff6b6b;">${exitGrand}</td></tr>`;
-            }
-            html += '</tbody></table>';
-
-            // ── 💗 더 하고 싶어요 테이블 ──
-            const hasWant = records.some(r => r.type === 'want_more');
-            html += '<h3 style="margin:20px 0 10px; color:#ff6ba6;">💗 더 하고 싶어요</h3>';
-            html += '<table class="stats-table"><thead><tr><th>친구</th>';
-            GAMES.forEach(g => html += `<th>${g}</th>`);
-            html += '<th class="total">합계</th></tr></thead><tbody>';
-
-            if (!hasWant) {
-                html += '<tr><td colspan="' + (GAMES.length + 2) + '" style="color:#888;">아직 기록이 없습니다</td></tr>';
-            } else {
-                const wantTotals = {};
-                GAMES.forEach(g => wantTotals[g] = 0);
-                let wantGrand = 0;
-
-                allTesters.forEach(tester => {
-                    let hasAny = false;
-                    GAMES.forEach(g => { if (getWantCount(tester, g) > 0) hasAny = true; });
-                    if (!hasAny) return;
-
-                    html += `<tr><td style="font-weight:600;">${tester}</td>`;
-                    let rowTotal = 0;
-                    GAMES.forEach(game => {
-                        const wc = getWantCount(tester, game);
-                        wantTotals[game] += wc;
-                        rowTotal += wc;
-                        html += `<td style="color:#ff6ba6;">${wc || '-'}</td>`;
-                    });
-                    wantGrand += rowTotal;
-                    html += `<td class="total" style="color:#ff6ba6;">${rowTotal}</td></tr>`;
-                });
-
-                html += '<tr style="border-top:2px solid rgba(255,255,255,0.3);"><td style="font-weight:700;color:#ffd93d;">합계</td>';
-                GAMES.forEach(g => html += `<td class="total" style="color:#ff6ba6;">${wantTotals[g] || '-'}</td>`);
-                html += `<td class="total" style="color:#ff6ba6;">${wantGrand}</td></tr>`;
-            }
-            html += `<p style="color:#888;font-size:0.85rem;margin-bottom:15px;">총 ${records.length}개 기록</p>`;
-
-            document.getElementById('statsContent').innerHTML = html;
-            document.getElementById('statsModal').classList.add('show');
-        }
-
-        function closeStats() {
-            document.getElementById('statsModal').classList.remove('show');
-        }
-
-        function downloadCSV() {
-            const records = getRecords();
-            let csv = '\uFEFF친구,게임,구분,시각,플레이시간(초)\n'; // BOM for Excel
-            records.forEach(r => {
-                const time = new Date(r.time).toLocaleString('ko-KR');
-                const type = r.type === 'want_more' ? '더하고싶어요' : r.type === 'exit' ? '이탈' : '플레이';
-                const dur = r.duration || '';
-                csv += `${r.tester},${r.game},${type},${time},${dur}\n`;
-            });
-
-            // 플레이 요약
-            csv += '\n\n플레이 요약\n친구';
-            GAMES.forEach(g => csv += ',' + g);
-            csv += ',합계\n';
-
-            const activTesters = [...new Set(records.map(r => r.tester))];
-            activTesters.forEach(tester => {
-                csv += tester;
-                let total = 0;
-                GAMES.forEach(game => {
-                    const count = getCount(tester, game);
-                    csv += ',' + count;
-                    total += count;
-                });
-                csv += ',' + total + '\n';
-            });
-
-            // 플레이 시간 요약 (초)
-            csv += '\n\n플레이시간 요약(초)\n친구';
-            GAMES.forEach(g => csv += ',' + g);
-            csv += ',합계\n';
-            activTesters.forEach(tester => {
-                csv += tester;
-                let total = 0;
-                GAMES.forEach(game => {
-                    const dur = records.filter(r => r.tester === tester && r.game === game && (!r.type || r.type === 'play') && r.duration)
-                        .reduce((sum, r) => sum + (r.duration || 0), 0);
-                    csv += ',' + dur;
-                    total += dur;
-                });
-                csv += ',' + total + '\n';
-            });
-
-            // 이탈 요약
-            csv += '\n\n이탈 요약\n친구';
-            GAMES.forEach(g => csv += ',' + g);
-            csv += ',합계\n';
-            activTesters.forEach(tester => {
-                csv += tester;
-                let total = 0;
-                GAMES.forEach(game => {
-                    const ec = getExitCount(tester, game);
-                    csv += ',' + ec;
-                    total += ec;
-                });
-                csv += ',' + total + '\n';
-            });
-
-            // 더 하고 싶어요 요약
-            csv += '\n\n더하고싶어요 요약\n친구';
-            GAMES.forEach(g => csv += ',' + g);
-            csv += ',합계\n';
-            activTesters.forEach(tester => {
-                csv += tester;
-                let total = 0;
-                GAMES.forEach(game => {
-                    const wc = getWantCount(tester, game);
-                    csv += ',' + wc;
-                    total += wc;
-                });
-                csv += ',' + total + '\n';
-            });
-
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            const now = new Date();
-            const ts = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
-            link.download = `잼잼_플레이통계_${ts}.csv`;
-            link.click();
-        }
-
-        function clearData() {
-            if (confirm('모든 플레이 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
-                localStorage.removeItem(STORAGE_KEY);
-                showStats(); // 새로고침
-                updatePlayCounts();
-            }
-        }
-
-        // ── 초기화 ──
-        initTesterGrid();
-
-        // 이미 테스터가 선택되어 있으면 바로 게임 목록 표시
-        const savedTester = localStorage.getItem(TESTER_KEY);
-        if (savedTester) {
-            selectTester(savedTester);
-        }
+        // ── 페이지 방문 로그 ──
+        (function () {
+            const sessionId = generateSessionId();
+            localStorage.setItem(SESSION_KEY, sessionId);
+            sendLog({ event: 'visit', session_id: sessionId });
+        })();
     </script>
-    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.4.0 (2026-03-17)</div>
+    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.5.0 (2026-03-19)</div>
 </body>
 
 </html>
