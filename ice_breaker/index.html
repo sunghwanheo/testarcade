@@ -2963,7 +2963,7 @@
             const model = poseDetection.SupportedModels.MoveNet;
             detector = await poseDetection.createDetector(model, {
                 modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING,
-                enableSmoothing: false,
+                enableSmoothing: true,
                 maxPoses: 2
             });
             console.log('[MoveNet MultiPose] 초기화 완료');
@@ -2979,8 +2979,12 @@
             } catch(e) {}
         }
 
+        // 손/발 위치 잔상 유지 (감지 끊겨도 N프레임 동안 유지)
+        const pointPersistence = new Map(); // id → { ...point, ttl }
+        const PERSIST_FRAMES = 6; // ~200ms (33ms * 6)
+
         function processMultiPose(poses) {
-            bodyPoints = [];
+            const detected = new Map();
             const W = canvasElement.width;
             const H = canvasElement.height;
             const vidW = 320;
@@ -3019,7 +3023,7 @@
                 const trackHand = (wristIdx, elbowIdx) => {
                     const wrist = kps[wristIdx];
                     const elbow = kps[elbowIdx];
-                    if (!wrist || wrist.score < 0.3) return null;
+                    if (!wrist || wrist.score < 0.2) return null;
                     const wPos = toScreen(wrist);
                     // 팔꿈치가 보이면 팔꿈치→손목 방향으로 40% 연장하여 주먹 위치 추정
                     if (elbow && elbow.score > 0.3) {
@@ -3035,7 +3039,7 @@
                 // 발목 = 발
                 const trackFoot = (idx) => {
                     const kp = kps[idx];
-                    if (!kp || kp.score < 0.3) return null;
+                    if (!kp || kp.score < 0.2) return null;
                     const pos = toScreen(kp);
                     return { x: pos.x, y: pos.y, radius: footRadius, type: 'foot', id: base + idx };
                 };
@@ -3049,17 +3053,27 @@
 
                 for (const p of parts) {
                     const prev = prevBodyPos[p.id];
-                    if (prev) {
-                        p.vx = (p.x - prev.x);
-                        p.vy = (p.y - prev.y);
-                    } else {
-                        p.vx = 0;
-                        p.vy = 0;
-                    }
+                    p.vx = prev ? p.x - prev.x : 0;
+                    p.vy = prev ? p.y - prev.y : 0;
                     prevBodyPos[p.id] = { x: p.x, y: p.y };
-                    bodyPoints.push(p);
+                    detected.set(p.id, { ...p, ttl: PERSIST_FRAMES });
                 }
             }
+
+            // persistence 갱신: 감지된 것은 TTL 리셋, 아닌 것은 TTL 감소
+            for (const [id, p] of pointPersistence) {
+                if (detected.has(id)) {
+                    pointPersistence.set(id, detected.get(id));
+                    detected.delete(id);
+                } else {
+                    p.ttl--;
+                    if (p.ttl <= 0) pointPersistence.delete(id);
+                }
+            }
+            // 새로 감지된 포인트 추가
+            for (const [id, p] of detected) pointPersistence.set(id, p);
+
+            bodyPoints = [...pointPersistence.values()];
         }
 
         // -------------------------
