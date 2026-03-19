@@ -116,7 +116,7 @@
             position: absolute;
             width: 100%;
             height: 100%;
-            z-index: 16;
+            z-index: 21;
             pointer-events: none;
         }
 
@@ -261,6 +261,19 @@
             border-color: white;
         }
 
+        /* 다음 레벨 시작 버튼 - dwell 통일 스타일 */
+        #startButton {
+            padding: 16px 52px;
+            font-size: 26px;
+            background: linear-gradient(135deg, rgba(0,200,255,0.25), rgba(0,100,200,0.2));
+            color: #00ffff;
+            border: 2px solid #00ffff;
+            border-radius: 40px;
+            box-shadow: 0 0 20px rgba(0,255,255,0.4);
+            text-transform: none;
+            letter-spacing: 1px;
+        }
+
         #loadingMsg {
             display: none;
             margin-top: 20px;
@@ -341,21 +354,22 @@
             animation: rewardFadeUp 0.8s ease-out 0.7s both;
         }
         #rewardScreen .reward-btn {
-            padding: 20px 50px;
-            font-size: 30px;
+            padding: 16px 52px;
+            font-size: 26px;
             font-weight: bold;
-            background: linear-gradient(135deg, #ff9500, #ff2d55);
-            color: white;
-            border: 2px solid rgba(255,255,255,0.5);
-            border-radius: 15px;
+            background: linear-gradient(135deg, rgba(0,200,255,0.25), rgba(0,100,200,0.2));
+            color: #00ffff;
+            border: 2px solid #00ffff;
+            border-radius: 40px;
             cursor: pointer;
-            box-shadow: 0 0 30px rgba(255,100,50,0.6);
+            box-shadow: 0 0 20px rgba(0,255,255,0.4);
+            letter-spacing: 1px;
             transition: all 0.3s;
             animation: rewardFadeUp 0.8s ease-out 0.9s both;
         }
         #rewardScreen .reward-btn:hover {
-            transform: scale(1.08);
-            box-shadow: 0 0 50px rgba(255,100,50,0.9);
+            transform: scale(1.05);
+            box-shadow: 0 0 36px rgba(0,255,255,0.7);
         }
 
         /* 드웰 버튼 (손으로 채우기) */
@@ -369,10 +383,16 @@
             top: 0; left: 0;
             height: 100%;
             width: 0%;
-            background: linear-gradient(90deg, rgba(0,255,200,0.55), rgba(0,200,255,0.35));
+            background: linear-gradient(90deg, rgba(0,255,180,0.85), rgba(0,200,255,0.65));
             pointer-events: none;
             border-radius: inherit;
             transition: none;
+            z-index: 0;
+        }
+        /* 버튼 내부 텍스트가 fill 위에 오도록 */
+        .dwell-btn span, .dwell-btn > *:not(.dwell-fill):not(.dwell-badge) {
+            position: relative;
+            z-index: 1;
         }
         /* 손 감지 중: 버튼 글로우 */
         .dwell-btn.dwell-active {
@@ -505,7 +525,7 @@
                 <button class="lvl-btn" data-lv="1" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #ffdd00; background:rgba(255,220,0,0.15); color:#ffdd00; border-radius:8px; cursor:pointer;">Lv.2</button>
                 <button class="lvl-btn" data-lv="2" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #ff66ff; background:rgba(255,100,255,0.15); color:#ff66ff; border-radius:8px; cursor:pointer;">Lv.3</button>
             </div>
-            <button id="startButton">게임 시작 (카메라 권한 필요)</button>
+            <button id="startButton" class="dwell-btn"><span>게임 시작 (카메라 권한 필요)</span></button>
             <div id="loadingMsg">AI 및 얼음 마법 준비중... 잠시만 기다려주세요!</div>
         </div>
 
@@ -519,7 +539,14 @@
                 <div class="reward-score-value" id="rewardScore"></div>
             </div>
             <div class="reward-msg" id="rewardMsg"></div>
-            <p class="dwell-hint">✋ 손을 버튼 위에 올리면 시작돼요!</p>
+            <div style="text-align:center; margin-bottom:8px;">
+                <p style="font-size:22px; color:#00ffff; margin:0 0 6px 0; animation:pulse 0.8s infinite alternate; text-shadow:0 0 12px #00ffff;">
+                    ✋ 손을 버튼 위에 올려봐요!
+                </p>
+                <p style="font-size:15px; color:rgba(255,255,255,0.5); margin:0;">
+                    또는 클릭해도 돼요
+                </p>
+            </div>
             <button class="reward-btn dwell-btn" id="rewardBtn"></button>
         </div>
 
@@ -550,7 +577,7 @@
                         background:linear-gradient(135deg,rgba(0,200,255,0.25),rgba(0,100,200,0.2));
                         color:#00ffff; border:2px solid #00ffff; border-radius:40px; cursor:pointer;
                         box-shadow:0 0 20px rgba(0,255,255,0.4); letter-spacing:1px;">
-                        🎮 시작!
+                        <span>🎮 시작!</span>
                     </button>
                 </div>
             </div>
@@ -2544,6 +2571,13 @@
             const screen = document.getElementById('rewardScreen');
             screen.style.display = 'flex';
 
+            // gameLoop 완전히 중단 후 손 렌더 시작 (루프 충돌 방지)
+            isExploding = false;
+            isPlaying = false;
+            if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
+            stopTutorialRender();
+            setTimeout(() => startTutorialRender(), 100);
+
             // 별/이모지
             const starsEl = document.getElementById('rewardStars');
             if (isAllClear) {
@@ -2586,9 +2620,13 @@
                 : '다음 레벨에선 더 굉장한 것들이 기다리고 있어요!';
 
             // 버튼
+            // 보상화면에서 손 렌더 시작
+            startTutorialRender();
+
             const btnEl = document.getElementById('rewardBtn');
-            btnEl.textContent = isAllClear ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!';
+            btnEl.innerHTML = `<span>${isAllClear ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!'}</span>`;
             btnEl.onclick = function () {
+                stopTutorialRender();
                 screen.style.display = 'none';
                 clearConfetti(screen);
                 overlay.style.display = 'flex';
@@ -2596,9 +2634,12 @@
                 document.getElementById('endTitle').style.color = '#00ffff';
                 document.getElementById('endDesc').innerHTML =
                     '<b>1분</b> 동안 신나고 재미있게 얼음 큐브를 파괴하세요!';
-                startButton.innerText = isAllClear ? '게임 시작' : '다음 레벨 시작!';
+                startButton.querySelector('span').textContent = isAllClear ? '게임 시작' : '다음 레벨 시작!';
                 startButton.style.display = 'block';
                 loadingMsg.style.display = 'none';
+                resetDwellBtn(startButton);
+                // 카메라가 이미 켜진 상태이면 손 렌더 시작
+                if (cameraStarted) startTutorialRender();
             };
 
             // 컨페티
@@ -2836,22 +2877,29 @@
 
             previewEl.style.display = 'flex';
 
-            // 튜토리얼 영상 재생 + 손 렌더 루프 시작
+            // 튜토리얼 영상은 Lv.1 에서만
             const tutorialVid = document.getElementById('tutorialVideo');
             const tutorialSection = document.getElementById('tutorialVideoSection');
+            const startBtn = document.getElementById('tutorialStartBtn');
 
-            tutorialSection.style.display = 'block';
             countdownEl.innerText = '';
-            // 첫 프레임 빈 화면 스킵: 재생 준비 후 0.15초로 이동
-            tutorialVid.currentTime = 0;
-            tutorialVid.play().then(() => {
-                if (tutorialVid.currentTime < 0.15) tutorialVid.currentTime = 0.15;
-            }).catch(() => {});
             startTutorialRender();
 
-            const startBtn = document.getElementById('tutorialStartBtn');
-            startBtn.style.display = 'inline-block';
-            startBtn.onclick = () => startCountdown();
+            if (currentStageIndex === 0) {
+                tutorialSection.style.display = 'block';
+                tutorialVid.currentTime = 0;
+                tutorialVid.play().then(() => {
+                    if (tutorialVid.currentTime < 0.15) tutorialVid.currentTime = 0.15;
+                }).catch(() => {});
+                startBtn.style.display = 'inline-block';
+                startBtn.onclick = () => startCountdown();
+            } else {
+                // Lv.2, 3: 영상/시작버튼 숨기고 바로 카운트다운
+                tutorialSection.style.display = 'none';
+                startBtn.style.display = 'none';
+                startCountdown();
+                return;
+            }
 
             function startCountdown() {
                 startBtn.onclick = null;
@@ -3849,6 +3897,7 @@
         document.querySelectorAll('.lvl-btn:not([data-lv="0"])').forEach(b => b.style.opacity = '0.4');
 
         startButton.addEventListener('click', async () => {
+            stopTutorialRender();
             startButton.style.display = 'none';
             loadingMsg.style.display = 'block';
 
@@ -3971,6 +4020,9 @@
         });
         registerDwellBtn(document.getElementById('tutorialStartBtn'), () => {
             document.getElementById('tutorialStartBtn').click();
+        });
+        registerDwellBtn(document.getElementById('startButton'), () => {
+            document.getElementById('startButton').click();
         });
 
         // tutorialStartBtn dwell은 stagePreview 열릴 때마다 리셋
