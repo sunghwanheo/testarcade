@@ -389,7 +389,7 @@
         /* 손 인식 뱃지 */
         .dwell-badge {
             position: absolute;
-            bottom: calc(100% + 8px);
+            top: calc(100% + 8px);
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0,255,200,0.18);
@@ -406,17 +406,7 @@
         }
         .dwell-badge.visible { opacity: 1; }
         /* 게이지 위 남은시간 텍스트 */
-        .dwell-timer {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 15px;
-            font-weight: bold;
-            color: rgba(255,255,255,0.9);
-            pointer-events: none;
-            text-shadow: 0 0 6px rgba(0,0,0,0.8);
-            display: none;
-        }
+        .dwell-timer { display: none !important; }
         .dwell-hint {
             font-size: 18px;
             color: rgba(255,255,255,0.6);
@@ -555,7 +545,6 @@
 
                 <!-- 시작 버튼 (마우스 클릭 + 손 dwell) -->
                 <div style="margin-top:18px; position:relative; display:inline-block;">
-                    <p class="dwell-hint" style="margin-bottom:8px; font-size:17px;">✋ 손을 올리거나 클릭하세요!</p>
                     <button id="tutorialStartBtn" class="dwell-btn"
                         style="padding:16px 52px; font-size:26px; font-weight:bold;
                         background:linear-gradient(135deg,rgba(0,200,255,0.25),rgba(0,100,200,0.2));
