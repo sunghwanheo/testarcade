@@ -116,7 +116,7 @@
             position: absolute;
             width: 100%;
             height: 100%;
-            z-index: 3;
+            z-index: 16;
             pointer-events: none;
         }
 
@@ -357,6 +357,73 @@
             transform: scale(1.08);
             box-shadow: 0 0 50px rgba(255,100,50,0.9);
         }
+
+        /* 드웰 버튼 (손으로 채우기) */
+        .dwell-btn {
+            position: relative;
+            overflow: hidden;
+            transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        .dwell-fill {
+            position: absolute;
+            top: 0; left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, rgba(0,255,200,0.55), rgba(0,200,255,0.35));
+            pointer-events: none;
+            border-radius: inherit;
+            transition: none;
+        }
+        /* 손 감지 중: 버튼 글로우 */
+        .dwell-btn.dwell-active {
+            box-shadow: 0 0 0 3px rgba(0,255,200,0.9), 0 0 24px rgba(0,255,200,0.7) !important;
+            border-color: #00ffc8 !important;
+        }
+        @keyframes dwellDetected {
+            0%   { box-shadow: 0 0 0 3px rgba(0,255,200,0.7), 0 0 16px rgba(0,255,200,0.5); }
+            100% { box-shadow: 0 0 0 4px rgba(0,255,200,1.0), 0 0 32px rgba(0,255,200,0.9); }
+        }
+        .dwell-btn.dwell-active {
+            animation: dwellDetected 0.5s infinite alternate !important;
+        }
+        /* 손 인식 뱃지 */
+        .dwell-badge {
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,255,200,0.18);
+            border: 1.5px solid #00ffc8;
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 15px;
+            color: #00ffc8;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            animation: pulse 0.6s infinite alternate;
+        }
+        .dwell-badge.visible { opacity: 1; }
+        /* 게이지 위 남은시간 텍스트 */
+        .dwell-timer {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 15px;
+            font-weight: bold;
+            color: rgba(255,255,255,0.9);
+            pointer-events: none;
+            text-shadow: 0 0 6px rgba(0,0,0,0.8);
+            display: none;
+        }
+        .dwell-hint {
+            font-size: 18px;
+            color: rgba(255,255,255,0.6);
+            margin-bottom: 10px;
+            text-align: center;
+            animation: pulse 1.2s infinite alternate;
+        }
         .confetti-piece {
             position: absolute;
             width: 12px; height: 12px;
@@ -462,20 +529,47 @@
                 <div class="reward-score-value" id="rewardScore"></div>
             </div>
             <div class="reward-msg" id="rewardMsg"></div>
-            <button class="reward-btn" id="rewardBtn"></button>
+            <p class="dwell-hint">✋ 손을 버튼 위에 올리면 시작돼요!</p>
+            <button class="reward-btn dwell-btn" id="rewardBtn"></button>
         </div>
 
         <!-- 스테이지 프리뷰 오버레이 -->
         <div id="stagePreview" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%;
-            background:rgba(0,10,30,0.92); z-index:15; flex-direction:column; justify-content:center; align-items:center;
-            backdrop-filter:blur(12px);">
-            <h1 id="previewTitle" style="color:#00ffff; font-size:64px; margin-bottom:10px; text-shadow:0 0 30px #00d2ff;
+            background:rgba(0,5,15,0.82); z-index:15; flex-direction:column; justify-content:center; align-items:center;
+            padding:16px 16px 10vh 16px; box-sizing:border-box;">
+
+            <!-- 상단: 타이틀 + 무기 -->
+            <h1 id="previewTitle" style="color:#00ffff; font-size:44px; margin:0 0 4px 0; text-shadow:0 0 30px #00d2ff;
                 text-transform:uppercase; font-style:italic; animation: pulse 1s infinite alternate;"></h1>
-            <p id="previewWeapon" style="font-size:36px; color:#ffdd00; margin:0 0 30px 0; text-shadow:0 0 15px #ffdd00;"></p>
+            <p id="previewWeapon" style="font-size:26px; color:#ffdd00; margin:0 0 14px 0; text-shadow:0 0 15px #ffdd00;"></p>
 
-            <div style="display:flex; gap:40px; margin-bottom:40px; flex-wrap:wrap; justify-content:center;" id="previewItems"></div>
+            <!-- 튜토리얼 영상 섹션 -->
+            <div id="tutorialVideoSection" style="text-align:center;">
+                <p style="font-size:22px; color:#00ffff; margin:0 0 8px 0; text-shadow:0 0 15px #00ffff; animation: pulse 1s infinite alternate;">
+                    👐 이렇게 손을 올려봐요!
+                </p>
+                <video id="tutorialVideo" src="tutorial_web.mp4"
+                    style="width:420px; max-width:50vw; max-height:38vh; border-radius:14px; border:3px solid #00ffff;
+                    box-shadow:0 0 30px rgba(0,255,255,0.4); display:block; margin:0 auto;"
+                    playsinline preload="auto"></video>
 
-            <div id="previewCountdown" style="font-size:100px; font-weight:900; color:#ffffff;
+                <!-- 시작 버튼 (마우스 클릭 + 손 dwell) -->
+                <div style="margin-top:18px; position:relative; display:inline-block;">
+                    <p class="dwell-hint" style="margin-bottom:8px; font-size:17px;">✋ 손을 올리거나 클릭하세요!</p>
+                    <button id="tutorialStartBtn" class="dwell-btn"
+                        style="padding:16px 52px; font-size:26px; font-weight:bold;
+                        background:linear-gradient(135deg,rgba(0,200,255,0.25),rgba(0,100,200,0.2));
+                        color:#00ffff; border:2px solid #00ffff; border-radius:40px; cursor:pointer;
+                        box-shadow:0 0 20px rgba(0,255,255,0.4); letter-spacing:1px;">
+                        🎮 시작!
+                    </button>
+                </div>
+            </div>
+
+            <!-- 숨겨진 previewItems (카드는 표시 안 함) -->
+            <div id="previewItems" style="display:none;"></div>
+
+            <div id="previewCountdown" style="font-size:100px; font-weight:900; color:#ffffff; margin-top:16px;
                 text-shadow:0 0 40px #00ffff, 0 0 80px #ff00ff; animation: pulse 0.5s infinite alternate;"></div>
         </div>
     </div>
@@ -2734,46 +2828,75 @@
 
             allCards.forEach(item => {
                 const card = document.createElement('div');
+                // 가로형 카드: 아이콘 왼쪽 + 텍스트 오른쪽
                 card.style.cssText = `
-                    background: rgba(0,0,0,0.6); border: 2px solid ${item.color}; border-radius: 16px;
-                    padding: 20px 28px; text-align: center; min-width: 160px;
-                    box-shadow: 0 0 20px ${item.color}44; transition: transform 0.3s;
+                    background: rgba(0,0,0,0.6); border: 2px solid ${item.color}; border-radius: 14px;
+                    padding: 10px 16px; display:flex; align-items:center; gap:14px;
+                    box-shadow: 0 0 16px ${item.color}44; min-width: 240px;
                 `;
                 const iconHtml = item.img
-                    ? `<img src="${item.img}" style="width:80px; height:80px; object-fit:contain; margin-bottom:8px; filter:drop-shadow(0 0 10px ${item.color});" />`
-                    : `<div style="font-size:60px; margin-bottom:8px; filter:drop-shadow(0 0 10px ${item.color});">${item.icon}</div>`;
+                    ? `<img src="${item.img}" style="width:52px; height:52px; object-fit:contain; flex-shrink:0; filter:drop-shadow(0 0 8px ${item.color});" />`
+                    : `<div style="font-size:44px; flex-shrink:0; filter:drop-shadow(0 0 8px ${item.color});">${item.icon}</div>`;
                 card.innerHTML = `
                     ${iconHtml}
-                    <div style="font-size:22px; font-weight:bold; color:${item.color}; margin-bottom:4px;">${item.name}</div>
-                    <div style="font-size:14px; color:#aaa; margin-bottom:6px;">[${item.label}]</div>
-                    <div style="font-size:16px; color:#ddd; line-height:1.4;">${item.desc}</div>
+                    <div>
+                        <div style="font-size:18px; font-weight:bold; color:${item.color};">${item.name} <span style="font-size:12px; color:#aaa;">[${item.label}]</span></div>
+                        <div style="font-size:14px; color:#ddd; line-height:1.4;">${item.desc}</div>
+                    </div>
                 `;
                 itemsEl.appendChild(card);
             });
 
             previewEl.style.display = 'flex';
 
-            // 카운트다운 3 → 2 → 1 → GO!
-            let count = 3;
-            countdownEl.innerText = count;
-            playCountdownBeep(count);
+            // 튜토리얼 영상 재생 + 손 렌더 루프 시작
+            const tutorialVid = document.getElementById('tutorialVideo');
+            const tutorialSection = document.getElementById('tutorialVideoSection');
 
-            const timer = setInterval(() => {
-                count--;
-                if (count > 0) {
-                    countdownEl.innerText = count;
-                    playCountdownBeep(count);
-                } else if (count === 0) {
-                    countdownEl.innerText = 'GO!';
-                    countdownEl.style.color = '#ffdd00';
-                    playCountdownGo();
-                } else {
-                    clearInterval(timer);
-                    previewEl.style.display = 'none';
-                    countdownEl.style.color = '#ffffff';
-                    callback();
-                }
-            }, 1000);
+            tutorialSection.style.display = 'block';
+            countdownEl.innerText = '';
+            // 첫 프레임 빈 화면 스킵: 재생 준비 후 0.15초로 이동
+            tutorialVid.currentTime = 0;
+            tutorialVid.play().then(() => {
+                if (tutorialVid.currentTime < 0.15) tutorialVid.currentTime = 0.15;
+            }).catch(() => {});
+            startTutorialRender();
+
+            const startBtn = document.getElementById('tutorialStartBtn');
+            startBtn.style.display = 'inline-block';
+            startBtn.onclick = () => startCountdown();
+
+            function startCountdown() {
+                startBtn.onclick = null;
+                startBtn.style.display = 'none';
+                tutorialVid.pause();
+                tutorialSection.style.display = 'none';
+                stopTutorialRender();
+
+                // 카운트다운 3 → 2 → 1 → GO!
+                let count = 3;
+                countdownEl.innerText = count;
+                playCountdownBeep(count);
+
+                const timer = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        countdownEl.innerText = count;
+                        playCountdownBeep(count);
+                    } else if (count === 0) {
+                        countdownEl.innerText = 'GO!';
+                        countdownEl.style.color = '#ffdd00';
+                        playCountdownGo();
+                    } else {
+                        clearInterval(timer);
+                        previewEl.style.display = 'none';
+                        countdownEl.style.color = '#ffffff';
+                        callback();
+                    }
+                }, 1000);
+            }
+
+            tutorialVid.onended = startCountdown;
         }
 
         function resetGame() {
@@ -2812,27 +2935,18 @@
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
             lastTime = performance.now();
 
-            if (currentStageIndex === 0) {
-                // 스테이지 1만: 튜토리얼 (손발 소개 → 시작 블록 깨기)
-                tutorialPhase = 0;
-                tutorialPhaseTimer = 0;
-                // 튜토리얼 중 피버 게이지 숨김
-                document.getElementById('feverBarContainer').style.display = 'none';
-                feverTitle.style.display = 'none';
-            } else {
-                // 스테이지 2, 3: 바로 프리뷰 → 게임 시작
-                tutorialPhase = -1;
-                isPlaying = false;
-                showStagePreview(() => {
-                    gameTimeLeft = 60.0;
-                    blockSpawnTimer = 1.0;
-                    isPlaying = true;
-                    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-                    lastTime = performance.now();
-                    gameLoop(lastTime);
-                    updateUI();
-                });
-            }
+            // 모든 스테이지: 영상 튜토리얼 프리뷰 → 게임 시작
+            tutorialPhase = -1;
+            isPlaying = false;
+            showStagePreview(() => {
+                gameTimeLeft = 60.0;
+                blockSpawnTimer = 1.0;
+                isPlaying = true;
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                lastTime = performance.now();
+                gameLoop(lastTime);
+                updateUI();
+            });
 
             gameLoop(lastTime);
         }
@@ -3776,6 +3890,162 @@
                 loadingMsg.style.display = 'none';
             }
         });
+
+        // ── 튜토리얼 손 렌더 루프 ──
+        // stagePreview 중 isPlaying=false 이므로 gameLoop이 멈춤 → 별도 RAF로 손 글로브만 그림
+        let tutorialRenderActive = false;
+        let tutorialRenderRAF = null;
+        let tutorialRenderTime = 0;
+        let tutorialRenderLast = 0;
+
+        function startTutorialRender() {
+            tutorialRenderActive = true;
+            tutorialRenderLast = performance.now();
+            tutorialRenderTime = 0;
+            function loop(now) {
+                if (!tutorialRenderActive) return;
+                tutorialRenderRAF = requestAnimationFrame(loop);
+                const dt = Math.min((now - tutorialRenderLast) / 1000, 0.1);
+                tutorialRenderLast = now;
+                tutorialRenderTime += dt;
+
+                canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                for (const p of bodyPoints) {
+                    if (p.type !== 'hand') continue;
+                    drawGlove(canvasCtx, p.x, p.y, p.radius, currentStageIndex, false);
+                }
+            }
+            tutorialRenderRAF = requestAnimationFrame(loop);
+        }
+
+        function stopTutorialRender() {
+            tutorialRenderActive = false;
+            if (tutorialRenderRAF) { cancelAnimationFrame(tutorialRenderRAF); tutorialRenderRAF = null; }
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+        }
+
+        // ── 드웰 버튼 시스템 (손으로 채우기) ──
+        // pose detection이 실행 중인 화면의 버튼에만 적용 (rewardBtn)
+        const DWELL_DURATION = 2.5; // 초
+        const dwellState = new Map(); // el → { progress, triggered, fill }
+
+        function registerDwellBtn(el, onTrigger) {
+            // 버튼을 position:relative 컨테이너로 감싸서 뱃지 위치 기준점 생성
+            const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'position:relative; display:inline-block;';
+            el.parentNode.insertBefore(wrapper, el);
+            wrapper.appendChild(el);
+
+            const fill = document.createElement('div');
+            fill.className = 'dwell-fill';
+            el.appendChild(fill);
+
+            const timer = document.createElement('div');
+            timer.className = 'dwell-timer';
+            el.appendChild(timer);
+
+            const badge = document.createElement('div');
+            badge.className = 'dwell-badge';
+            badge.textContent = '✋ 손 인식!';
+            wrapper.appendChild(badge);
+
+            dwellState.set(el, { progress: 0, triggered: false, fill, timer, badge, onTrigger, wasHovered: false });
+        }
+
+        function resetDwellBtn(el) {
+            const s = dwellState.get(el);
+            if (!s) return;
+            s.progress = 0;
+            s.triggered = false;
+            s.fill.style.width = '0%';
+            s.timer.style.display = 'none';
+            s.timer.textContent = '';
+            s.badge.classList.remove('visible');
+            el.classList.remove('dwell-active');
+            s.wasHovered = false;
+        }
+
+        registerDwellBtn(document.getElementById('rewardBtn'), () => {
+            document.getElementById('rewardBtn').click();
+        });
+        registerDwellBtn(document.getElementById('tutorialStartBtn'), () => {
+            document.getElementById('tutorialStartBtn').click();
+        });
+
+        // tutorialStartBtn dwell은 stagePreview 열릴 때마다 리셋
+        new MutationObserver(() => {
+            const preview = document.getElementById('stagePreview');
+            if (preview.style.display === 'flex') resetDwellBtn(document.getElementById('tutorialStartBtn'));
+        }).observe(document.getElementById('stagePreview'), { attributes: true, attributeFilter: ['style'] });
+
+        // rewardScreen이 열릴 때마다 드웰 리셋
+        const _origShowReward = showRewardScreen;
+        // rewardBtn 드웰은 showRewardScreen 직후 리셋
+        const rewardBtnEl = document.getElementById('rewardBtn');
+        const origRewardOnclick = Object.getOwnPropertyDescriptor(rewardBtnEl, 'onclick');
+        // showRewardScreen 호출 후 리셋을 MutationObserver로 감지
+        new MutationObserver(() => {
+            const screen = document.getElementById('rewardScreen');
+            if (screen.style.display === 'flex') resetDwellBtn(rewardBtnEl);
+        }).observe(document.getElementById('rewardScreen'), { attributes: true, attributeFilter: ['style'] });
+
+
+        // 드웰 체크 루프 (50ms 간격)
+        let lastDwellTs = Date.now();
+        setInterval(() => {
+            const now = Date.now();
+            const dt = (now - lastDwellTs) / 1000;
+            lastDwellTs = now;
+
+            for (const [el, s] of dwellState) {
+                if (s.triggered) continue;
+                const rect = el.getBoundingClientRect();
+                if (!rect.width) continue;
+
+                const hovered = bodyPoints.some(bp => {
+                    if (bp.type !== 'hand') return false;
+                    const pad = bp.radius || 50;
+                    return bp.x >= rect.left - pad && bp.x <= rect.right + pad &&
+                           bp.y >= rect.top  - pad && bp.y <= rect.bottom + pad;
+                });
+
+                if (hovered) {
+                    s.progress = Math.min(s.progress + dt / DWELL_DURATION, 1.0);
+                    s.fill.style.width = (s.progress * 100).toFixed(1) + '%';
+
+                    // 손 인식 피드백
+                    if (!s.wasHovered) {
+                        s.wasHovered = true;
+                        el.classList.add('dwell-active');
+                        s.badge.classList.add('visible');
+                        s.timer.style.display = 'block';
+                    }
+                    // 남은 시간 표시
+                    const remaining = Math.ceil(DWELL_DURATION * (1 - s.progress));
+                    s.timer.textContent = remaining > 0 ? remaining + '초' : 'GO!';
+
+                    if (s.progress >= 1.0) {
+                        s.triggered = true;
+                        s.onTrigger();
+                    }
+                } else {
+                    s.progress = Math.max(s.progress - dt / (DWELL_DURATION * 0.6), 0);
+                    s.fill.style.width = (s.progress * 100).toFixed(1) + '%';
+
+                    // 손 벗어남
+                    if (s.wasHovered) {
+                        s.wasHovered = false;
+                        el.classList.remove('dwell-active');
+                        s.badge.classList.remove('visible');
+                        if (s.progress <= 0) {
+                            s.timer.style.display = 'none';
+                            s.timer.textContent = '';
+                        }
+                    }
+                }
+            }
+        }, 50);
+
     </script>
 </body>
 
