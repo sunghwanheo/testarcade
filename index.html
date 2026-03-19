@@ -235,6 +235,7 @@
 
         function applyLang(l) {
             const t = LANG_MAIN[l];
+            document.title = t.title;
             document.getElementById('main-title').textContent    = t.title;
             document.getElementById('main-subtitle').textContent = t.subtitle;
             Object.entries(t.games).forEach(([key, val]) => {
@@ -261,11 +262,12 @@
             const site = params.get('site');
             const valid = ['hospital', 'kang', 'local'];
             if (!site || !valid.includes(site)) {
+                const isKo = (typeof getLang === 'function' ? getLang() : 'ko') === 'ko';
                 document.body.innerHTML = `
                     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:20px;text-align:center;padding:20px;">
                         <div style="font-size:3rem;">🔒</div>
-                        <div style="font-size:1.4rem;font-weight:700;color:#ffd93d;">접근 불가</div>
-                        <div style="color:#aaa;font-size:1rem;">URL에 <b style="color:white;">?site=</b> 파라미터가 필요합니다.</div>
+                        <div style="font-size:1.4rem;font-weight:700;color:#ffd93d;">${isKo ? '접근 불가' : 'Access Denied'}</div>
+                        <div style="color:#aaa;font-size:1rem;">${isKo ? 'URL에 <b style="color:white;">?site=</b> 파라미터가 필요합니다.' : 'A <b style="color:white;">?site=</b> parameter is required in the URL.'}</div>
                         <div style="color:#888;font-size:0.9rem;">?site=hospital &nbsp;|&nbsp; ?site=kang &nbsp;|&nbsp; ?site=local</div>
                     </div>`;
                 throw new Error('[접근차단] site 파라미터 없음');

@@ -1,3 +1,8 @@
+---
+name: add-lang
+description: Add Korean/English bilingual support to HTML games with a language toggle button
+---
+
 # /add-lang — 게임에 한/영 다국어 추가
 
 현재 디렉토리의 게임 `index.html`에 한/영 언어 토글을 추가한다.
