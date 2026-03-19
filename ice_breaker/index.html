@@ -459,6 +459,8 @@
             100% { transform: translateY(0); opacity: 1; }
         }
     </style>
+    <!-- 다국어 지원 -->
+    <script src="./lang.js"></script>
     <!-- 플레이 트래킹 -->
     <script src="../tracking.js" data-game="쾅쾅 얼음깨기"></script>
     <!-- TensorFlow.js + MoveNet MultiPose (2인 지원) -->
@@ -591,6 +593,124 @@
     </div>
 
     <script>
+        const LANG = {
+          ko: {
+            gameTitle: '쾅쾅 얼음깨기',
+            endDesc: '<b>1분</b> 동안 신나고 재미있게 얼음 큐브를 파괴하세요!<br><br>거대한 얼음도 포기하지 않고 팡팡 두드리면 시원하게 터집니다.<br>신나게 움직여서 <b>무지개 파티(FEVER)</b>를 켜면 모든 얼음이 반짝이며 터집니다!',
+            endDescShort: '<b>1분</b> 동안 신나고 재미있게 얼음 큐브를 파괴하세요!',
+            startBtn: '게임 시작 (카메라 권한 필요)',
+            startGame: '게임 시작',
+            nextLevel: '다음 레벨 시작!',
+            loadingMsg: 'AI 및 얼음 마법 준비중... 잠시만 기다려주세요!',
+            cameraConnect: '카메라 연결 중...',
+            aiLoading: 'AI 모델 로딩 중... (첫 로딩은 좀 걸려요)',
+            cameraError: '카메라 권한을 부여하거나 연결에 실패했습니다.',
+            scoreLabel: '획득한 점수',
+            handHint: '✋ 손을 버튼 위에 올려봐요!',
+            clickHint: '또는 클릭해도 돼요',
+            tutorialHint: '👐 이렇게 손을 올려봐요!',
+            tutorialStart: '🎮 시작!',
+            allClearTitle: '모든 스테이지 클리어!',
+            praiseList: ['정말 대단해요! 최고!', '너무 잘했어요!', '와, 멋져요!', '엄청 잘했어요!', '짝짝짝! 훌륭해요!', '대박! 완전 잘했어!'],
+            allClearMsg: '모든 얼음을 부쉈어요! 진정한 챔피언!',
+            nextLevelMsg: '다음 레벨에선 더 굉장한 것들이 기다리고 있어요!',
+            replayBtn: '처음부터 다시 놀기',
+            nextLevelBtn: '다음 레벨로 넘어가기!',
+            tutorialGlow: '손과 발이 빛나요!',
+            tutorialMove: '움직여 보세요!',
+            smashToStart: '👊 모두 깨서 시작!',
+            remainingIce: (n) => `남은 얼음: ${n}개`,
+            handBadge: '✋ 손 인식!',
+            dwellSec: (n) => n + '초',
+            weaponLabel: (icon, name) => `무기: ${icon} ${name}`,
+            stageTitle: (name, weapon) => `${name} (무기: ${weapon})`,
+            stages: [
+              { name: 'Lv.1 얼음 동굴', weapon: '파란 마법장갑' },
+              { name: 'Lv.2 눈밭', weapon: '불꽃 주먹' },
+              { name: 'Lv.3 다이아몬드 성', weapon: '광선검' }
+            ],
+            blockLabel: '블록',
+            itemLabel: '아이템',
+            previews: [
+              { blocks: [{ name: '투명 얼음', desc: '기본 얼음이에요!' }, { name: '눈덩이', desc: '무겁고 묵직해요!' }],
+                items: [{ name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!' }] },
+              { blocks: [{ name: '네모 얼음', desc: '위에서 떨어져요!' }, { name: '동그란 눈덩이', desc: '좌우에서 포물선으로!' }],
+                items: [{ name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!' }] },
+              { blocks: [{ name: '네모 얼음', desc: '위에서 떨어져요!' }, { name: '네모 눈덩이', desc: '묵직하게 쿵!' }, { name: '동그란 눈덩이', desc: '좌우에서 포물선으로!' }],
+                items: [{ name: '스타 블록', desc: '5번 치면 반짝! 주변이 모두 터져요!' }, { name: '얼음1', desc: '조심! 주변이 7초간 얼어붙어요!' }] }
+            ]
+          },
+          en: {
+            gameTitle: 'Ice Breaker',
+            endDesc: 'Smash ice cubes for <b>1 minute</b> of pure fun!<br><br>Keep hitting even the giant ice blocks to shatter them.<br>Move hard to activate <b>Rainbow Party (FEVER)</b> and watch all the ice sparkle and explode!',
+            endDescShort: 'Smash ice cubes for <b>1 minute</b> of fun!',
+            startBtn: 'Start Game (Camera Required)',
+            startGame: 'Start Game',
+            nextLevel: 'Next Level!',
+            loadingMsg: 'Preparing AI & ice magic... Please wait!',
+            cameraConnect: 'Connecting camera...',
+            aiLoading: 'Loading AI model... (first load takes a moment)',
+            cameraError: 'Failed to access camera. Please grant camera permission.',
+            scoreLabel: 'Score',
+            handHint: '✋ Place your hand over the button!',
+            clickHint: 'or click',
+            tutorialHint: '👐 Raise your hands like this!',
+            tutorialStart: '🎮 Start!',
+            allClearTitle: 'All Stages Cleared!',
+            praiseList: ['Amazing! The best!', 'Great job!', 'Wow, awesome!', 'Incredible!', 'Bravo! Fantastic!', 'Superb! You nailed it!'],
+            allClearMsg: 'You smashed all the ice! True champion!',
+            nextLevelMsg: 'Even cooler challenges await in the next level!',
+            replayBtn: 'Play Again from Start',
+            nextLevelBtn: 'Go to Next Level!',
+            tutorialGlow: 'Your hands & feet glow!',
+            tutorialMove: 'Try moving!',
+            smashToStart: '👊 Smash all to start!',
+            remainingIce: (n) => `Ice left: ${n}`,
+            handBadge: '✋ Hand detected!',
+            dwellSec: (n) => n + 's',
+            weaponLabel: (icon, name) => `Weapon: ${icon} ${name}`,
+            stageTitle: (name, weapon) => `${name} (Weapon: ${weapon})`,
+            stages: [
+              { name: 'Lv.1 Ice Cave', weapon: 'Blue Magic Gloves' },
+              { name: 'Lv.2 Snowfield', weapon: 'Fire Fists' },
+              { name: 'Lv.3 Diamond Castle', weapon: 'Light Saber' }
+            ],
+            blockLabel: 'Block',
+            itemLabel: 'Item',
+            previews: [
+              { blocks: [{ name: 'Clear Ice', desc: 'Basic ice block!' }, { name: 'Snowball', desc: 'Heavy and solid!' }],
+                items: [{ name: 'Star Block', desc: 'Hit 5 times and boom! Everything around pops!' }] },
+              { blocks: [{ name: 'Square Ice', desc: 'Falls from above!' }, { name: 'Round Snowball', desc: 'Arcs from the sides!' }],
+                items: [{ name: 'Star Block', desc: 'Hit 5 times and boom! Everything around pops!' }] },
+              { blocks: [{ name: 'Square Ice', desc: 'Falls from above!' }, { name: 'Square Snowball', desc: 'Heavy thud!' }, { name: 'Round Snowball', desc: 'Arcs from the sides!' }],
+                items: [{ name: 'Star Block', desc: 'Hit 5 times and boom! Everything around pops!' }, { name: 'Ice Zone', desc: 'Watch out! Freezes the area for 7 sec!' }] }
+            ]
+          }
+        };
+
+        function applyLang(l) {
+          const t = LANG[l];
+          document.title = t.gameTitle;
+          document.getElementById('endTitle').textContent = t.gameTitle;
+          document.getElementById('endDesc').innerHTML = t.endDesc;
+          document.getElementById('startButton').querySelector('span').textContent = t.startBtn;
+          document.getElementById('loadingMsg').textContent = t.loadingMsg;
+          const scoreLabelEl = document.querySelector('.reward-score-label');
+          if (scoreLabelEl) scoreLabelEl.textContent = t.scoreLabel;
+          const handHintEl = document.querySelector('#rewardScreen p[style*="color:#00ffff"]');
+          if (handHintEl) handHintEl.innerHTML = t.handHint;
+          const clickHintEl = document.querySelector('#rewardScreen p[style*="rgba(255,255,255,0.5)"]');
+          if (clickHintEl) clickHintEl.textContent = t.clickHint;
+          const tutHintEl = document.querySelector('#tutorialVideoSection > p');
+          if (tutHintEl) tutHintEl.innerHTML = t.tutorialHint;
+          const tutStartEl = document.querySelector('#tutorialStartBtn span');
+          if (tutStartEl) tutStartEl.textContent = t.tutorialStart;
+          if (typeof currentStageIndex !== 'undefined' && LANG[l].stages[currentStageIndex]) {
+            const s = LANG[l].stages[currentStageIndex];
+            document.getElementById('stageTitle').innerText = t.stageTitle(s.name, s.weapon);
+          }
+        }
+
         // -------------------------
         // Matter.js 설정
         // -------------------------
@@ -2596,17 +2716,14 @@
 
             // 제목
             const titleEl = document.getElementById('rewardTitle');
-            titleEl.textContent = isAllClear ? '모든 스테이지 클리어!' : 'STAGE CLEAR!';
+            titleEl.textContent = isAllClear ? LANG[getLang()].allClearTitle : 'STAGE CLEAR!';
             titleEl.style.animation = 'none';
             titleEl.offsetHeight;
             titleEl.style.animation = 'rewardPop 0.6s cubic-bezier(0.17, 0.67, 0.29, 1.4)';
 
             // 부제
             const subtitleEl = document.getElementById('rewardSubtitle');
-            const praiseList = [
-                '정말 대단해요! 최고!', '너무 잘했어요!', '와, 멋져요!',
-                '엄청 잘했어요!', '짝짝짝! 훌륭해요!', '대박! 완전 잘했어!'
-            ];
+            const praiseList = LANG[getLang()].praiseList;
             subtitleEl.textContent = praiseList[Math.floor(Math.random() * praiseList.length)];
 
             // 점수 (카운트업 애니메이션)
@@ -2616,25 +2733,25 @@
             // 메시지
             const msgEl = document.getElementById('rewardMsg');
             msgEl.textContent = isAllClear
-                ? '모든 얼음을 부쉈어요! 진정한 챔피언!'
-                : '다음 레벨에선 더 굉장한 것들이 기다리고 있어요!';
+                ? LANG[getLang()].allClearMsg
+                : LANG[getLang()].nextLevelMsg;
 
             // 버튼
             // 보상화면에서 손 렌더 시작
             startTutorialRender();
 
             const btnEl = document.getElementById('rewardBtn');
-            document.getElementById('rewardBtnText').textContent = isAllClear ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!';
+            document.getElementById('rewardBtnText').textContent = isAllClear ? LANG[getLang()].replayBtn : LANG[getLang()].nextLevelBtn;
             btnEl.onclick = function () {
                 stopTutorialRender();
                 screen.style.display = 'none';
                 clearConfetti(screen);
                 overlay.style.display = 'flex';
-                document.getElementById('endTitle').innerText = '쾅쾅 얼음깨기';
+                document.getElementById('endTitle').innerText = LANG[getLang()].gameTitle;
                 document.getElementById('endTitle').style.color = '#00ffff';
                 document.getElementById('endDesc').innerHTML =
-                    '<b>1분</b> 동안 신나고 재미있게 얼음 큐브를 파괴하세요!';
-                startButton.querySelector('span').textContent = isAllClear ? '게임 시작' : '다음 레벨 시작!';
+                    LANG[getLang()].endDescShort;
+                startButton.querySelector('span').textContent = isAllClear ? LANG[getLang()].startGame : LANG[getLang()].nextLevel;
                 startButton.style.display = 'block';
                 loadingMsg.style.display = 'none';
                 resetDwellBtn(startButton);
@@ -2845,15 +2962,18 @@
             const itemsEl = document.getElementById('previewItems');
             const countdownEl = document.getElementById('previewCountdown');
 
-            titleEl.innerText = stageData.name;
-            weaponEl.innerHTML = `무기: ${stageData.weaponIcon} ${stageData.weapon}`;
+            titleEl.innerText = LANG[getLang()].stages[currentStageIndex].name;
+            const langStage = LANG[getLang()].stages[currentStageIndex];
+            weaponEl.innerHTML = LANG[getLang()].weaponLabel(stageData.weaponIcon, langStage.weapon);
 
             // 블록/아이템 카드 생성
             itemsEl.innerHTML = '';
 
+            const _t = LANG[getLang()];
+            const langPreview = _t.previews[currentStageIndex];
             const allCards = [
-                ...preview.blocks.map(b => ({ ...b, label: '블록' })),
-                ...preview.items.map(b => ({ ...b, label: '아이템' }))
+                ...preview.blocks.map((b, i) => ({ ...b, name: langPreview.blocks[i]?.name || b.name, desc: langPreview.blocks[i]?.desc || b.desc, label: _t.blockLabel })),
+                ...preview.items.map((b, i) => ({ ...b, name: langPreview.items[i]?.name || b.name, desc: langPreview.items[i]?.desc || b.desc, label: _t.itemLabel }))
             ];
 
             allCards.forEach(item => {
@@ -2943,7 +3063,8 @@
 
             // 테마 적용
             document.getElementById('themeOverlay').style.background = stageData.bgGradient;
-            document.getElementById('stageTitle').innerText = `${stageData.name} (무기: ${stageData.weapon})`;
+            const _ls = LANG[getLang()].stages[currentStageIndex];
+            document.getElementById('stageTitle').innerText = LANG[getLang()].stageTitle(_ls.name, _ls.weapon);
 
             Matter.World.clear(world);
             Engine.clear(engine);
@@ -3774,7 +3895,7 @@
                 canvasCtx.fillStyle = '#00ffcc';
                 canvasCtx.shadowColor = '#00ffcc';
                 canvasCtx.shadowBlur = 30;
-                canvasCtx.fillText('손과 발이 빛나요!', W / 2, H * 0.15);
+                canvasCtx.fillText(LANG[getLang()].tutorialGlow, W / 2, H * 0.15);
 
                 // 서브 텍스트: "움직여 보세요!"
                 if (tutorialPhaseTimer > 1.5) {
@@ -3784,7 +3905,7 @@
                     canvasCtx.fillStyle = '#ffffff';
                     canvasCtx.shadowColor = '#00aaff';
                     canvasCtx.shadowBlur = 20;
-                    canvasCtx.fillText('움직여 보세요!', W / 2, H * 0.23);
+                    canvasCtx.fillText(LANG[getLang()].tutorialMove, W / 2, H * 0.23);
                 }
 
                 // 카운트 표시 (남은 시간)
@@ -3873,14 +3994,14 @@
                     canvasCtx.fillStyle = '#ffdd00';
                     canvasCtx.shadowColor = '#ff8800';
                     canvasCtx.shadowBlur = 25;
-                    canvasCtx.fillText('👊 모두 깨서 시작!', W / 2, alive[0].position.y - halfW - 30 + bounce);
+                    canvasCtx.fillText(LANG[getLang()].smashToStart, W / 2, alive[0].position.y - halfW - 30 + bounce);
 
                     // 남은 블록 수 표시
                     canvasCtx.font = 'bold 34px sans-serif';
                     canvasCtx.fillStyle = '#ffffff';
                     canvasCtx.shadowColor = '#00ffff';
                     canvasCtx.shadowBlur = 15;
-                    canvasCtx.fillText(`남은 얼음: ${alive.length}개`, W / 2, alive[0].position.y - halfW - 85 + bounce);
+                    canvasCtx.fillText(LANG[getLang()].remainingIce(alive.length), W / 2, alive[0].position.y - halfW - 85 + bounce);
 
                     canvasCtx.restore();
                 }
@@ -3924,7 +4045,7 @@
             try {
                 if (!cameraStarted) {
                     // 카메라 시작
-                    loadingMsg.innerText = '카메라 연결 중...';
+                    loadingMsg.innerText = LANG[getLang()].cameraConnect;
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
                     });
@@ -3932,7 +4053,7 @@
                     await videoElement.play();
 
                     // MoveNet 초기화
-                    loadingMsg.innerText = 'AI 모델 로딩 중... (첫 로딩은 좀 걸려요)';
+                    loadingMsg.innerText = LANG[getLang()].aiLoading;
                     await initDetector();
 
                     // 검출 루프 (30fps)
@@ -3955,7 +4076,7 @@
                 // 바로 READY 상태로 진입 (시작 블록 격파 후 카운트다운)
                 resetGame();
             } catch (e) {
-                alert("카메라 권한을 부여하거나 연결에 실패했습니다.\n" + e.message);
+                alert(LANG[getLang()].cameraError + "\n" + e.message);
                 startButton.style.display = 'block';
                 loadingMsg.style.display = 'none';
             }
@@ -4042,7 +4163,7 @@
 
             const badge = document.createElement('div');
             badge.className = 'dwell-badge';
-            badge.textContent = '✋ 손 인식!';
+            badge.textContent = LANG[getLang()].handBadge;
             wrapper.appendChild(badge);
 
             dwellState.set(el, { progress: 0, triggered: false, fill, timer, badge, onTrigger, wasHovered: false });
@@ -4137,7 +4258,7 @@
                     }
                     // 남은 시간 표시
                     const remaining = Math.ceil(DWELL_DURATION * (1 - s.progress));
-                    s.timer.textContent = remaining > 0 ? remaining + '초' : 'GO!';
+                    s.timer.textContent = remaining > 0 ? LANG[getLang()].dwellSec(remaining) : 'GO!';
 
                     if (s.progress >= 1.0) {
                         s.triggered = true;

@@ -158,54 +158,95 @@
 
         }
     </style>
+    <script src="./lang.js"></script>
 </head>
 
 <body>
-    <h1>야호 놀이터</h1>
+    <h1 id="main-title">야호 놀이터</h1>
 
     <!-- 게임 목록 -->
     <div id="gameSection">
-        <p class="subtitle">게임을 선택하고 플레이하세요!</p>
+        <p class="subtitle" id="main-subtitle">게임을 선택하고 플레이하세요!</p>
 
         <div class="game-grid" id="gameGrid">
-            <a class="game-card" href="balloon_pang/index.html" target="_blank" data-game="풍선 팡팡">
+            <a class="game-card" href="balloon_pang/index.html" target="_blank" data-game="balloon_pang">
                 <div class="game-icon">🎈</div>
-                <div class="game-title">풍선 팡팡</div>
-                <div class="game-desc">풍선 터뜨리기! 몸을 움직여 풍선을 팡팡 터뜨려보세요.</div>
+                <div class="game-title" id="title-balloon_pang">풍선 팡팡</div>
+                <div class="game-desc"  id="desc-balloon_pang">풍선 터뜨리기! 몸을 움직여 풍선을 팡팡 터뜨려보세요.</div>
                 <div class="play-btn">PLAY</div>
             </a>
 
-            <a class="game-card" href="pung/index.html" target="_blank" data-game="방귀대장 뿡뿡이">
+            <a class="game-card" href="pung/index.html" target="_blank" data-game="pung">
                 <div class="game-icon">💨</div>
-                <div class="game-title">방귀대장 뿡뿡이</div>
-                <div class="game-desc">방귀대장 뿡뿡이! 웃음 가득한 아케이드 게임에 도전하세요.</div>
+                <div class="game-title" id="title-pung">방귀대장 뿡뿡이</div>
+                <div class="game-desc"  id="desc-pung">방귀대장 뿡뿡이! 웃음 가득한 아케이드 게임에 도전하세요.</div>
                 <div class="play-btn">PLAY</div>
             </a>
 
-            <a class="game-card" href="ice_breaker/index.html" target="_blank" data-game="쾅쾅 얼음깨기">
+            <a class="game-card" href="ice_breaker/index.html" target="_blank" data-game="ice_breaker">
                 <div class="game-icon">🧊</div>
-                <div class="game-title">쾅쾅 얼음깨기</div>
-                <div class="game-desc">물리 엔진 기반 얼음 깨기 게임! 몸을 움직여 얼음을 부숴보세요.</div>
+                <div class="game-title" id="title-ice_breaker">쾅쾅 얼음깨기</div>
+                <div class="game-desc"  id="desc-ice_breaker">물리 엔진 기반 얼음 깨기 게임! 몸을 움직여 얼음을 부숴보세요.</div>
                 <div class="play-btn">PLAY</div>
             </a>
 
-            <a class="game-card" href="mole/index.html" target="_blank" data-game="두더지 잡기">
+            <a class="game-card" href="mole/index.html" target="_blank" data-game="mole">
                 <div class="game-icon">🐹</div>
-                <div class="game-title">두더지 잡기</div>
-                <div class="game-desc">두더지를 잡아라! 올라오는 두더지를 빠르게 잡아보세요.</div>
+                <div class="game-title" id="title-mole">두더지 잡기</div>
+                <div class="game-desc"  id="desc-mole">두더지를 잡아라! 올라오는 두더지를 빠르게 잡아보세요.</div>
                 <div class="play-btn">PLAY</div>
             </a>
 
-            <a class="game-card" href="lion/index.html" target="_blank" data-game="와구와구 게임">
+            <a class="game-card" href="lion/index.html" target="_blank" data-game="lion">
                 <div class="game-icon">🦁</div>
-                <div class="game-title">와구와구 게임</div>
-                <div class="game-desc">사자와 상추의 만남! 재미있는 액션 게임에 도전해보세요.</div>
+                <div class="game-title" id="title-lion">와구와구 게임</div>
+                <div class="game-desc"  id="desc-lion">사자와 상추의 만남! 재미있는 액션 게임에 도전해보세요.</div>
                 <div class="play-btn">PLAY</div>
             </a>
         </div>
     </div>
 
 <script>
+        // ── 한/영 텍스트 ──────────────────────────────────────────
+        const LANG_MAIN = {
+            ko: {
+                title:    '야호 놀이터',
+                subtitle: '게임을 선택하고 플레이하세요!',
+                games: {
+                    balloon_pang: { title: '풍선 팡팡',       desc: '풍선 터뜨리기! 몸을 움직여 풍선을 팡팡 터뜨려보세요.' },
+                    pung:         { title: '방귀대장 뿡뿡이', desc: '방귀대장 뿡뿡이! 웃음 가득한 아케이드 게임에 도전하세요.' },
+                    ice_breaker:  { title: '쾅쾅 얼음깨기',   desc: '물리 엔진 기반 얼음 깨기 게임! 몸을 움직여 얼음을 부숴보세요.' },
+                    mole:         { title: '두더지 잡기',     desc: '두더지를 잡아라! 올라오는 두더지를 빠르게 잡아보세요.' },
+                    lion:         { title: '와구와구 게임',   desc: '사자와 상추의 만남! 재미있는 액션 게임에 도전해보세요.' },
+                }
+            },
+            en: {
+                title:    'Yaho Playground',
+                subtitle: 'Pick a game and start playing!',
+                games: {
+                    balloon_pang: { title: 'Balloon Pop',      desc: 'Pop the balloons! Move your body to burst them all!' },
+                    pung:         { title: 'Fart King',        desc: 'The Fart King! Take on this hilarious arcade game!' },
+                    ice_breaker:  { title: 'Ice Breaker',      desc: 'Physics-based ice smashing! Move your body to break the ice!' },
+                    mole:         { title: 'Whac-A-Mole',      desc: 'Catch the moles! Hit them fast as they pop up!' },
+                    lion:         { title: 'Nom Nom Game',     desc: 'Lion meets lettuce! Take on this fun action game!' },
+                }
+            }
+        };
+
+        function applyLang(l) {
+            const t = LANG_MAIN[l];
+            document.title = t.title;
+            document.getElementById('main-title').textContent    = t.title;
+            document.getElementById('main-subtitle').textContent = t.subtitle;
+            Object.entries(t.games).forEach(([key, val]) => {
+                const titleEl = document.getElementById('title-' + key);
+                const descEl  = document.getElementById('desc-'  + key);
+                if (titleEl) titleEl.textContent = val.title;
+                if (descEl)  descEl.textContent  = val.desc;
+            });
+        }
+        // ─────────────────────────────────────────────────────────
+
         const STORAGE_KEY = 'gemgem_tracking';
         const GAMES = ['쾅쾅 얼음깨기', '풍선 팡팡', '방귀대장 뿡뿡이', '두더지 잡기', '와구와구 게임'];
 
@@ -221,11 +262,12 @@
             const site = params.get('site');
             const valid = ['hospital', 'kang', 'local'];
             if (!site || !valid.includes(site)) {
+                const isKo = (typeof getLang === 'function' ? getLang() : 'ko') === 'ko';
                 document.body.innerHTML = `
                     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:20px;text-align:center;padding:20px;">
                         <div style="font-size:3rem;">🔒</div>
-                        <div style="font-size:1.4rem;font-weight:700;color:#ffd93d;">접근 불가</div>
-                        <div style="color:#aaa;font-size:1rem;">URL에 <b style="color:white;">?site=</b> 파라미터가 필요합니다.</div>
+                        <div style="font-size:1.4rem;font-weight:700;color:#ffd93d;">${isKo ? '접근 불가' : 'Access Denied'}</div>
+                        <div style="color:#aaa;font-size:1rem;">${isKo ? 'URL에 <b style="color:white;">?site=</b> 파라미터가 필요합니다.' : 'A <b style="color:white;">?site=</b> parameter is required in the URL.'}</div>
                         <div style="color:#888;font-size:0.9rem;">?site=hospital &nbsp;|&nbsp; ?site=kang &nbsp;|&nbsp; ?site=local</div>
                     </div>`;
                 throw new Error('[접근차단] site 파라미터 없음');
