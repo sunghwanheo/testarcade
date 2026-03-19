@@ -3098,9 +3098,26 @@
 
                 for (const p of parts) {
                     const prev = prevBodyPos[p.id];
-                    p.vx = prev ? p.x - prev.x : 0;
-                    p.vy = prev ? p.y - prev.y : 0;
-                    prevBodyPos[p.id] = { x: p.x, y: p.y };
+                    if (prev) {
+                        // EMA 스무딩: 빠른 이동은 즉시 반영, 미세한 떨림은 억제
+                        const dx = p.x - prev.x, dy = p.y - prev.y;
+                        const speed = Math.sqrt(dx * dx + dy * dy);
+                        // 속도 높을수록 alpha→1 (즉시 반영), 느릴수록 alpha→0.15 (부드럽게)
+                        const alpha = Math.min(1, 0.15 + speed / 80);
+                        p.x = prev.x + (p.x - prev.x) * alpha;
+                        p.y = prev.y + (p.y - prev.y) * alpha;
+                        // radius 스무딩: 작아지는 방향은 느리게, 커지는 방향은 빠르게
+                        if (prev.radius) {
+                            const rAlpha = p.radius < prev.radius ? 0.08 : 0.3;
+                            p.radius = prev.radius + (p.radius - prev.radius) * rAlpha;
+                        }
+                        p.vx = p.x - prev.x;
+                        p.vy = p.y - prev.y;
+                    } else {
+                        p.vx = 0;
+                        p.vy = 0;
+                    }
+                    prevBodyPos[p.id] = { x: p.x, y: p.y, radius: p.radius };
                     detected.set(p.id, { ...p, ttl: PERSIST_FRAMES });
                 }
             }
