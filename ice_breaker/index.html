@@ -365,7 +365,7 @@
             box-shadow: 0 0 20px rgba(0,255,255,0.4);
             letter-spacing: 1px;
             transition: all 0.3s;
-            animation: rewardFadeUp 0.8s ease-out 0.9s both;
+            animation: none;
         }
         #rewardScreen .reward-btn:hover {
             transform: scale(1.05);
@@ -547,7 +547,7 @@
                     또는 클릭해도 돼요
                 </p>
             </div>
-            <button class="reward-btn dwell-btn" id="rewardBtn"></button>
+            <button class="reward-btn dwell-btn" id="rewardBtn"><span id="rewardBtnText"></span></button>
         </div>
 
         <!-- 스테이지 프리뷰 오버레이 -->
@@ -2624,7 +2624,7 @@
             startTutorialRender();
 
             const btnEl = document.getElementById('rewardBtn');
-            btnEl.innerHTML = `<span>${isAllClear ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!'}</span>`;
+            document.getElementById('rewardBtnText').textContent = isAllClear ? '처음부터 다시 놀기' : '다음 레벨로 넘어가기!';
             btnEl.onclick = function () {
                 stopTutorialRender();
                 screen.style.display = 'none';
