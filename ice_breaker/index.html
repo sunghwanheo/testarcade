@@ -3016,9 +3016,8 @@
         }
 
         async function detectPoses() {
-            if (!detector || videoElement.paused) return;
+            if (!detector || videoElement.readyState < 2) return;
             try {
-                // 축소된 캔버스로 입력하여 속도 향상
                 detectCtx.drawImage(videoElement, 0, 0, 320, 180);
                 const poses = await detector.estimatePoses(detectCanvas);
                 processMultiPose(poses);
@@ -3183,6 +3182,10 @@
             }
 
             Engine.update(engine, dt * 1000);
+            canvasCtx.globalCompositeOperation = 'source-over';
+            canvasCtx.globalAlpha = 1;
+            canvasCtx.filter = 'none';
+            canvasCtx.shadowBlur = 0;
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
             if (isPlaying && !isWaitingStart && tutorialPhase < 0) {
@@ -3918,7 +3921,7 @@
                     // 검출 루프 (30fps)
                     let detecting = false;
                     setInterval(async () => {
-                        if (detecting || videoElement.paused) return;
+                        if (detecting || videoElement.readyState < 2) return;
                         detecting = true;
                         await detectPoses();
                         detecting = false;
@@ -3949,6 +3952,7 @@
         let tutorialRenderLast = 0;
 
         function startTutorialRender() {
+            if (tutorialRenderActive) stopTutorialRender(); // 중복 방지
             tutorialRenderActive = true;
             tutorialRenderLast = performance.now();
             tutorialRenderTime = 0;
@@ -3959,10 +3963,32 @@
                 tutorialRenderLast = now;
                 tutorialRenderTime += dt;
 
+                // 캔버스 컨텍스트 상태 완전 초기화 (게임 루프에서 남은 dirty state 제거)
+                canvasCtx.globalCompositeOperation = 'source-over';
+                canvasCtx.globalAlpha = 1;
+                canvasCtx.filter = 'none';
+                canvasCtx.shadowBlur = 0;
                 canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-                for (const p of bodyPoints) {
-                    if (p.type !== 'hand') continue;
-                    drawGlove(canvasCtx, p.x, p.y, p.radius, currentStageIndex, false);
+
+                const hands = bodyPoints.filter(p => p.type === 'hand');
+                if (hands.length > 0) {
+                    for (const p of hands) {
+                        drawGlove(canvasCtx, p.x, p.y, p.radius, currentStageIndex, false);
+                    }
+                } else {
+                    // 손이 인식 안 될 때: 양쪽에 유도 아이콘 표시
+                    const W = canvasElement.width, H = canvasElement.height;
+                    const pulse = 0.6 + 0.4 * Math.sin(tutorialRenderTime * 3);
+                    canvasCtx.save();
+                    canvasCtx.globalAlpha = pulse;
+                    canvasCtx.font = `bold ${Math.round(W * 0.06)}px sans-serif`;
+                    canvasCtx.textAlign = 'center';
+                    canvasCtx.fillStyle = '#00ffff';
+                    canvasCtx.shadowColor = '#00ffff';
+                    canvasCtx.shadowBlur = 20;
+                    canvasCtx.fillText('✋', W * 0.22, H * 0.5);
+                    canvasCtx.fillText('✋', W * 0.78, H * 0.5);
+                    canvasCtx.restore();
                 }
             }
             tutorialRenderRAF = requestAnimationFrame(loop);
@@ -3971,6 +3997,9 @@
         function stopTutorialRender() {
             tutorialRenderActive = false;
             if (tutorialRenderRAF) { cancelAnimationFrame(tutorialRenderRAF); tutorialRenderRAF = null; }
+            canvasCtx.globalCompositeOperation = 'source-over';
+            canvasCtx.globalAlpha = 1;
+            canvasCtx.filter = 'none';
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
         }
 
@@ -4030,6 +4059,22 @@
             const preview = document.getElementById('stagePreview');
             if (preview.style.display === 'flex') resetDwellBtn(document.getElementById('tutorialStartBtn'));
         }).observe(document.getElementById('stagePreview'), { attributes: true, attributeFilter: ['style'] });
+
+        // overlay 열릴 때 카메라 켜진 상태면 손 렌더 자동 시작
+        new MutationObserver(() => {
+            const ov = document.getElementById('overlay');
+            if (ov.style.display === 'flex' && cameraStarted) {
+                resetDwellBtn(document.getElementById('startButton'));
+                stopTutorialRender();
+                setTimeout(() => startTutorialRender(), 50);
+            } else if (ov.style.display === 'none') {
+                // stagePreview가 열려있으면 손 렌더 유지 (overlay→stagePreview 전환 시)
+                const preview = document.getElementById('stagePreview');
+                if (!preview || preview.style.display !== 'flex') {
+                    stopTutorialRender();
+                }
+            }
+        }).observe(document.getElementById('overlay'), { attributes: true, attributeFilter: ['style'] });
 
         // rewardScreen이 열릴 때마다 드웰 리셋
         const _origShowReward = showRewardScreen;
