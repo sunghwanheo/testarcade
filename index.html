@@ -215,23 +215,39 @@
         const SITE_KEY = 'gemgem_site';
         const SESSION_KEY = 'gemgem_session_id';
 
-        // URL 파라미터에서 사이트 감지 (?site=hospital 또는 ?site=kang)
+        // ?site= 파라미터 필수 (hospital / kang / local)
         (function () {
             const params = new URLSearchParams(window.location.search);
             const site = params.get('site');
-            if (site) localStorage.setItem(SITE_KEY, site);
+            const valid = ['hospital', 'kang', 'local'];
+            if (!site || !valid.includes(site)) {
+                document.body.innerHTML = `
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:20px;text-align:center;padding:20px;">
+                        <div style="font-size:3rem;">🔒</div>
+                        <div style="font-size:1.4rem;font-weight:700;color:#ffd93d;">접근 불가</div>
+                        <div style="color:#aaa;font-size:1rem;">URL에 <b style="color:white;">?site=</b> 파라미터가 필요합니다.</div>
+                        <div style="color:#888;font-size:0.9rem;">?site=hospital &nbsp;|&nbsp; ?site=kang &nbsp;|&nbsp; ?site=local</div>
+                    </div>`;
+                throw new Error('[접근차단] site 파라미터 없음');
+            }
+            localStorage.setItem(SITE_KEY, site);
         })();
 
         function getSite() {
             return localStorage.getItem(SITE_KEY) || 'hospital';
         }
         function getTable() {
-            return getSite() === 'kang' ? 'kang_logs' : 'hospital_logs';
+            const s = getSite();
+            return s === 'kang' ? 'kang_logs' : 'hospital_logs';
         }
         function generateSessionId() {
             return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
         }
         function sendLog(payload) {
+            if (getSite() === 'local') {
+                console.log('[로그 - local]', payload);
+                return;
+            }
             fetch(`${SUPABASE_URL}/rest/v1/${getTable()}`, {
                 method: 'POST',
                 headers: {
@@ -251,7 +267,7 @@
             sendLog({ event: 'visit', session_id: sessionId });
         })();
     </script>
-    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.5.0 (2026-03-19)</div>
+    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.6.0 (2026-03-19)</div>
 </body>
 
 </html>

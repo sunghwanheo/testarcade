@@ -35,6 +35,10 @@ function getGameName() {
     }
 
     function sendLog(payload) {
+        if (getSite() === 'local') {
+            console.log('[트래킹 - local]', payload);
+            return;
+        }
         fetch(`${SUPABASE_URL}/rest/v1/${getTable()}`, {
             method: 'POST',
             headers: {
