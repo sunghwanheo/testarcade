@@ -12,7 +12,6 @@
 
 (function () {
     const STORAGE_KEY = 'gemgem_tracking';
-    const TESTER_KEY = 'gemgem_current_tester';
     const SITE_KEY = 'gemgem_site';
     const SESSION_KEY = 'gemgem_session_id';
     const SUPABASE_URL = 'https://rwbgrdiecfkcedctnggv.supabase.co';
@@ -27,10 +26,7 @@
     function getSessionId() {
         return localStorage.getItem(SESSION_KEY) || 'unknown';
     }
-    function getCurrentTester() {
-        return localStorage.getItem(TESTER_KEY) || '미지정';
-    }
-    function getGameName() {
+function getGameName() {
         const scripts = document.querySelectorAll('script[data-game]');
         for (const s of scripts) {
             if (s.getAttribute('data-game')) return s.getAttribute('data-game');
@@ -116,7 +112,6 @@
         if (sessionIdx >= 0 && !isCompleted) {
             sendLog({
                 event: 'game_abandon',
-                tester: getCurrentTester(),
                 game: getGameName(),
                 duration: getElapsedSec(),
                 completed: false,
@@ -129,11 +124,9 @@
     function trackPlay() {
         saveSession();
 
-        const tester = getCurrentTester();
         const game = getGameName();
         const records = getRecords();
         records.push({
-            tester: tester,
             game: game,
             time: new Date().toISOString(),
             duration: 0,
@@ -145,12 +138,11 @@
 
         sendLog({
             event: 'game_start',
-            tester: tester,
             game: game,
             session_id: getSessionId()
         });
 
-        console.log(`[트래킹] ${tester} → ${game} 플레이 기록됨`);
+        console.log(`[트래킹] ${game} 플레이 기록됨`);
     }
 
     // ── 정상 완료 ──
@@ -167,7 +159,6 @@
 
         sendLog({
             event: 'game_end',
-            tester: getCurrentTester(),
             game: getGameName(),
             duration: duration,
             completed: true,
