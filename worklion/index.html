@@ -364,12 +364,12 @@ function onPoseResults(r, playerNum) {
     _prevLwY = lw.y; _prevRwY = rw.y;
     const oppositeScore = -(lwVelY * rwVelY);
     const wristDiff = Math.abs(lw.y - rw.y);
-    const jawThreshold = 0.04, jawMax = 0.22;
+    const jawThreshold = 0.03, jawMax = 0.14;
     const jawAmount = wristDiff > jawThreshold ? Math.min(1, (wristDiff - jawThreshold) / (jawMax - jawThreshold)) : 0;
     lion.setJawFromPose(jawAmount);
     const now = performance.now();
     if (jawAmount > (_jawPeak || 0) && oppositeScore > 0.00001) _jawPeak = jawAmount;
-    if (_jawPeak >= 0.12 && jawAmount <= 0.04 && now - _lastBite > 150 && engine.running) {
+    if (_jawPeak >= 0.07 && jawAmount <= 0.04 && now - _lastBite > 150 && engine.running) {
       engine.tryBite(lion); _lastBite = now; _jawPeak = 0;
     }
     if (_jawPeak > 0 && jawAmount < _jawPeak * 0.3) _jawPeak *= 0.95;

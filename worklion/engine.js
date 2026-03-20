@@ -749,6 +749,11 @@ class Lion {
     return { x: wx + dx * 0.5, y: wy + dy * 0.5 };
   }
 
+  /** jawW 계산 공통 헬퍼 — _drawJaw / getMouthTip 등에서 동일 값 사용 */
+  _calcJawW() {
+    return Math.max(520, Math.min(1100, this.baseScale * this.UPPER_W * 3.5));
+  }
+
   /** 어깨 중심에서 좌/우 방향으로 나오는 악어 턱 */
   _drawJaw(ctx, isUpper, CW, CH) {
     const img = isUpper ? Assets.croc.upper : Assets.croc.lower;
@@ -762,9 +767,7 @@ class Lion {
 
     const facingRight = this._getFacingRight();
 
-    // 어깨 너비 기반 크기
-    const shoulderW = Math.abs(this._px(p.ls, CW, CH) - this._px(p.rs, CW, CH));
-    const jawW = Math.max(100, shoulderW * 2.2);
+    const jawW = this._calcJawW();
     const aspect = img.naturalWidth / img.naturalHeight;
     const jawH = jawW / aspect;
 
@@ -917,8 +920,7 @@ class Lion {
     const cx = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
     const cy = (this._py(p.ls, CW, CH) + this._py(p.rs, CW, CH)) / 2;
     const facingRight = this._getFacingRight();
-    const shoulderW = Math.abs(this._px(p.ls, CW, CH) - this._px(p.rs, CW, CH));
-    const jawW = Math.max(100, shoulderW * 2.2);
+    const jawW = this._calcJawW();
     // facingRight=true → 악어 왼쪽, facingRight=false → 악어 오른쪽
     return { x: facingRight ? cx - jawW * 0.9 : cx + jawW * 0.9, y: cy };
   }
