@@ -1343,7 +1343,7 @@ class GameEngine {
     this.CW = canvas.width; this.CH = canvas.height;
     this.lion = new Lion();   // 플레이어 1 (왼쪽)
     this.lion2 = new Lion();  // 플레이어 2 (오른쪽)
-    this.coopMode = true;     // 항상 협동 (1~2명 자동 감지)
+    this.coopMode = false;    // 1인 모드
     this.particles = new ParticleSystem();
     this.floatingText = new FloatingText();
     this.screenShake = new ScreenShake();
