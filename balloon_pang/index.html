@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>🎈 풍선 팡팡</title>
-<script src="../tracking.js" data-game="풍선 팡팡"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
@@ -60,6 +59,30 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
   background: rgba(0,0,0,0.25); border-radius: 16px;
   padding: 4px 12px;
 }
+
+/* ── 튜토리얼 ── */
+#tutorialScreen {
+  display: none; position: fixed; inset: 0; z-index: 95;
+  background: #B3E5FC;
+}
+#tutorialScreen.show { display: block; }
+#tutorialVideo {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; object-fit: cover;
+}
+#tutorialOverlay {
+  position: absolute; inset: 0; pointer-events: none;
+}
+#tutorialSkipBtn {
+  position: absolute; bottom: 4%; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.45); border: 2.5px solid rgba(255,255,255,0.75);
+  color: #fff; font-size: clamp(16px,2.8vw,24px); font-weight: bold;
+  padding: 13px 42px; border-radius: 50px; cursor: pointer;
+  font-family: 'Malgun Gothic', Arial, sans-serif; z-index: 10;
+  transition: background 0.2s; pointer-events: auto;
+  backdrop-filter: blur(4px);
+}
+#tutorialSkipBtn:hover { background: rgba(0,0,0,0.72); }
 
 /* ── 로딩 ── */
 #loading {
@@ -184,6 +207,13 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
 
 <div id="loading" style="display:none"></div>
 
+<!-- 튜토리얼 화면 -->
+<div id="tutorialScreen">
+  <video id="tutorialVideo" src="tutorial.mp4" playsinline></video>
+  <canvas id="tutorialOverlay"></canvas>
+  <button id="tutorialSkipBtn">건너뛰기 ▶</button>
+</div>
+
 <div id="mainScreen" class="show">
   <!-- 구름 -->
   <div class="mc-cloud" style="width:180px;height:55px;top:8%;left:5%;opacity:0.9;">
@@ -204,7 +234,7 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
 
   <!-- 콘텐츠 -->
   <div class="main-content">
-    <img src="assets/title.png" style="max-width:min(560px,80vw);margin-bottom:24px;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.18));" alt="풍선 팡팡">
+    <img id="titleImg" src="assets/title.png" style="max-width:min(560px,80vw);margin-bottom:24px;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.18));" alt="풍선 팡팡">
 
     <button id="startBtn">🎈 게임 시작!</button>
   </div>
@@ -222,12 +252,61 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+<!-- ── 트래킹 ── -->
+<script src="../tracking.js" data-game="풍선 팡팡"></script>
+
+<script src="./lang.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script>
 'use strict';
+
+// ── 다국어 ────────────────────────────────────────────────
+const LANG = {
+  ko: {
+    skipBtn:      '건너뛰기 ▶',
+    startBtn:     '🎈 게임 시작!',
+    endTitle:     '최고예요!',
+    endScoreRow:  '1분 동안',
+    endScoreUnit: '개나 터뜨렸어요! 🎉',
+    restartBtn:   '🎈 한 번 더!',
+    pop:          '팡!',
+    greatJob:     '잘했어요! 🌟',
+    go:           '시작!',
+    ready:        '준비',
+    feverTime:    '🔥 팡팡타임! 🔥',
+    tutGuide:     '손을 뻗어 풍선을 터트려보세요!',
+  },
+  en: {
+    skipBtn:      'Skip ▶',
+    startBtn:     '🎈 Start!',
+    endTitle:     'Amazing!',
+    endScoreRow:  'In 1 minute',
+    endScoreUnit: 'balloons popped! 🎉',
+    restartBtn:   '🎈 Play Again!',
+    pop:          'Pop!',
+    greatJob:     'Great job! 🌟',
+    go:           'Go!',
+    ready:        'Ready',
+    feverTime:    '🔥 Fever Time! 🔥',
+    tutGuide:     'Reach out and pop the balloons!',
+  }
+};
+
+function applyLang(l) {
+  const t = LANG[l];
+  document.getElementById('tutorialSkipBtn').textContent = t.skipBtn;
+  document.getElementById('startBtn').textContent        = t.startBtn;
+  document.querySelector('.end-title').textContent       = t.endTitle;
+  document.querySelector('.end-score-row').textContent   = t.endScoreRow;
+  document.querySelector('.end-score-unit').textContent  = t.endScoreUnit;
+  document.getElementById('restartBtn').textContent      = t.restartBtn;
+  // 타이틀 이미지
+  const titleImg = document.getElementById('titleImg');
+  if (titleImg) titleImg.src = l === 'en' ? 'assets/title_en.png' : 'assets/title.png';
+  // 튜토리얼 타이틀 이미지
+  tutTitleImg.src = l === 'en' ? 'assets/tutorial_title_en.png' : 'assets/tutorial_title.png';
+}
 
 // ── Canvas ────────────────────────────────────────────────
 const canvas  = document.getElementById('c');
@@ -249,8 +328,19 @@ function initAudio() {
 const CHEER_FILES = ['voice_cheer_04a.wav','voice_cheer_04b.wav','voice_cheer_07.wav','voice_cheer_09.wav','voice_cheer_12.wav'];
 const cheerAudios = CHEER_FILES.map(f => { const a=new Audio(f); a.preload='auto'; return a; });
 const readyStartAudio = (() => { const a=new Audio('voice_ready_start.wav'); a.preload='auto'; return a; })();
+
+const EN_CHEER_FILES = ['voice_cheer_04a_en-US.ogg','voice_cheer_04b_en-US.ogg','voice_cheer_09_en-US.ogg','voice_cheer_12_en-US.ogg'];
+const enCheerAudios = EN_CHEER_FILES.map(f => { const a=new Audio(f); a.preload='auto'; return a; });
+const enReadyStartAudio = (() => { const a=new Audio('voice_ready_start_en-US.ogg'); a.preload='auto'; return a; })();
+
 let lastCheerIdx = -1;
 function playCheer() {
+  if (typeof getLang === 'function' && getLang() === 'en') {
+    const idx = Math.floor(Math.random() * enCheerAudios.length);
+    const a = enCheerAudios[idx];
+    a.currentTime = 0; a.play().catch(()=>{});
+    return;
+  }
   let idx;
   do { idx = Math.floor(Math.random()*cheerAudios.length); }
   while (idx===lastCheerIdx && cheerAudios.length>1);
@@ -338,6 +428,61 @@ function startBGM() {
 }
 function stopBGM() {
   if (bgmIntervalId) { clearInterval(bgmIntervalId); bgmIntervalId=null; }
+}
+// ── 튜토리얼 BGM (반짝반짝 작은별 — 실로폰 느낌) ─────────
+let tutBgmId=null, tutBgmNoteIdx=0;
+// 반짝반짝 작은별 전체 멜로디 (C장조)
+const TUT_MELODY=[
+  523,523,784,784,880,880,784,   // 반짝반짝 작은별
+  698,698,659,659,587,587,523,   // 아름답게 빛나네
+  784,784,698,698,659,659,587,   // 동쪽하늘 멀리서
+  784,784,698,698,659,659,587,   // 뚜렷하게 빛나네
+  523,523,784,784,880,880,784,   // 반짝반짝 작은별
+  698,698,659,659,587,587,523,   // 아름답게 빛나네
+];
+const TUT_BASS=[
+  131,0,175,0,196,0,175,
+  175,0,165,0,147,0,131,
+  175,0,175,0,165,0,147,
+  175,0,175,0,165,0,147,
+  131,0,175,0,196,0,175,
+  175,0,165,0,147,0,131,
+];
+function playTutBGMStep() {
+  if (!audioCtx||audioCtx.state==='suspended') return;
+  const freq=TUT_MELODY[tutBgmNoteIdx%TUT_MELODY.length];
+  const bass=TUT_BASS[tutBgmNoteIdx%TUT_BASS.length];
+  if (freq) {
+    // 실로폰 느낌: triangle파, 빠른 어택 + 짧은 서스테인
+    const om=audioCtx.createOscillator(),gm=audioCtx.createGain();
+    om.type='triangle'; om.frequency.value=freq;
+    gm.gain.setValueAtTime(0,audioCtx.currentTime);
+    gm.gain.linearRampToValueAtTime(0.09,audioCtx.currentTime+0.015);
+    gm.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.38);
+    om.connect(gm); gm.connect(audioCtx.destination); om.start(); om.stop(audioCtx.currentTime+0.38);
+    // 배음 (옥타브 위 살짝) — 반짝이는 느낌
+    const oh=audioCtx.createOscillator(),gh=audioCtx.createGain();
+    oh.type='sine'; oh.frequency.value=freq*2;
+    gh.gain.setValueAtTime(0.025,audioCtx.currentTime);
+    gh.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.22);
+    oh.connect(gh); gh.connect(audioCtx.destination); oh.start(); oh.stop(audioCtx.currentTime+0.22);
+  }
+  if (bass) {
+    const ob=audioCtx.createOscillator(),gb=audioCtx.createGain();
+    ob.type='sine'; ob.frequency.value=bass;
+    gb.gain.setValueAtTime(0.06,audioCtx.currentTime);
+    gb.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.55);
+    ob.connect(gb); gb.connect(audioCtx.destination); ob.start(); ob.stop(audioCtx.currentTime+0.55);
+  }
+  tutBgmNoteIdx++;
+}
+function startTutBGM() {
+  if (!audioCtx||tutBgmId) return;
+  tutBgmNoteIdx=0; playTutBGMStep();
+  tutBgmId=setInterval(playTutBGMStep,400); // 경쾌한 템포
+}
+function stopTutBGM() {
+  if (tutBgmId) { clearInterval(tutBgmId); tutBgmId=null; }
 }
 // 팡팡타임 BGM (빠르고 신나는 멜로디)
 let feverBgmId=null, feverBgmIdx=0;
@@ -663,8 +808,8 @@ function drawPop() {
     ctx.save(); ctx.globalAlpha=Math.max(0,t.life);
     ctx.font=`bold ${Math.round(t.size*scale)}px 'Malgun Gothic',Arial`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.lineWidth=5; ctx.strokeStyle='#fff'; ctx.strokeText('팡!',t.x,t.y);
-    ctx.fillStyle='#FF2222'; ctx.fillText('팡!',t.x,t.y); ctx.restore();
+    ctx.lineWidth=5; ctx.strokeStyle='#fff'; ctx.strokeText(LANG[getLang()].pop,t.x,t.y);
+    ctx.fillStyle='#FF2222'; ctx.fillText(LANG[getLang()].pop,t.x,t.y); ctx.restore();
   }
 }
 
@@ -710,8 +855,8 @@ function drawFeverOverlay() {
   ctx.translate(W/2, H*.115); ctx.scale(pulse,pulse);
   ctx.font="bold 48px 'Malgun Gothic',Arial";
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.lineWidth=7; ctx.strokeStyle='#fff'; ctx.strokeText('🔥 팡팡타임! 🔥',0,0);
-  ctx.fillStyle='#FFD700'; ctx.fillText('🔥 팡팡타임! 🔥',0,0);
+  ctx.lineWidth=7; ctx.strokeStyle='#fff'; ctx.strokeText(LANG[getLang()].feverTime,0,0);
+  ctx.fillStyle='#FFD700'; ctx.fillText(LANG[getLang()].feverTime,0,0);
   ctx.restore();
 }
 function updateFeverGauge() {
@@ -760,7 +905,8 @@ function doPop() {
     feverPopN += 1;
     if (feverPopN >= FEVER_POPS) endFever();
   } else {
-    feverCycleN += 1;
+    const bonus = prevHintTimer >= 7 ? 3 : prevHintTimer >= 3 ? 2 : 1;
+    feverCycleN += bonus;
     if (feverCycleN >= FEVER_EVERY) startFever();
   }
   updateHUD();
@@ -770,6 +916,7 @@ function doPop() {
 
 // ── Game end ──────────────────────────────────────────────
 function triggerGameEnd() {
+  if (typeof trackComplete === 'function') trackComplete();
   gameState='finale';
   balloon=null; finaleParticles=[]; finaleElapsed=0; feverSparkles=[];
   stopFeverBGM(); stopBGM();
@@ -777,14 +924,12 @@ function triggerGameEnd() {
   for (let i=0;i<80;i++) spawnFP(true);
 }
 function showEndScreen() {
-  if (typeof trackComplete === 'function') trackComplete();
   gameState='ended';
   spawnEndConfetti();
   document.getElementById('finalScore').textContent = popped;
   document.getElementById('endScreen').classList.add('show');
 }
 function restartGame() {
-  if (typeof trackPlay === 'function') trackPlay();
   gameState='countdown'; gameTimer=GAME_TIME; popped=0; balloon=null;
   popParticles=[]; popRings=[]; pangTexts=[]; endConfetti=[];
   finaleParticles=[]; wobbleT=0; canPop=true;
@@ -832,8 +977,8 @@ function drawFinale() {
     ctx.translate(W/2,H*.42); ctx.scale(pulse,pulse);
     ctx.font=`bold ${Math.round(Math.min(W,H)*.13)}px 'Malgun Gothic',Arial`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.lineWidth=14; ctx.strokeStyle='rgba(255,255,255,0.95)'; ctx.strokeText('잘했어요! 🌟',0,0);
-    ctx.fillStyle='#FFD700'; ctx.fillText('잘했어요! 🌟',0,0); ctx.restore();
+    ctx.lineWidth=14; ctx.strokeStyle='rgba(255,255,255,0.95)'; ctx.strokeText(LANG[getLang()].greatJob,0,0);
+    ctx.fillStyle='#FFD700'; ctx.fillText(LANG[getLang()].greatJob,0,0); ctx.restore();
   }
 }
 
@@ -877,14 +1022,14 @@ function drawBG() {
 
 // ── 힌트 표시 (10초 미반응 시) ────────────────────────────
 
-// ── 힌트: 글로우 (5초: 풍선 색 / 10초+: 무지개) ─────────
+// ── 힌트: 글로우 (3초: 풍선 색 / 7초+: 무지개) ─────────
 function drawHintRainbowGlow(bx, by) {
-  if (!balloon||hintTimer<5||gameState!=='playing') return;
+  if (!balloon||hintTimer<3||gameState!=='playing') return;
   const pulse=(Math.sin(wobbleT*2.0)+1)/2;
   const er=effectiveR();
 
-  if (hintTimer<10) {
-    // 5~10초: 풍선과 같은 색 은은한 글로우
+  if (hintTimer<7) {
+    // 3~7초: 풍선과 같은 색 은은한 글로우
     const glowR=er*1.85+pulse*12;
     const col=feverActive?RAINBOW[Math.floor(wobbleT*5)%RAINBOW.length]:balloon.color;
     const gr=ctx.createRadialGradient(bx,by,er*.5,bx,by,glowR);
@@ -894,7 +1039,7 @@ function drawHintRainbowGlow(bx, by) {
     ctx.beginPath(); ctx.arc(bx,by,glowR,0,Math.PI*2);
     ctx.fillStyle=gr; ctx.fill(); ctx.restore();
   } else {
-    // 10초+: 무지개 글로우
+    // 7초+: 무지개 글로우
     const hue=(wobbleT*55)%360;
     const glowR=er*2.2+pulse*18;
     const gr=ctx.createRadialGradient(bx,by,er*.4,bx,by,glowR);
@@ -935,106 +1080,73 @@ function drawEndConfetti() {
   }
 }
 
-// ── Pose detection (MoveNet MultiPose) ───────────────────
-// MoveNet keypoint indices:
-// 0:nose 1:left_eye 2:right_eye 3:left_ear 4:right_ear
-// 5:left_shoulder 6:right_shoulder 7:left_elbow 8:right_elbow
-// 9:left_wrist 10:right_wrist 11:left_hip 12:right_hip
-// 13:left_knee 14:right_knee 15:left_ankle 16:right_ankle
-let detector = null;
-const detectCanvas = document.createElement('canvas');
-detectCanvas.width = 320; detectCanvas.height = 180;
-const detectCtx = detectCanvas.getContext('2d');
-
-async function initDetector() {
-  await tf.setBackend('webgl');
-  await tf.ready();
-  detector = await poseDetection.createDetector(
-    poseDetection.SupportedModels.MoveNet, {
-      modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING,
-      enableSmoothing: false,
-      maxPoses: 2
-    }
-  );
-}
-
-async function detectPoses() {
-  if (!detector || videoEl.paused) return;
-  try {
-    detectCtx.drawImage(videoEl, 0, 0, 320, 180);
-    const poses = await detector.estimatePoses(detectCanvas);
-    processMultiPose(poses);
-  } catch(e) {}
-}
-
-function processMultiPose(poses) {
+// ── Pose detection (Gemini 방식) ──────────────────────────
+function onPoseResults(results) {
   bodyPoints = [];
-  const vidW = 320, vidH = 180;
+  if (!results.poseLandmarks) return;
 
-  for (let personIdx = 0; personIdx < poses.length; personIdx++) {
-    const kps = poses[personIdx].keypoints;
-    if (!kps || kps.length < 17) continue;
+  const lms = results.poseLandmarks;
+  const dist2D = (a,b) => {
+    const ax=(1-a.x)*W, ay=a.y*H, bx=(1-b.x)*W, by=b.y*H;
+    return Math.hypot(ax-bx, ay-by);
+  };
 
-    const lShoulder = kps[5], rShoulder = kps[6];
-    const resFactor = W / 3840;
-    let bodyScale = 80 * resFactor;
-    if (lShoulder.score > 0.3 && rShoulder.score > 0.3) {
-      bodyScale = Math.hypot(
-        (lShoulder.x - rShoulder.x) / vidW * W,
-        (lShoulder.y - rShoulder.y) / vidH * H
-      );
-    }
-    const handRadius = Math.max(40 * resFactor, Math.min(bodyScale * 0.6, 180 * resFactor));
-    const footRadius = Math.max(35 * resFactor, Math.min(bodyScale * 0.5, 150 * resFactor));
-
-    const toScreen = (kp) => ({
-      x: (1 - kp.x / vidW) * W,
-      y: (kp.y / vidH) * H
-    });
-
-    const base = personIdx * 100;
-    const trackHand = (wristIdx, elbowIdx) => {
-      const wrist = kps[wristIdx], elbow = kps[elbowIdx];
-      if (!wrist || wrist.score < 0.3) return null;
-      const wPos = toScreen(wrist);
-      if (elbow && elbow.score > 0.3) {
-        const ePos = toScreen(elbow);
-        wPos.x += (wPos.x - ePos.x) * 0.4;
-        wPos.y += (wPos.y - ePos.y) * 0.4;
-      }
-      return { x: wPos.x, y: wPos.y, radius: handRadius, type: 'hand', id: base + wristIdx };
-    };
-    const trackFoot = (idx) => {
-      const kp = kps[idx];
-      if (!kp || kp.score < 0.3) return null;
-      const pos = toScreen(kp);
-      return { x: pos.x, y: pos.y, radius: footRadius, type: 'foot', id: base + idx };
-    };
-
-    const parts = [
-      trackHand(9, 7),   // left wrist
-      trackHand(10, 8),  // right wrist
-      trackFoot(15),     // left ankle
-      trackFoot(16),     // right ankle
-    ].filter(Boolean);
-
-    for (const p of parts) {
-      const prev = prevBodyPos[p.id];
-      p.vx = prev ? p.x - prev.x : 0;
-      p.vy = prev ? p.y - prev.y : 0;
-      prevBodyPos[p.id] = { x: p.x, y: p.y };
-      bodyPoints.push(p);
+  // ── 가장 앞 사람 필터 (어깨 너비 기준) ──
+  const ls = lms[11], rs = lms[12];
+  if (ls && rs && ls.visibility >= 0.4 && rs.visibility >= 0.4) {
+    const sw = dist2D(ls, rs);
+    if (baselineShoulderW === 0) {
+      baselineShoulderW = sw; // 첫 프레임 기준값 설정
+    } else if (sw < baselineShoulderW * 0.55) {
+      return; // 뒷사람 감지 → 무시
+    } else {
+      baselineShoulderW = baselineShoulderW * 0.97 + sw * 0.03; // 서서히 적응
     }
   }
 
-  if (gameState !== 'playing' || !balloon || !canPop) return;
+  // 손 추적: 손목~검지 중심 + 실제 손 크기를 반경으로
+  const trackHand = (wristIdx, indexIdx) => {
+    const wrist=lms[wristIdx], index=lms[indexIdx];
+    if (!wrist||!index) return null;
+    if (wrist.visibility<0.4||index.visibility<0.4) return null;
+    let r = dist2D(wrist, index);
+    r = Math.max(40, Math.min(r, 220));
+    return { x:(1-(wrist.x+index.x)/2)*W, y:((wrist.y+index.y)/2)*H, radius:r, id:wristIdx, type:'hand' };
+  };
+
+  // 발 추적: 발목~발끝 중심 + 발 크기를 반경으로
+  const trackFoot = (ankleIdx, toeIdx) => {
+    const ankle=lms[ankleIdx], toe=lms[toeIdx];
+    if (!ankle||!toe) return null;
+    if (ankle.visibility<0.4||toe.visibility<0.4) return null;
+    let r = dist2D(ankle, toe);
+    r = Math.max(35, Math.min(r, 180));
+    return { x:(1-(ankle.x+toe.x)/2)*W, y:((ankle.y+toe.y)/2)*H, radius:r, id:ankleIdx, type:'foot' };
+  };
+
+  const parts = [
+    trackHand(15,19), // 왼손
+    trackHand(16,20), // 오른손
+    trackFoot(27,31), // 왼발
+    trackFoot(28,32), // 오른발
+  ].filter(Boolean);
+
+  for (const p of parts) {
+    const prev = prevBodyPos[p.id];
+    p.vx = prev ? p.x-prev.x : 0;
+    p.vy = prev ? p.y-prev.y : 0;
+    prevBodyPos[p.id] = {x:p.x, y:p.y};
+    bodyPoints.push(p);
+  }
+
+  if (gameState!=='playing'||!balloon||!canPop) return;
 
   const er = effectiveR();
   for (const p of bodyPoints) {
-    const dx = balloon.x - p.x, dy = balloon.y - p.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-    if (dist < p.radius + er && speed > HIT_SPEED_THRESH) {
+    const dx=balloon.x-p.x, dy=balloon.y-p.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    const speed=Math.sqrt(p.vx*p.vx+p.vy*p.vy);
+    if (dist < p.radius+er && speed > HIT_SPEED_THRESH) {
       doPop(); break;
     }
   }
@@ -1062,14 +1174,18 @@ function drawHandDots() {
 // ── Countdown ─────────────────────────────────────────────
 function startPlaying() {
   if (gameState!=='countdown') return;
+  if (typeof trackPlay === 'function') trackPlay();
   gameState='playing';
   startBGM();
   spawnBalloon();
 }
 function playReadyStart() {
-  readyStartAudio.currentTime = 0;
-  readyStartAudio.onended = startPlaying;
-  readyStartAudio.play().catch(()=>setTimeout(startPlaying, 2000));
+  const audio = (typeof getLang === 'function' && getLang() === 'en') ? enReadyStartAudio : readyStartAudio;
+  readyStartAudio.onended = null;
+  enReadyStartAudio.onended = null;
+  audio.currentTime = 0;
+  audio.onended = startPlaying;
+  audio.play().catch(()=>setTimeout(startPlaying, 2000));
 }
 function updateCountdown(dt) {
   countdownT+=dt;
@@ -1080,7 +1196,7 @@ function updateCountdown(dt) {
 }
 function drawCountdown() {
   if (countdownN < 0) return;
-  const label = countdownN===0 ? '시작!' : '준비';
+  const label = countdownN===0 ? LANG[getLang()].go : LANG[getLang()].ready;
   const scale = 1+Math.sin(Math.min(countdownT,1)*Math.PI)*0.4;
   const alpha = 1;
   ctx.save();
@@ -1142,12 +1258,8 @@ function loop(ts) {
       // 기본 부유 효과 (살랑살랑 + 숨쉬기)
       const floatX = !feverActive ? Math.sin(wobbleT*1.4)*5 : 0;
       const floatY = !feverActive ? Math.cos(wobbleT*0.9)*3 : 0;
-      // 3초+ 힌트 떨림
-      const trembling = (hintTimer>=3 && hintTimer<7);
-      const trembleX = trembling ? Math.sin(wobbleT*22)*3.5 : 0;
-      const trembleY = trembling ? Math.cos(wobbleT*28)*2.5 : 0;
-      // 7초+ 서서히 최대 1.5배까지 성장 (5초에 걸쳐 점진적으로)
-      const hintScale = hintTimer>=7 ? Math.min(1.5, 1.0 + (hintTimer-7)*0.1) : 1.0;
+      // 3초+ 서서히 최대 1.5배까지 성장 (5초에 걸쳐 점진적으로)
+      const hintScale = hintTimer>=3 ? Math.min(1.5, 1.0 + (hintTimer-3)*0.1) : 1.0;
 
       const wobble=balloon.cfg.wobble?Math.sin(wobbleT*2.8)*11:0;
       const feverWobble=feverActive?Math.cos(wobbleT*4.5)*7:0;
@@ -1159,8 +1271,8 @@ function loop(ts) {
       let col=balloon.color;
       if (feverActive) col=RAINBOW[Math.floor(wobbleT*5)%RAINBOW.length];
 
-      const bx=balloon.x+fvX+floatX+trembleX;
-      const by=balloon.y+fvY+floatY+trembleY;
+      const bx=balloon.x+fvX+floatX;
+      const by=balloon.y+fvY+floatY;
       drawHintRainbowGlow(bx, by); // 글로우 (풍선 뒤, 5/10초+)
       ctx.save();
       ctx.translate(bx,by); ctx.scale(breath*hintScale,breath*hintScale); ctx.translate(-bx,-by);
@@ -1211,27 +1323,24 @@ function loop(ts) {
   requestAnimationFrame(loop);
 }
 
-// ── MoveNet 초기화 ────────────────────────────────────────
+// ── MediaPipe ─────────────────────────────────────────────
 async function initMediaPipe() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
-    });
-    videoEl.srcObject = stream;
-    await videoEl.play();
-    cameraReady = true;
-    initAudio();
-    await initDetector();
-    let detecting = false;
-    setInterval(async () => {
-      if (detecting || videoEl.paused) return;
-      detecting = true;
-      await detectPoses();
-      detecting = false;
-    }, 33);
-  } catch(e) {
-    initAudio();
-  }
+  const pose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+  pose.setOptions({
+    modelComplexity:1,
+    smoothLandmarks:false,
+    minDetectionConfidence:0.6,
+    minTrackingConfidence:0.6
+  });
+  pose.onResults(onPoseResults);
+
+  const camera=new Camera(videoEl,{
+    onFrame:async()=>{ await pose.send({image:videoEl}); },
+    width:1280,height:720
+  });
+  camera.start()
+    .then(()=>{cameraReady=true;initAudio();})
+    .catch(()=>{ initAudio(); });
 }
 
 // ── 마우스/터치 폴백 ──────────────────────────────────────
@@ -1254,14 +1363,287 @@ document.addEventListener('keydown',e=>{
     if (gameState==='playing'&&balloon&&canPop) doPop();
   }
 });
-function startGame() {
-  if (typeof trackPlay === 'function') trackPlay();
-  initAudio();
-  baselineShoulderW = 0;
-  document.getElementById('mainScreen').classList.remove('show');
+// ══════════════════════════════════════════════════════════
+// ── 튜토리얼 시스템 ───────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+const tutorialVideoEl  = document.getElementById('tutorialVideo');
+const tutorialOverlayEl= document.getElementById('tutorialOverlay');
+const tutorialSkipBtn  = document.getElementById('tutorialSkipBtn');
+let tutCtx, tutW, tutH;
+let tutLoop = 0;
+const TUT_MAX_LOOPS = 2;
+let tutRAF = 0;
+let tutElapsed = 0; // 렌더 경과시간 (wobble용)
+
+// ── 튜토리얼 풍선 시퀀스 (video.currentTime 기준, 초) ────
+// tAppear: 풍선 등장 시작, tPop: 팡 터짐
+// side: 'L'(왼쪽 x=0.28) | 'R'(오른쪽 x=0.72)
+// ※ 영상 타이밍 조정 시 tAppear/tPop 값만 수정하세요
+const TUT_SEQ = [
+  { side:'L', color:'#FF6BB5', tAppear:0.1,  tPop:1.0  },
+  { side:'R', color:'#4D96FF', tAppear:4.0,  tPop:6.0  },
+];
+let tutSeqIdx = 0;
+let tutBalloon = null; // 현재 활성 풍선
+// 게임과 동일한 팝 파티클 (튜토리얼 전용 배열)
+let tutPopParts = [], tutPopRings = [], tutPangTxts = [];
+
+function resizeTutCanvas() {
+  tutW = tutorialOverlayEl.width  = window.innerWidth;
+  tutH = tutorialOverlayEl.height = window.innerHeight;
+}
+
+// ── 게임과 동일한 drawBalloon (tutCtx 용) ────────────────
+function tutDrawBalloon(x, y, r, color, yShift) {
+  const c = tutCtx;
+  const oy = y + (yShift||0);
+  c.save(); c.translate(x, oy);
+  // 매듭
+  c.save(); c.scale(1,1.12);
+  c.beginPath();
+  c.moveTo(0, r*0.85); c.lineTo(-r*.13, r*1.08); c.lineTo(r*.13, r*1.08);
+  c.closePath(); c.fillStyle=darken(color,28); c.fill(); c.restore();
+  // 바디
+  c.shadowColor='rgba(0,0,0,0.22)'; c.shadowBlur=24; c.shadowOffsetY=10;
+  c.save(); c.scale(1,1.12);
+  c.beginPath(); c.arc(0,0,r,0,Math.PI*2); c.fillStyle=color; c.fill();
+  c.restore(); c.shadowColor='transparent';
+  // 하이라이트
+  c.save(); c.scale(1,1.12);
+  c.beginPath(); c.ellipse(-r*0.65,-r*0.3,r*0.25,r*0.1,-1.2,0,Math.PI*2);
+  c.fillStyle='rgba(255,255,255,0.52)'; c.fill();
+  c.beginPath(); c.arc(-r*0.413,-r*0.694,r*0.05,0,Math.PI*2);
+  c.fillStyle='rgba(255,255,255,0.32)'; c.fill(); c.restore();
+  c.restore();
+  // 실
+  const ky = oy + r*1.12*1.08;
+  c.beginPath(); c.moveTo(x,ky);
+  c.bezierCurveTo(x+r*.55,ky+r*.8,x-r*.55,ky+r*1.4,x,ky+r*1.9);
+  c.strokeStyle='rgba(80,60,60,0.42)'; c.lineWidth=2.5; c.stroke();
+}
+
+// ── 게임과 동일한 spawnPop (tutCtx 용) ───────────────────
+function tutSpawnPop(x, y, r, color) {
+  for (let i=0;i<40;i++) {
+    const a=(i/40)*Math.PI*2+rand(-0.08,0.08), s=rand(4,20);
+    tutPopParts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rand(4,16),color,life:rand(0.6,1.1)});
+  }
+  for (let i=0;i<24;i++) {
+    tutPopParts.push({x,y,vx:rand(-15,15),vy:rand(-16,-2),r:rand(5,11),
+      color:choice(['#FFD700','#FF6B6B','#6BCB77','#4D96FF','#C77DFF','#FF9DE2','#FFFFFF']),
+      life:rand(0.7,1.3),square:true,rot:rand(0,Math.PI)});
+  }
+  for (let i=0;i<10;i++) {
+    const a=(i/10)*Math.PI*2, s=rand(6,18);
+    tutPopParts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rand(8,20),
+      color:choice(['#FFD700','#FFFFFF','#FFB703','#FF9DE2']),
+      life:rand(0.8,1.2),star:true,rot:rand(0,Math.PI),rotV:rand(-0.15,0.15)});
+  }
+  for (let i=0;i<3;i++)
+    tutPopRings.push({x,y,r:r*.3,targetR:r*(2.5+i*.7),life:1.0,color,delay:i*0.08});
+  tutPangTxts.push({x,y:y-r*.4,vy:-3,life:1.0,size:Math.round(r*.9)});
+  playPop(false);
+}
+
+function tutUpdatePop(dt) {
+  for (const p of tutPopParts) {
+    p.x+=p.vx; p.y+=p.vy; p.vy+=0.5; p.vx*=0.96;
+    p.life-=dt*1.7; if(p.square)p.rot+=0.14; if(p.star)p.rot+=p.rotV||0.1;
+  }
+  tutPopParts=tutPopParts.filter(p=>p.life>0);
+  for (const rng of tutPopRings) {
+    if(rng.delay>0){rng.delay-=dt;continue;}
+    rng.r+=(rng.targetR-rng.r)*0.22; rng.life-=dt*3.0;
+  }
+  tutPopRings=tutPopRings.filter(r=>r.life>0);
+  for (const t of tutPangTxts) { t.y+=t.vy; t.vy*=0.94; t.life-=dt*2.2; }
+  tutPangTxts=tutPangTxts.filter(t=>t.life>0);
+}
+
+function tutDrawPop() {
+  const c = tutCtx;
+  for (const p of tutPopParts) {
+    c.save(); c.globalAlpha=Math.max(0,p.life); c.fillStyle=p.color;
+    if (p.star) {
+      // drawStarPath 인라인
+      c.beginPath();
+      for (let i=0;i<10;i++) {
+        const ang=(i/10)*Math.PI*2+p.rot-Math.PI/2;
+        const rad=i%2===0?p.r:p.r*.42;
+        i===0?c.moveTo(p.x+Math.cos(ang)*rad,p.y+Math.sin(ang)*rad)
+             :c.lineTo(p.x+Math.cos(ang)*rad,p.y+Math.sin(ang)*rad);
+      }
+      c.closePath(); c.fill();
+      c.strokeStyle='rgba(255,255,255,0.6)'; c.lineWidth=1.5; c.stroke();
+    } else if (p.square) {
+      c.translate(p.x,p.y); c.rotate(p.rot); c.fillRect(-p.r/2,-p.r/2,p.r,p.r);
+    } else {
+      c.beginPath(); c.arc(p.x,p.y,p.r,0,Math.PI*2); c.fill();
+    }
+    c.restore();
+  }
+  for (const rng of tutPopRings) {
+    if(rng.delay>0) continue;
+    c.save(); c.globalAlpha=Math.max(0,rng.life)*.75;
+    c.beginPath(); c.arc(rng.x,rng.y,rng.r,0,Math.PI*2);
+    c.strokeStyle=rng.color; c.lineWidth=Math.max(1,rng.life*9); c.stroke(); c.restore();
+  }
+  for (const t of tutPangTxts) {
+    const scale=1+(1-t.life)*.6;
+    c.save(); c.globalAlpha=Math.max(0,t.life);
+    c.font=`bold ${Math.round(t.size*scale)}px 'Malgun Gothic',Arial`;
+    c.textAlign='center'; c.textBaseline='middle';
+    c.lineWidth=5; c.strokeStyle='#fff'; c.strokeText(LANG[getLang()].pop,t.x,t.y);
+    c.fillStyle='#FF2222'; c.fillText(LANG[getLang()].pop,t.x,t.y); c.restore();
+  }
+}
+
+// ── 튜토리얼 타이틀 이미지 (프리로드) ───────────────────
+const tutTitleImg = new Image();
+tutTitleImg.src = 'assets/tutorial_title.png';
+
+// ── 상단: 타이틀 이미지 + 안내 문구 ─────────────────────
+function drawTutGuide() {
+  const c = tutCtx;
+  const imgH = tutH * 0.12;  // 타이틀 이미지 높이
+  const imgW = tutTitleImg.complete && tutTitleImg.naturalWidth > 0
+    ? imgH * (tutTitleImg.naturalWidth / tutTitleImg.naturalHeight)
+    : tutW * 0.5;
+  const imgY = tutH * 0.01;
+  const imgX = (tutW - imgW) / 2;
+
+  const sz = Math.round(Math.min(tutW,tutH)*0.033);
+  const textY = imgY + imgH + sz * 0.8;
+
+  // 반투명 배경 바
+  const barH = textY + sz * 1.1;
+  const g = c.createLinearGradient(0,0,0,barH);
+  g.addColorStop(0,'rgba(0,0,0,0.42)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  c.fillStyle=g; c.fillRect(0,0,tutW,barH);
+
+  // 타이틀 이미지
+  if (tutTitleImg.complete && tutTitleImg.naturalWidth > 0) {
+    c.drawImage(tutTitleImg, imgX, imgY, imgW, imgH);
+  }
+
+  // 안내 텍스트
+  c.save();
+  c.textAlign='center'; c.textBaseline='middle';
+  c.font=`bold ${sz}px 'Malgun Gothic',Arial`;
+  c.lineWidth=Math.round(sz*0.15);
+  c.strokeStyle='rgba(0,0,0,0.55)'; c.strokeText(LANG[getLang()].tutGuide,tutW/2,textY);
+  c.fillStyle='#ffffff'; c.fillText(LANG[getLang()].tutGuide,tutW/2,textY);
+  c.restore();
+}
+
+let tutLastTime = 0;
+function tutRenderLoop(ts) {
+  tutRAF = requestAnimationFrame(tutRenderLoop);
+  const dt = Math.min(0.08, (ts-(tutLastTime||ts))/1000);
+  tutLastTime = ts;
+  tutElapsed += dt;
+
+  tutCtx.clearRect(0,0,tutW,tutH);
+
+  const bR = baseRadius();
+  const curT = tutorialVideoEl.currentTime;
+
+  // ── 시퀀스 진행 ──────────────────────────────────────────
+  if (tutSeqIdx < TUT_SEQ.length) {
+    const seq = TUT_SEQ[tutSeqIdx];
+    const bx = seq.side==='L' ? tutW*0.22 : tutW*0.83;
+    const by = seq.side==='L' ? tutH*0.30 : tutH*0.38;
+
+    // 풍선 생성
+    if (!tutBalloon && curT >= seq.tAppear) {
+      tutBalloon = {x:bx, y:by, r:bR, color:seq.color, appear:0, popped:false};
+    }
+    // 풍선 업데이트
+    if (tutBalloon && !tutBalloon.popped) {
+      tutBalloon.appear = Math.min(1, tutBalloon.appear + dt*2.5);
+      // 팡 타이밍
+      if (curT >= seq.tPop) {
+        tutBalloon.popped = true;
+        tutSpawnPop(tutBalloon.x, tutBalloon.y, tutBalloon.r, tutBalloon.color);
+        tutBalloon = null;
+        tutSeqIdx++;
+      }
+    }
+  }
+
+  // 팝 파티클 업데이트
+  tutUpdatePop(dt);
+
+  // ── 풍선 그리기 ──────────────────────────────────────────
+  if (tutBalloon && !tutBalloon.popped && tutBalloon.appear > 0) {
+    const floatY = Math.sin(tutElapsed*1.4)*3;
+    const sc = tutBalloon.appear;
+    tutCtx.save();
+    tutCtx.translate(tutBalloon.x, tutBalloon.y);
+    tutCtx.scale(sc, sc);
+    tutCtx.translate(-tutBalloon.x, -tutBalloon.y);
+    tutDrawBalloon(tutBalloon.x, tutBalloon.y, tutBalloon.r, tutBalloon.color, floatY);
+    tutCtx.restore();
+  }
+
+  // 팝 효과
+  tutDrawPop();
+
+  // 상단 안내 텍스트
+  drawTutGuide();
+}
+
+function resetTutSeq() {
+  tutSeqIdx = 0; tutBalloon = null;
+  tutPopParts = []; tutPopRings = []; tutPangTxts = [];
+  tutElapsed = 0;
+}
+
+function startTutorial() {
+  document.getElementById('tutorialScreen').classList.add('show');
+  resizeTutCanvas();
+  tutCtx = tutorialOverlayEl.getContext('2d');
+  tutLoop = 0;
+  resetTutSeq();
+
+  tutorialVideoEl.currentTime = 0;
+  tutorialVideoEl.loop = false;
+  tutorialVideoEl.playbackRate = 1.25;
+
+  tutorialVideoEl.onended = () => {
+    tutLoop++;
+    if (tutLoop >= TUT_MAX_LOOPS) { endTutorial(); return; }
+    tutorialVideoEl.currentTime = 0;
+    resetTutSeq();
+    tutorialVideoEl.play().catch(()=>{});
+  };
+
+  tutLastTime = 0;
+  tutRAF = requestAnimationFrame(tutRenderLoop);
+  startTutBGM();
+  tutorialVideoEl.play().catch(()=>{ endTutorial(); });
+}
+
+function endTutorial() {
+  cancelAnimationFrame(tutRAF);
+  tutorialVideoEl.pause();
+  tutorialVideoEl.onended = null;
+  document.getElementById('tutorialScreen').classList.remove('show');
+  stopTutBGM();
   gameState = 'countdown';
   countdownN = 1; countdownT = 0;
   playReadyStart();
+}
+
+tutorialSkipBtn.addEventListener('click', endTutorial);
+tutorialSkipBtn.addEventListener('touchstart', e=>{e.preventDefault();endTutorial();},{passive:false});
+window.addEventListener('resize', resizeTutCanvas);
+
+function startGame() {
+  initAudio();
+  baselineShoulderW = 0;
+  document.getElementById('mainScreen').classList.remove('show');
+  startTutorial();
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('startBtn').addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, {passive:false});
