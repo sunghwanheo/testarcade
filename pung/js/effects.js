@@ -366,7 +366,7 @@ class PhysicsPoop {
     this.r       = 16 + Math.random() * 12;   // 충돌 반경 (작아짐)
     this.drawR   = this.r * 2.6;              // 표시 크기 — 발사 시 크게!
     this._airR   = this.r * 2.2;              // 공중 표시 크기
-    this._landR  = this.r * 0.90;             // 착지 후 표시 크기 (작게)
+    this._landR  = this.r * 1.5;              // 착지 후 표시 크기 (공중보다 작지만 눈에 보임)
     this.rot     = Math.random() * Math.PI * 2;
     this.rotSpd  = (Math.random() - 0.5) * 0.28;
     this.img     = img;
@@ -504,25 +504,26 @@ class EffectsEngine {
   }
 
   /** 방귀 이펙트 — 즉각 플래시 + 웨이브 + 폭발 똥 + 가스 구름 */
-  spawnFart(x, y, hue, effectLevel) {
+  spawnFart(x, y, hue, effectLevel, rainbow = false) {
     const puffCnt = { low: 4, medium: 7, strong: 10 }[effectLevel] || 7;
     const waveCnt = { low: 1, medium: 2, strong: 3  }[effectLevel] || 2;
+    const getH = () => rainbow ? Math.random() * 360 : hue;
 
     // 즉각 화면 플래시
-    this.flashes.push(new ScreenFlash(hue));
+    this.flashes.push(new ScreenFlash(getH()));
 
-    // 퍼지는 웨이브
+    // 퍼지는 웨이브 (무지개일 때 각각 다른 색)
     for (let i = 0; i < waveCnt; i++) {
-      this.waves.push(new GasWave(x, y, hue, i * 3));
+      this.waves.push(new GasWave(x, y, getH(), i * 3));
     }
 
-    // 가스 구름 + burst
+    // 가스 구름 + burst (무지개일 때 각 파티클 랜덤 색)
     for (let i = 0; i < 2; i++) {
-      const b = new GasPuff(x, y, hue);
+      const b = new GasPuff(x, y, getH());
       b.r *= 2.0; b.vy *= 1.8; b.decay *= 0.6;
       this.gas.push(b);
     }
-    for (let i = 0; i < puffCnt; i++) this.gas.push(new GasPuff(x, y, hue));
+    for (let i = 0; i < puffCnt; i++) this.gas.push(new GasPuff(x, y, getH()));
 
     this.shake.t = 0.7;
     this.shake.intensity = 14;
@@ -565,7 +566,8 @@ class EffectsEngine {
     const ch = canvasH || 720, cw = canvasW;
     for (let i = 0; i < poopCnt; i++) {
       const img = rainbow ? this.poopImgs[6] : this._getPoopImg(colorHue, false);
-      this.physicPoops.push(new PhysicsPoop(cx, cy, img, ch, cw, this.physicPoops, colorHue, rainbow));
+      // 이미 올바른 색 이미지를 선택했으므로 hue-rotate 필터 중복 적용 방지 (-1 전달)
+      this.physicPoops.push(new PhysicsPoop(cx, cy, img, ch, cw, this.physicPoops, rainbow ? colorHue : -1, rainbow));
     }
 
     // 총 개수 제한 (오래된 것부터 제거)
@@ -592,11 +594,11 @@ class EffectsEngine {
   /** 게임 클리어 */
   spawnEndGamePoops(canvasW, canvasH) {
     this.fallingPoops = [];
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 400; i++) {
       setTimeout(() => {
         const img = this.poopImgs[Math.floor(Math.random() * 7)];
         this.fallingPoops.push(new FallingPoop(canvasW, canvasH, img));
-      }, i * 80);
+      }, i * 12);
     }
   }
 

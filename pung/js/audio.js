@@ -8,11 +8,10 @@ class AudioEngine {
     this.master      = null;
     this.volume      = 0.7;
     this.ready       = false;
-    this.fartBuffers      = [];   // fart_1~2.ogg (일반 방귀)
-    this.feverFartBuffer  = null; // fart_0.ogg  (가장 큰 소리, 피버 전용)
-    this.voiceBuffer      = null; // start_voice.mp3
-    this.feverVoiceBuffer = null; // fever_voice.mp3 (응가타임)
-    this.cheerBuffers     = [];   // voice_cheer_04/07/09/12.wav
+    this.fartBuffers        = [];              // fart_1~2.ogg (일반 방귀)
+    this.feverFartBuffer    = null;            // fart_0.ogg  (가장 큰 소리, 피버 전용)
+    this.readyStartBuffers  = { ko: null, en: null }; // voice_ready_start (한/영)
+    this.cheerBuffers       = [];              // [{ id, ko, en }, ...]
     this._bgmNode    = null; // BGM 루프 timeout handle
     this._bgmStep    = 0;
   }
@@ -51,27 +50,36 @@ class AudioEngine {
       } catch (e) { console.warn(`fart_${i}.ogg 로드 실패`, e); }
     }
 
-    // 음성 파일 미리 로드
+    // 준비 시작 음성 (한/영)
     try {
-      const res = await fetch('assets/start_voice.mp3');
-      const buf = await this.actx.decodeAudioData(await res.arrayBuffer());
-      this.voiceBuffer = buf;
-    } catch (e) { console.warn('start_voice.mp3 로드 실패', e); }
-
-    // 피버타임 음성 (응가타임)
+      const res = await fetch('assets/voice_ready_start.wav');
+      this.readyStartBuffers.ko = await this.actx.decodeAudioData(await res.arrayBuffer());
+    } catch (e) { console.warn('voice_ready_start.wav 로드 실패', e); }
     try {
-      const res = await fetch('assets/fever_voice.mp3');
-      const buf = await this.actx.decodeAudioData(await res.arrayBuffer());
-      this.feverVoiceBuffer = buf;
-    } catch (e) { console.warn('fever_voice.mp3 로드 실패', e); }
+      const res = await fetch('assets/voice_ready_start_en-US.ogg');
+      this.readyStartBuffers.en = await this.actx.decodeAudioData(await res.arrayBuffer());
+    } catch (e) { console.warn('voice_ready_start_en-US.ogg 로드 실패', e); }
 
-    // 칭찬 음성 4종 (04, 07, 09, 12)
-    for (const n of ['04', '07', '09', '12']) {
+    // 칭찬 음성 (한/영 각 버전 로드)
+    const cheerFiles = [
+      { id: '04', koFile: 'voice_cheer_04.wav',  enFile: 'voice_cheer_04_en-US.ogg' },
+      { id: '07', koFile: 'voice_cheer_07.wav',  enFile: null },
+      { id: '09', koFile: 'voice_cheer_09.wav',  enFile: 'voice_cheer_09_en-US.ogg' },
+      { id: '12', koFile: 'voice_cheer_12.wav',  enFile: 'voice_cheer_12_en-US.ogg' },
+    ];
+    for (const { id, koFile, enFile } of cheerFiles) {
+      const entry = { id, ko: null, en: null };
       try {
-        const res = await fetch(`assets/voice_cheer_${n}.wav`);
-        const buf = await this.actx.decodeAudioData(await res.arrayBuffer());
-        this.cheerBuffers.push({ id: n, buf });
-      } catch (e) { console.warn(`voice_cheer_${n}.wav 로드 실패`, e); }
+        const res = await fetch(`assets/${koFile}`);
+        entry.ko = await this.actx.decodeAudioData(await res.arrayBuffer());
+      } catch (e) { console.warn(`${koFile} 로드 실패`, e); }
+      if (enFile) {
+        try {
+          const res = await fetch(`assets/${enFile}`);
+          entry.en = await this.actx.decodeAudioData(await res.arrayBuffer());
+        } catch (e) { console.warn(`${enFile} 로드 실패`, e); }
+      }
+      this.cheerBuffers.push(entry);
     }
   }
 
@@ -300,36 +308,33 @@ class AudioEngine {
     });
   }
 
-  // ── 음성 파일 재생 ──
-  playVoice(_name) {
+  // ── 준비/시작 음성 (한/영) ──
+  playVoice() {
     if (!this.ready) return;
-    if (this.voiceBuffer) {
-      this._playBuffer(this.voiceBuffer, 1.0);
-    }
+    const lang = (typeof getLang === 'function') ? getLang() : 'ko';
+    const buf  = this.readyStartBuffers[lang] || this.readyStartBuffers.ko;
+    if (buf) this._playBuffer(buf, 1.0);
   }
 
-  // ── 칭찬 음성 랜덤 (4종 중 1개) ──
+  // ── 칭찬 음성 랜덤 (한/영 버전 선택) ──
   playCheer() {
     if (!this.ready || this.cheerBuffers.length === 0) return;
-    const pick = this.cheerBuffers[Math.floor(Math.random() * this.cheerBuffers.length)];
-    this._playBuffer(pick.buf, 1.0);
-  }
-
-  // ── 피버 종료 칭찬 (04 제외, 3종 중 1개) ──
-  playFeverEndCheer() {
-    if (!this.ready || this.cheerBuffers.length === 0) return;
-    const pool = this.cheerBuffers.filter(c => c.id !== '04');
+    const lang = (typeof getLang === 'function') ? getLang() : 'ko';
+    const pool = this.cheerBuffers.filter(c => c[lang]);
     if (pool.length === 0) return;
     const pick = pool[Math.floor(Math.random() * pool.length)];
-    this._playBuffer(pick.buf, 1.0);
+    this._playBuffer(pick[lang], 1.0);
   }
 
-  // ── 피버타임 음성 (응가타임) ──
-  playFeverVoice() {
-    if (!this.ready) return;
-    if (this.feverVoiceBuffer) {
-      this._playBuffer(this.feverVoiceBuffer, 1.0);
-    }
+  // ── 피버 종료 칭찬 (ko: 04 제외 / en: 07 제외, 한/영 버전 선택) ──
+  playFeverEndCheer() {
+    if (!this.ready || this.cheerBuffers.length === 0) return;
+    const lang    = (typeof getLang === 'function') ? getLang() : 'ko';
+    const exclude = lang === 'ko' ? '04' : '07';
+    const pool    = this.cheerBuffers.filter(c => c.id !== exclude && c[lang]);
+    if (pool.length === 0) return;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    this._playBuffer(pick[lang], 1.0);
   }
 
   // ── 레벨업 징글 ──

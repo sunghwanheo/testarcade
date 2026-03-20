@@ -32,8 +32,144 @@ function currentHue() {
   return theme().gasHue;
 }
 
+// ============================================================
+//  다국어 (한/영)
+// ============================================================
+const LANG = {
+  ko: {
+    pageTitle:        '💨 방귀대장 뿡뿡이',
+    gameTitle:        '방귀대장 뿡뿡이',
+    subtitle:         '앉았다 일어나면<br>방귀가 나와요!',
+    subtitle2:        n => `방귀를 <strong id="display-target">${n}</strong>번 뀌면<br>💩이 날아가요!`,
+    settingFartCount: '방귀 횟수',
+    opt3: '3번', opt5: '5번', opt7: '7번', opt10: '10번',
+    settingVolume:    '소리 크기',
+    settingEffect:    '이펙트',
+    effectLow: '약하게', effectMedium: '보통', effectStrong: '강하게',
+    settingFever:     '피버타임',
+    fever3: '3초', fever5: '5초', fever7: '7초',
+    btnStart:         '시작하기! 🚀',
+    btnStartLoading:  '모델 로딩 중... ⏳',
+    calibTitle:       '똑바로 서 주세요!',
+    calibSub:         '2초 동안 기다려요…',
+    introTitle:       '🌈 무지개 똥을 완성해봐요! 🌈',
+    introSub:         '방귀를 모아서 색깔 똥을 하나씩 쌓아요!',
+    levelAnnNext:     '다음은',
+    feverTitle:       '🔥 피버타임!! 🔥',
+    gaugeLabel:       '💨 방귀 게이지',
+    fartCountLabel:   '💨 총 방귀',
+    endTitle:         '게임 클리어!',
+    endSub:           '7단계 모두 완주했어요! 최고야!',
+    endFartLabel:     '💨 총 방귀 횟수',
+    btnRestart:       '다시 하기! 🔄',
+    countdownStart:   '시작!',
+    hint:             '🦵 무릎을 굽혔다 펴 보세요! 🦵',
+    fartTexts:        ['뿌우우웅!!', '뽕!!', '빵!', '뿌직!!', '뿌웅!!', '뿌우우우웅!!'],
+    levelNames:       ['빨강', '주황', '노랑', '초록', '파랑', '보라', '무지개'],
+  },
+  en: {
+    pageTitle:        '💨 Fart King Boomie',
+    gameTitle:        'Fart King Boomie',
+    subtitle:         'Squat down and stand up<br>to make a fart!',
+    subtitle2:        n => `Fart <strong id="display-target">${n}</strong> times to launch 💩!`,
+    settingFartCount: 'Fart Count',
+    opt3: '3x', opt5: '5x', opt7: '7x', opt10: '10x',
+    settingVolume:    'Volume',
+    settingEffect:    'Effects',
+    effectLow: 'Mild', effectMedium: 'Normal', effectStrong: 'Strong',
+    settingFever:     'Fever Time',
+    fever3: '3s', fever5: '5s', fever7: '7s',
+    btnStart:         'Start! 🚀',
+    btnStartLoading:  'Loading... ⏳',
+    calibTitle:       'Stand up straight!',
+    calibSub:         'Hold still for 2 seconds…',
+    introTitle:       '🌈 Complete the Rainbow Poop! 🌈',
+    introSub:         'Collect farts to stack up colorful poops!',
+    levelAnnNext:     'Next up',
+    feverTitle:       '🔥 FEVER TIME!! 🔥',
+    gaugeLabel:       '💨 Fart Gauge',
+    fartCountLabel:   '💨 Total Farts',
+    endTitle:         'Game Clear!',
+    endSub:           'You cleared all 7 stages! Amazing!',
+    endFartLabel:     '💨 Total Farts',
+    btnRestart:       'Play Again! 🔄',
+    countdownStart:   'Go!',
+    hint:             '🦵 Try bending your knees! 🦵',
+    fartTexts:        ['PRRRP!!', 'TOOT!!', 'POOT!', 'BLURT!!', 'BRAAAP!!', 'PFFFT!!'],
+    levelNames:       ['Red', 'Orange', 'Yellow', 'Green', 'Blue', 'Purple', 'Rainbow'],
+  },
+};
+
+function applyLang(l) {
+  const t  = LANG[l] || LANG.ko;
+  const el = id => document.getElementById(id);
+
+  document.title = t.pageTitle;
+
+  // 시작 화면
+  if (el('start-title'))    el('start-title').textContent    = t.gameTitle;
+  if (el('start-subtitle')) el('start-subtitle').innerHTML   = t.subtitle;
+  if (el('start-subtitle2')) el('start-subtitle2').innerHTML = t.subtitle2(cfg ? cfg.fartTarget : 3);
+
+  if (el('lbl-fart-count')) el('lbl-fart-count').textContent = t.settingFartCount;
+  if (el('lbl-volume'))     el('lbl-volume').textContent     = t.settingVolume;
+  if (el('lbl-effect'))     el('lbl-effect').textContent     = t.settingEffect;
+  if (el('lbl-fever'))      el('lbl-fever').textContent      = t.settingFever;
+
+  const selTarget = el('sel-target');
+  if (selTarget) {
+    selTarget.options[0].text = t.opt3;
+    selTarget.options[1].text = t.opt5;
+    selTarget.options[2].text = t.opt7;
+    selTarget.options[3].text = t.opt10;
+  }
+  const selEffect = el('sel-effect');
+  if (selEffect) {
+    selEffect.options[0].text = t.effectLow;
+    selEffect.options[1].text = t.effectMedium;
+    selEffect.options[2].text = t.effectStrong;
+  }
+  const selFever = el('sel-fever');
+  if (selFever) {
+    selFever.options[0].text = t.fever3;
+    selFever.options[1].text = t.fever5;
+    selFever.options[2].text = t.fever7;
+  }
+  const btnStart = el('btn-start');
+  if (btnStart) btnStart.textContent = btnStart.disabled ? t.btnStartLoading : t.btnStart;
+
+  // 캘리브레이션
+  if (el('calib-title')) el('calib-title').textContent = t.calibTitle;
+  if (el('calib-sub'))   el('calib-sub').textContent   = t.calibSub;
+
+  // 인트로
+  if (el('intro-title')) el('intro-title').textContent = t.introTitle;
+  if (el('intro-sub'))   el('intro-sub').textContent   = t.introSub;
+
+  // 레벨 알림
+  if (el('level-ann-next'))  el('level-ann-next').textContent  = t.levelAnnNext;
+
+  // 피버
+  if (el('fever-title-text')) el('fever-title-text').textContent = t.feverTitle;
+
+  // 게이지 / 카운터
+  if (el('gauge-label'))      el('gauge-label').textContent      = t.gaugeLabel;
+  if (el('fart-count-label')) el('fart-count-label').textContent = t.fartCountLabel;
+
+  // 게임 종료
+  if (el('end-title'))     el('end-title').textContent     = t.endTitle;
+  if (el('end-subtitle'))  el('end-subtitle').textContent  = t.endSub;
+  if (el('end-fart-label'))el('end-fart-label').textContent= t.endFartLabel;
+  if (el('btn-restart'))   el('btn-restart').textContent   = t.btnRestart;
+
+  // HUD (플레이 중 레벨명)
+  if (typeof level !== 'undefined' && el('level-label-text')) {
+    el('level-label-text').textContent = t.levelNames[Math.min(level - 1, 6)];
+  }
+}
+
 // ── 게임 상태 ─────────────────────────────────────────────
-let cfg = { fartTarget: 3, volume: 0.7, effectLevel: 'strong', feverDuration: 5 };
+let cfg = { fartTarget: 3, volume: 0.7, effectLevel: 'strong', feverDuration: 3 };
 let phase      = 'start';
 let gauge      = 0;
 let level      = 1;
@@ -132,8 +268,36 @@ $btnStart.addEventListener('click', () => {
   audio.init();
   audio.setVolume(cfg.volume);
   $start.style.display = 'none';
-  startCalibration();
+  showTutorial();
 });
+
+// ── 튜토리얼 영상 (캘리브 전 재생) ──────────────────────
+function showTutorial() {
+  const screen = document.getElementById('screen-tutorial');
+  const vid    = document.getElementById('tutorial-video');
+  screen.style.display = 'flex';
+  vid.src = 'assets/guide_loop.mp4';
+  vid.load();
+  vid.play().catch(() => {});
+
+  // 튜토리얼 보이스 (한/영 선택, 2회 재생)
+  const voiceSrc = getLang() === 'ko'
+    ? 'assets/voice_tutorial.wav'
+    : 'assets/voice_tutorial_en-US.ogg';
+  const playTutVoice = () => {
+    const v = new Audio(voiceSrc);
+    v.volume = cfg.volume;
+    v.play().catch(() => {});
+  };
+  playTutVoice();
+  setTimeout(playTutVoice, 4200);
+
+  vid.addEventListener('ended', function onEnd() {
+    vid.removeEventListener('ended', onEnd);
+    screen.style.display = 'none';
+    startCalibration();
+  });
+}
 
 // ============================================================
 //  MoveNet 유틸
@@ -216,8 +380,8 @@ function processCalibration(topPoses) {
       p.standingShoulderY = p.calibShoulderFrames.reduce((s, v) => s + v, 0) / p.calibShoulderFrames.length;
     }
   }
+  phase = 'intro';  // 재진입 방지 — 이 줄 없으면 detectLoop에서 반복 호출됨
   $calib.style.display = 'none';
-  phase = 'intro';
   showIntro(() => startPlaying());
 }
 
@@ -253,7 +417,7 @@ function showIntro(onDone) {
 
 // ── 레벨 전환 알림 ──
 function showLevelAnnounce() {
-  const names  = ['빨강', '주황', '노랑', '초록', '파랑', '보라', '무지개'];
+  const names  = LANG[getLang()].levelNames;
   const icons  = ['🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '🌈'];
   const colors = ['#ff5555','#ff9944','#ffe033','#55dd55','#4499ff','#bb66ff','#ff88ee'];
   const idx = Math.min(level - 1, 6);
@@ -368,7 +532,7 @@ function onFart(landmarks) {
   }
 
   // 가스 스폰 (일반 플레이만)
-  fx.spawnFart(hx, hy, currentHue(), cfg.effectLevel);
+  fx.spawnFart(hx, hy, currentHue(), cfg.effectLevel, theme().rainbow);
 
   gauge++;
   audio.playFart(gauge / cfg.fartTarget);
@@ -446,7 +610,6 @@ function triggerBigPoop(hx, hy) {
   players.forEach(p => { p.isSquatting = false; p.canTrigger = true; });
 
   audio.playBigPoop();
-  audio.playFeverVoice();
   fx.launchPoop(hx, hy, CW, cfg.effectLevel, currentHue(), theme().rainbow);
 
   const ann = document.getElementById('fever-announce');
@@ -461,21 +624,22 @@ function triggerBigPoop(hx, hy) {
 
 function endFever() {
   feverMode = false;
+  phase     = 'end';  // render 루프 재진입 방지 (매 프레임 중복 호출 차단)
   document.getElementById('fever-timer').style.display   = 'none';
   document.getElementById('fever-announce').style.display = 'none';
   $gaugeFill.style.animation = '';
-  audio.playFeverEndCheer();
 
   if (level >= 7) {
-    setTimeout(endGame, 500);
+    setTimeout(endGame, 800);
   } else {
+    audio.playFeverEndCheer();
     nextRound();
   }
 }
 
 function endGame() {
-  if (typeof trackComplete === 'function') trackComplete();
   phase = 'end';
+  if (typeof trackComplete === 'function') trackComplete();
   audio.stopBGM();
   audio.playApplause();
   fx.spawnEndGamePoops(CW, CH);
@@ -538,7 +702,7 @@ function updateHUD() {
   const idx  = Math.min(level - 1, LEVEL_ICONS.length - 1);
   $levelIcon.textContent = LEVEL_ICONS[idx];
   $levelNum.textContent  = `Lv.${level}`;
-  $levelLbl.textContent  = theme().label;
+  $levelLbl.textContent  = LANG[getLang()].levelNames[Math.min(level - 1, 6)];
   $fartNum.textContent   = totalFarts;
 }
 
@@ -605,7 +769,7 @@ function render() {
 function startCountdown(onDone) {
   const overlay = document.getElementById('screen-countdown');
   const numEl   = document.getElementById('countdown-number');
-  const steps   = ['3', '2', '1', '시작!'];
+  const steps   = ['3', '2', '1', LANG[getLang()].countdownStart];
   let idx = 0;
 
   overlay.style.display = 'flex';
@@ -655,7 +819,7 @@ let fartFlash = 0;
 let fartTexts = [];
 
 function showFartText(x, y) {
-  const pool = ['뿌우우웅!!', '뽕!!', '빵!', '뿌직!!', '뿌웅!!', '뿌우우우웅!!'];
+  const pool = LANG[getLang()].fartTexts;
   fartTexts.push({
     text: pool[Math.floor(Math.random() * pool.length)],
     x, y, life: 1.0, vy: -4.5, scale: 0.12
@@ -703,8 +867,6 @@ function drawFartTexts() {
 // ============================================================
 function drawCharacter(lm, player) {
   const nose      = mp(lm[LM.NOSE]);
-  const lEye      = mp(lm[LM.L_EYE]);
-  const rEye      = mp(lm[LM.R_EYE]);
   const lShoulder = mp(lm[LM.L_SHOULDER]);
   const rShoulder = mp(lm[LM.R_SHOULDER]);
 
@@ -713,33 +875,6 @@ function drawCharacter(lm, player) {
   const sw    = Math.abs(rShoulder.x - lShoulder.x);
   const midSX = (lShoulder.x + rShoulder.x) / 2;
   const headH = sw * 1.25;
-
-  const eyeY = (lEye && rEye)
-    ? (lEye.y + rEye.y) / 2
-    : nose.y - headH * 0.28;
-
-  const shoulderY = (lShoulder.y + rShoulder.y) / 2 - headH * 0.30;
-  const bodyW = sw * 2.6;
-  const bodyH = headH * 2.2;
-
-  if (assets.costume) {
-    ctx.save();
-    ctx.globalAlpha = 0.90;
-    ctx.drawImage(assets.costume, midSX - bodyW / 2, shoulderY, bodyW, bodyH);
-    ctx.restore();
-  }
-
-  if (assets.hat) {
-    const hw = headH * 1.15;
-    const hh = headH * 0.95;
-    const eyebrowY = eyeY - headH * 0.18;
-    ctx.drawImage(assets.hat, midSX - hw / 2, eyebrowY - hh * 0.88, hw, hh);
-  } else {
-    ctx.font = `${headH}px serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillText('🎩', midSX, eyeY - headH * 0.12);
-  }
 
   const cheekY = nose.y + headH * 0.04;
   const cheekW = sw * 0.14;
@@ -779,7 +914,7 @@ function drawHint() {
   ctx.textBaseline = 'middle';
   ctx.shadowColor  = 'rgba(0,0,0,0.9)';
   ctx.shadowBlur   = 14;
-  ctx.fillText('🦵 무릎을 굽혔다 펴 보세요! 🦵', CW / 2, CH / 2);
+  ctx.fillText(LANG[getLang()].hint, CW / 2, CH / 2);
   ctx.restore();
 }
 
@@ -824,8 +959,8 @@ async function initPose() {
   );
 
   // 모델 준비 완료 → 버튼 활성화
-  $btnStart.textContent = '시작하기! 🚀';
   $btnStart.disabled    = false;
+  $btnStart.textContent = LANG[getLang()].btnStart;
 
   // 렌더 루프 & 감지 루프 시작
   requestAnimationFrame(render);
@@ -892,7 +1027,7 @@ document.getElementById('btn-restart').addEventListener('click', () => {
 });
 
 // 시작 버튼 초기 상태 (모델 로딩 중)
-$btnStart.textContent = '모델 로딩 중... ⏳';
 $btnStart.disabled    = true;
+applyLang(getLang());
 
 window.addEventListener('DOMContentLoaded', initPose);
