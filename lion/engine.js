@@ -6,6 +6,7 @@
 // ─── Asset Loader ───────────────────────────────────────────
 const Assets = {
   lion: { upper: null, lower: null },
+  croc: { upper: null, lower: null, body: null },
   lettuce: { normal: null, crush1: null, crush2: null },
   loaded: false,
 
@@ -13,6 +14,9 @@ const Assets = {
     const files = {
       'lion.upper':   `${basePath}/head/upper_jaw.png`,
       'lion.lower':   `${basePath}/head/lower_jaw.png`,
+      'croc.upper':   `${basePath}/croc/croc_upper.png`,
+      'croc.lower':   `${basePath}/croc/croc_lower.png`,
+      'croc.body':    `${basePath}/croc/croc_body.png`,
       'lettuce.normal': `${basePath}/lettuce/lettuce_normal.png`,
       'lettuce.crush1': `${basePath}/lettuce/lettuce_crush1.png`,
       'lettuce.crush2': `${basePath}/lettuce/lettuce_crush2.png`,
@@ -101,7 +105,49 @@ class SoundManager {
     sub.start(now); sub.stop(now + 0.12);
   }
 
-  /** 와구작! 씹기 사운드 — stuck 양배추 물 때 (더 강한 와구작 타격감) */
+  /** 으적! 중간 씹기 사운드 — 2번째 물기 */
+  playMidCrunch() {
+    if (!this.ready) return;
+    const ctx = this.ctx, now = ctx.currentTime;
+    // 턱 "으적" (bite보다 무거운 싱글 클릭)
+    const click = ctx.createOscillator(), cg = ctx.createGain();
+    click.type = 'square';
+    click.frequency.setValueAtTime(350, now);
+    click.frequency.exponentialRampToValueAtTime(60, now + 0.06);
+    cg.gain.setValueAtTime(0.5, now);
+    cg.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+    click.connect(cg); cg.connect(ctx.destination);
+    click.start(now); click.stop(now + 0.08);
+    // 으드득 노이즈 (중간 길이)
+    const bufSize = Math.floor(ctx.sampleRate * 0.16);
+    const buf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      const env = Math.pow(1 - i / bufSize, 0.45);
+      data[i] = (Math.random() * 2 - 1) * 0.65 * env;
+      if (i % 45 < 18) data[i] *= 2.5;
+      if (Math.random() < 0.07) data[i] *= 3;
+    }
+    const noise = ctx.createBufferSource(), ng = ctx.createGain();
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 2200; bp.Q.value = 0.7;
+    noise.buffer = buf;
+    ng.gain.setValueAtTime(0.45, now);
+    ng.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+    noise.connect(bp); bp.connect(ng); ng.connect(ctx.destination);
+    noise.start(now); noise.stop(now + 0.16);
+    // 서브 임팩트
+    const sub = ctx.createOscillator(), sg = ctx.createGain();
+    sub.type = 'sine';
+    sub.frequency.setValueAtTime(100, now);
+    sub.frequency.exponentialRampToValueAtTime(30, now + 0.14);
+    sg.gain.setValueAtTime(0.4, now);
+    sg.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+    sub.connect(sg); sg.connect(ctx.destination);
+    sub.start(now); sub.stop(now + 0.15);
+  }
+
+  /** 와구작! 씹기 사운드 — 3번째 최종 물기 (최대 타격감) */
   playCrunchBite() {
     if (!this.ready) return;
     const ctx = this.ctx, now = ctx.currentTime;
@@ -182,40 +228,44 @@ class SoundManager {
     });
   }
 
-  /** 칭찬 음성 로드 (WAV 파일) */
+  /** 칭찬 음성 로드 (한/영 모두) */
   loadCheerVoices(basePath = 'assets') {
     this.cheerBuffers = [];
+    this.cheerBuffersEn = [];
     this.cheerIndex = 0;
-    const files = [
+    const koFiles = [
       `${basePath}/voice/cheer/voice_cheer_04.wav`,
       `${basePath}/voice/cheer/voice_cheer_07.wav`,
       `${basePath}/voice/cheer/voice_cheer_09.wav`,
       `${basePath}/voice/cheer/voice_cheer_12.wav`,
     ];
-    files.forEach(url => {
-      fetch(url)
-        .then(r => r.arrayBuffer())
-        .then(buf => this.ctx.decodeAudioData(buf))
-        .then(decoded => { this.cheerBuffers.push(decoded); console.log('Loaded cheer:', url); })
-        .catch(e => console.warn('Failed to load cheer:', url, e));
-    });
+    const enFiles = [
+      `${basePath}/voice/cheer/voice_cheer_04a_en-US.wav`,
+      `${basePath}/voice/cheer/voice_cheer_04b_en-US.wav`,
+      `${basePath}/voice/cheer/voice_cheer_09_en-US.wav`,
+      `${basePath}/voice/cheer/voice_cheer_12_en-US.wav`,
+    ];
+    const load = (url, arr) => fetch(url).then(r => r.arrayBuffer()).then(buf => this.ctx.decodeAudioData(buf)).then(d => arr.push(d)).catch(() => {});
+    koFiles.forEach(url => load(url, this.cheerBuffers));
+    enFiles.forEach(url => load(url, this.cheerBuffersEn));
   }
 
-  /** 준비-시작 음성 로드 */
+  /** 준비-시작 음성 로드 (한/영 모두) */
   loadReadyVoice(basePath = 'assets') {
     this.readyBuffer = null;
-    fetch(`${basePath}/voice/ready-set-go/voice_ready_start.wav`)
-      .then(r => r.arrayBuffer())
-      .then(buf => this.ctx.decodeAudioData(buf))
-      .then(decoded => { this.readyBuffer = decoded; console.log('Loaded ready voice'); })
-      .catch(e => console.warn('Failed to load ready voice:', e));
+    this.readyBufferEn = null;
+    const load = (url, key) => fetch(url).then(r => r.arrayBuffer()).then(buf => this.ctx.decodeAudioData(buf)).then(d => { this[key] = d; }).catch(() => {});
+    load(`${basePath}/voice/ready-set-go/voice_ready_start.wav`, 'readyBuffer');
+    load(`${basePath}/voice/ready-set-go/voice_ready_start_en-US.wav`, 'readyBufferEn');
   }
 
   /** 준비-시작 음성 재생 */
   playReady() {
-    if (!this.ready || !this.readyBuffer) return;
+    const isEn = typeof getLang === 'function' && getLang() === 'en';
+    const buf = isEn ? this.readyBufferEn : this.readyBuffer;
+    if (!this.ready || !buf) return;
     const src = this.ctx.createBufferSource();
-    src.buffer = this.readyBuffer;
+    src.buffer = buf;
     const gain = this.ctx.createGain();
     gain.gain.value = 0.9;
     src.connect(gain);
@@ -223,10 +273,12 @@ class SoundManager {
     src.start();
   }
 
-  /** 칭찬 음성 피드백 (녹음된 WAV 순서대로 재생) */
+  /** 칭찬 음성 피드백 (언어에 따라 한/영 재생) */
   playPraise(text) {
-    if (!this.ready || !this.cheerBuffers || this.cheerBuffers.length === 0) return;
-    const buf = this.cheerBuffers[this.cheerIndex % this.cheerBuffers.length];
+    const isEn = typeof getLang === 'function' && getLang() === 'en';
+    const pool = isEn ? this.cheerBuffersEn : this.cheerBuffers;
+    if (!this.ready || !pool || pool.length === 0) return;
+    const buf = pool[this.cheerIndex % pool.length];
     this.cheerIndex++;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
@@ -427,8 +479,8 @@ class SoundManager {
 
 
 // ─── Cabbage State Machine ──────────────────────────────────
-const CABBAGE_STATES = { NORMAL: 0, CRUSH1: 1 };
-const CABBAGE_MAX_HEALTH = 2;
+const CABBAGE_STATES = { NORMAL: 0, CRUSH1: 1, CRUSH2: 2 };
+const CABBAGE_MAX_HEALTH = 3;
 
 class Cabbage {
   constructor(x, y, vx, vy, size, canvasW, canvasH) {
@@ -436,8 +488,8 @@ class Cabbage {
     this.vx = vx; this.vy = vy;
     this.size = size;
     this.canvasW = canvasW; this.canvasH = canvasH;
-    this.gravity = 350;
-    this.bounciness = 0.72;
+    this.gravity = 0;        // 중력 없음 — 당구대 스타일
+    this.bounciness = 1.0;   // 완전 탄성 반사
     this.health = CABBAGE_MAX_HEALTH;
     this.crushState = CABBAGE_STATES.NORMAL;
     this.phase = 'bouncing'; // bouncing, attracted, stuck, exploding
@@ -450,6 +502,7 @@ class Cabbage {
     this.dead = false;
     this.opacity = 1; this.scale = 1;
     this.vegEmoji = null;
+    this.stuckSizeMultiplier = 1.4; // 입안 크기 배율 (물릴때마다 줄어듦)
     // attract
     this.attractX = 0; this.attractY = 0;
     this.attractTimer = 0;
@@ -467,10 +520,18 @@ class Cabbage {
     if (this.dead || this.health <= 0) return false;
     this.health--;
     this.shakeTimer = 0.35; this.squishScale = 0.5; this.flashTimer = 0.2;
-    if (this.health === 1) {
+    if (this.health === 2) {
+      // 1번째 물기: 크게 물었다! (입안에서 큰 상태)
       this.crushState = CABBAGE_STATES.CRUSH1;
-      this.crushScaleX = 1.2; this.crushScaleY = 0.82;
+      this.crushScaleX = 1.3; this.crushScaleY = 0.85;
+      this.stuckSizeMultiplier = 1.4; // 입안에서 크게
+    } else if (this.health === 1) {
+      // 2번째 물기: 으적으적 (중간 크기)
+      this.crushState = CABBAGE_STATES.CRUSH2;
+      this.crushScaleX = 1.1; this.crushScaleY = 0.75;
+      this.stuckSizeMultiplier = 0.85; // 좀 작아짐
     } else if (this.health <= 0) {
+      // 3번째 물기: 와구! 완전히 먹음
       this.phase = 'exploding';
       this.explodeTimer = 0.08;
       return true;
@@ -480,6 +541,7 @@ class Cabbage {
 
   getImage() {
     switch (this.crushState) {
+      case CABBAGE_STATES.CRUSH2: return Assets.lettuce.crush2;
       case CABBAGE_STATES.CRUSH1: return Assets.lettuce.crush1;
       default: return Assets.lettuce.normal;
     }
@@ -492,24 +554,22 @@ class Cabbage {
 
     switch (this.phase) {
       case 'bouncing': {
-        this.vy += this.gravity * dt;
+        // 당구대 스타일: 중력 없이 4면 벽 반사
         this.x += this.vx * dt;
         this.y += this.vy * dt;
         this.rotation += this.rotSpeed * dt;
         const r = this.size / 2;
-        if (this.x - r < 0) { this.x = r; this.vx = Math.abs(this.vx) * this.bounciness; this.rotSpeed *= -0.8; }
-        if (this.x + r > this.canvasW) { this.x = this.canvasW - r; this.vx = -Math.abs(this.vx) * this.bounciness; this.rotSpeed *= -0.8; }
-        if (this.y - r < 0) { this.y = r; this.vy = Math.abs(this.vy) * this.bounciness; }
-        if (this.y + r > this.canvasH) {
-          this.y = this.canvasH - r;
-          this.vy = -Math.abs(this.vy) * this.bounciness;
-          this.vx *= 0.95;
-        }
-        // Keep minimum energy so it stays lively
+        if (this.x - r < 0) { this.x = r; this.vx = Math.abs(this.vx); this.rotSpeed *= -0.8; }
+        if (this.x + r > this.canvasW) { this.x = this.canvasW - r; this.vx = -Math.abs(this.vx); this.rotSpeed *= -0.8; }
+        if (this.y - r < 0) { this.y = r; this.vy = Math.abs(this.vy); this.rotSpeed *= -0.8; }
+        if (this.y + r > this.canvasH) { this.y = this.canvasH - r; this.vy = -Math.abs(this.vy); this.rotSpeed *= -0.8; }
+        // 최소 속도 유지 — 느려지면 다시 가속
         const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        if (speed < 80 && this.y + r >= this.canvasH - 5) {
-          this.vy = -(150 + Math.random() * 100);
-          this.vx += (Math.random() - 0.5) * 100;
+        const minSpeed = 120;
+        if (speed < minSpeed) {
+          const scale = minSpeed / Math.max(speed, 1);
+          this.vx *= scale;
+          this.vy *= scale;
         }
         break;
       }
@@ -580,96 +640,297 @@ class Cabbage {
 }
 
 
-// ─── Lion (Split-Jaw) ───────────────────────────────────────
+// ─── Lion (Crocodile AR Renderer) ───────────────────────────
+// 포즈 랜드마크 기반으로 악어를 사용자 몸 위에 렌더링
 class Lion {
   constructor() {
+    // 기본 위치 (포즈 없을 때 fallback)
     this.x = 480; this.y = 300; this.baseScale = 0.5;
-    this.targetScale = 0.5; // 스무스 스케일링 목표값
+    this.targetScale = 0.5;
     this.jawOpen = 0; this.jawTarget = 0;
     this.jawMaxOffset = 60;
     this.bellyScale = 0; this.maneGlow = 0;
 
-    // 에셋 렌더링 크기 — 상악 크게, 하악 작게 (귀여운 비율)
+    // 호환용 상수 (getCollisionBounds 등에서 사용)
     this.UPPER_W = 340;
     this.UPPER_H = 340 * (306 / 349);
     this.LOWER_W = 240;
     this.LOWER_H = 240 * (151 / 253);
+
+    // 포즈 랜드마크 (index.html에서 매 프레임 업데이트)
+    this.pose = null; // { lw, rw, ls, rs, le, re, lh, rh, nose, CW, CH }
+    this._smoothPose = null; // 스무딩된 포즈
+    // 입이 벌어져 있을 때의 충돌 범위 (물기 판정용)
+    this._peakBounds = null;
   }
 
+  setPose(data) {
+    this.pose = data;
+    // 포즈 스무딩 (떨림 방지)
+    if (!data) { this._smoothPose = null; return; }
+    const alpha = 0.12; // 0=완전스무딩, 1=원본 그대로 (낮을수록 부드러움)
+    if (!this._smoothPose) {
+      this._smoothPose = JSON.parse(JSON.stringify(data));
+      return;
+    }
+    const sp = this._smoothPose;
+    const keys = ['lw','rw','ls','rs','le','re'];
+    for (const k of keys) {
+      if (data[k] && sp[k]) {
+        sp[k].x += (data[k].x - sp[k].x) * alpha;
+        sp[k].y += (data[k].y - sp[k].y) * alpha;
+      }
+    }
+    sp.CW = data.CW; sp.CH = data.CH;
+    // lh, rh, lf, rf, nose는 있으면 복사
+    if (data.lh) sp.lh = data.lh;
+    if (data.rh) sp.rh = data.rh;
+    if (data.lf) sp.lf = data.lf;
+    if (data.rf) sp.rf = data.rf;
+    if (data.nose) sp.nose = data.nose;
+  }
   setJawFromPose(openAmount) { this.jawTarget = Math.max(0, Math.min(1, openAmount)); }
 
-  /** 턱 스냅 (우걱우걱 제거, 빠르게 휙 닫힘) */
   snapJaw() {
     this.maneGlow = 1;
     this.bellyScale = Math.min(1, this.bellyScale + 0.12);
   }
 
   update(dt) {
-    // 스케일 스무딩 — 덜그럭거리지 않도록 부드럽게 보간
     this.baseScale += (this.targetScale - this.baseScale) * Math.min(1, 6 * dt);
-    // 빠른 스냅 — 닫힐 때 더 빠르게
     const closing = this.jawTarget < this.jawOpen;
-    const speed = closing ? 35 : 20;
+    const speed = closing ? 50 : 35; // 빠른 동작 대응: 열림/닫힘 속도 UP
     this.jawOpen += (this.jawTarget - this.jawOpen) * Math.min(1, speed * dt);
     this.jawOpen = Math.max(0, Math.min(1, this.jawOpen));
     if (this.maneGlow > 0) this.maneGlow = Math.max(0, this.maneGlow - dt * 2);
     if (this.bellyScale > 0) this.bellyScale = Math.max(0, this.bellyScale - dt * 0.15);
+    // 입이 조금이라도 열려있으면 충돌 범위 스냅샷 저장 (빠른 동작도 잡히도록)
+    if (this.jawOpen > 0.02) {
+      this._peakBounds = this.getCollisionBounds();
+    }
+  }
+
+  // ── 포즈 → 화면 좌표 변환 ──
+  _px(lm, CW, CH) { return (1 - lm.x) * CW; }
+  _py(lm, CW, CH) { return lm.y * CH; }
+
+  /** 렌더링용 스무딩 포즈 (없으면 원본) */
+  _getRenderPose() { return this._smoothPose || this.pose; }
+
+  /** 상악 팔 / 하악 팔 판별: Y가 더 높은 손목이 상악 */
+  _getJawArms() {
+    const p = this._getRenderPose();
+    if (!p) return null;
+    const lwY = this._py(p.lw, p.CW, p.CH);
+    const rwY = this._py(p.rw, p.CW, p.CH);
+    // Y 작은 쪽(화면 위쪽)이 상악
+    if (lwY < rwY) {
+      return {
+        upper: { shoulder: p.ls, elbow: p.le, wrist: p.lw },
+        lower: { shoulder: p.rs, elbow: p.re, wrist: p.rw },
+      };
+    } else {
+      return {
+        upper: { shoulder: p.rs, elbow: p.re, wrist: p.rw },
+        lower: { shoulder: p.ls, elbow: p.le, wrist: p.lw },
+      };
+    }
+  }
+
+  /** 입이 향하는 방향 판별: 양 손목 평균 X vs 양 어깨 평균 X */
+  _getFacingRight() {
+    const p = this._getRenderPose();
+    if (!p) return true;
+    const { CW, CH } = p;
+    const wristMidX = (this._px(p.lw, CW, CH) + this._px(p.rw, CW, CH)) / 2;
+    const shoulderMidX = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
+    return wristMidX < shoulderMidX; // 카메라 미러링 반영
+  }
+
+  /** 팔 끝점: 항상 손목에서 팔꿈치→손목 방향으로 50% 연장 (손가락끝 커버) */
+  _getArmEnd(arm, CW, CH) {
+    const wx = this._px(arm.wrist, CW, CH), wy = this._py(arm.wrist, CW, CH);
+    const ex = this._px(arm.elbow, CW, CH), ey = this._py(arm.elbow, CW, CH);
+    const dx = wx - ex, dy = wy - ey;
+    return { x: wx + dx * 0.5, y: wy + dy * 0.5 };
+  }
+
+  /** jawW 계산 공통 헬퍼 — _drawJaw / getMouthTip 등에서 동일 값 사용 */
+  _calcJawW() {
+    return Math.max(520, Math.min(1100, this.baseScale * this.UPPER_W * 3.5));
+  }
+
+  /** 어깨 중심에서 좌/우 방향으로 나오는 악어 턱 */
+  _drawJaw(ctx, isUpper, CW, CH) {
+    const img = isUpper ? Assets.croc.upper : Assets.croc.lower;
+    if (!img) return;
+    const p = this._getRenderPose();
+    if (!p) return;
+
+    // 어깨 중심점
+    const cx = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
+    const cy = (this._py(p.ls, CW, CH) + this._py(p.rs, CW, CH)) / 2;
+
+    const facingRight = this._getFacingRight();
+
+    const jawW = this._calcJawW();
+    const aspect = img.naturalWidth / img.naturalHeight;
+    const jawH = jawW / aspect;
+
+    // 입 열림 각도 (최대 26도): 상악은 위로, 하악은 아래로
+    const maxAngle = Math.PI / 7;
+    const openAngle = this.jawOpen * maxAngle;
+    const angle = isUpper ? -openAngle : openAngle;
+
+    // 닫혔을 때 상악 하단·하악 상단이 어깨 중심선에서 맞닿음
+    const offsetY = isUpper ? -jawH : 0;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    if (facingRight) ctx.scale(-1, 1); // 손목이 왼쪽 → scale로 악어를 왼쪽으로 뻗음
+    ctx.rotate(angle);
+    // 얼굴(눈) = x=0 (어깨 중심), 입/주둥이 끝 = x=jawW (바깥 방향)
+    ctx.drawImage(img, 0, offsetY, jawW, jawH);
+    ctx.restore();
+  }
+
+  /** 악어 몸통 — 사용자 어깨 위에 이미지 렌더링 (입 방향으로 눈이 향함) */
+  _drawBody(ctx, CW, CH) {
+    const img = Assets.croc.body;
+    if (!img) return;
+    const p = this._getRenderPose();
+    if (!p) return;
+    const lsx = this._px(p.ls, CW, CH), lsy = this._py(p.ls, CW, CH);
+    const rsx = this._px(p.rs, CW, CH), rsy = this._py(p.rs, CW, CH);
+    const facingRight = this._getFacingRight();
+
+    // 팔(턱) 이미지 시작점에 몸통 배치
+    const arms = this._getJawArms();
+    let cx, cy, refArmLen;
+    if (arms) {
+      // 양쪽 턱의 시작점(하악 어깨 = 상악의 반대쪽 어깨)
+      cx = this._px(arms.lower.shoulder, CW, CH);
+      cy = this._py(arms.lower.shoulder, CW, CH);
+      const ux = this._px(arms.upper.wrist, CW, CH) - this._px(arms.upper.shoulder, CW, CH);
+      const uy = this._py(arms.upper.wrist, CW, CH) - this._py(arms.upper.shoulder, CW, CH);
+      refArmLen = Math.sqrt(ux * ux + uy * uy);
+    } else {
+      cx = (lsx + rsx) / 2;
+      cy = (lsy + rsy) / 2;
+      refArmLen = Math.abs(lsx - rsx) * 1.4;
+    }
+    const aspect = img.naturalWidth / img.naturalHeight;
+    const drawW = refArmLen * 0.75;
+    const drawH = drawW / aspect;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    // 왼쪽을 향할 때 좌우 flip (눈이 입 방향을 보도록)
+    if (!facingRight) {
+      ctx.scale(-1, 1);
+    }
+    // 얼굴 가리지 않게 약간 아래로
+    ctx.drawImage(img, -drawW / 2, -drawH * 0.3, drawW, drawH);
+    ctx.restore();
   }
 
   drawLowerJaw(ctx) {
-    if (!Assets.lion.lower) return;
-    const sc = this.baseScale;
-    const jawDown = this.jawOpen * this.jawMaxOffset;
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.scale(sc, sc);
-    if (this.bellyScale > 0.01) {
-      ctx.globalAlpha = 0.5; ctx.fillStyle = '#FFE8A8';
-      ctx.beginPath();
-      ctx.ellipse(0, this.LOWER_H*0.6+jawDown, 50*this.bellyScale, 30*this.bellyScale, 0, 0, Math.PI*2);
-      ctx.fill(); ctx.globalAlpha = 1;
-    }
-    ctx.save();
-    ctx.translate(0, jawDown);
-    ctx.drawImage(Assets.lion.lower, -this.LOWER_W/2, 0, this.LOWER_W, this.LOWER_H);
-    ctx.restore();
-    ctx.restore();
+    const rp = this._getRenderPose();
+    if (!rp) { this._drawFallbackJaw(ctx, false); return; }
+    this._drawJaw(ctx, false, rp.CW, rp.CH);
   }
 
   drawUpperJaw(ctx) {
-    if (!Assets.lion.upper) return;
+    const rp = this._getRenderPose();
+    if (!rp) { this._drawFallbackJaw(ctx, true); return; }
+    this._drawJaw(ctx, true, rp.CW, rp.CH);
+  }
+
+  /** 몸통 (z-index 최상단 — 상악/하악 위에 그림) */
+  drawBody(ctx) {
+    const rp = this._getRenderPose();
+    if (!rp) return;
+    const { CW, CH } = rp;
+    this._drawBody(ctx, CW, CH);
+  }
+
+  /** 포즈 없을 때 fallback 렌더링 (간단한 악어 머리) */
+  _drawFallbackJaw(ctx, isUpper) {
     const sc = this.baseScale;
+    const jawDown = this.jawOpen * this.jawMaxOffset;
+    const w = 200 * sc, h = 50 * sc;
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.scale(sc, sc);
-    if (this.maneGlow > 0) { ctx.shadowColor = 'rgba(255,220,80,0.6)'; ctx.shadowBlur = 30 * this.maneGlow; }
-    ctx.drawImage(Assets.lion.upper, -this.UPPER_W/2, -this.UPPER_H * 0.72, this.UPPER_W, this.UPPER_H);
-    ctx.shadowBlur = 0;
+    if (isUpper) {
+      ctx.fillStyle = '#2D6B30';
+      ctx.beginPath();
+      ctx.moveTo(-w/2, 0); ctx.lineTo(w/2, -h*0.3);
+      ctx.lineTo(w/2, h*0.2); ctx.lineTo(-w/2, h*0.3);
+      ctx.closePath(); ctx.fill();
+      // 눈
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(-w*0.35, -h*0.3, h*0.2, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#111';
+      ctx.beginPath(); ctx.ellipse(-w*0.35, -h*0.3, h*0.07, h*0.15, 0, 0, Math.PI*2); ctx.fill();
+    } else {
+      ctx.save();
+      ctx.translate(0, jawDown * sc);
+      ctx.fillStyle = '#5DB761';
+      ctx.beginPath();
+      ctx.moveTo(-w*0.4, -h*0.1); ctx.lineTo(w/2, -h*0.1);
+      ctx.lineTo(w/2, h*0.3); ctx.lineTo(-w*0.4, h*0.2);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
     ctx.restore();
   }
 
   draw(ctx) { this.drawLowerJaw(ctx); this.drawUpperJaw(ctx); }
 
-  /** 충돌 범위 = 상악 이미지 + 하악 이미지 + 사이 공간 전체 (월드 좌표) */
+  /** 충돌 범위 = 어깨 중심 ~ 주둥이 끝 사이 영역 */
   getCollisionBounds() {
-    const sc = this.baseScale;
-    const jawDown = this.jawOpen * this.jawMaxOffset * sc;
-    const w = Math.max(this.UPPER_W, this.LOWER_W) * sc;
-    const top = this.y - this.UPPER_H * 0.72 * sc;
-    const bottom = this.y + jawDown + this.LOWER_H * sc;
-    return {
-      left: this.x - w / 2,
-      top: top,
-      right: this.x + w / 2,
-      bottom: bottom,
-      width: w,
-      height: bottom - top,
-      centerX: this.x,
-      centerY: (top + bottom) / 2,
-    };
+    const p = this._getRenderPose();
+    if (!p) {
+      const sc = this.baseScale;
+      const jawDown = this.jawOpen * this.jawMaxOffset * sc;
+      const w = 200 * sc;
+      return {
+        left: this.x - w / 2, top: this.y - 50 * sc,
+        right: this.x + w / 2, bottom: this.y + jawDown + 50 * sc,
+        width: w, height: 100 * sc + jawDown,
+        centerX: this.x, centerY: this.y + jawDown / 2,
+      };
+    }
+    const { CW, CH } = p;
+    const cx = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
+    const facingRight = this._getFacingRight();
+    // 좌우 방향만 맞으면 먹힘: 악어가 향하는 쪽 화면 절반 전체
+    // facingRight=true → 악어 왼쪽, facingRight=false → 악어 오른쪽
+    const left  = facingRight ? 0  : cx;
+    const right = facingRight ? cx : CW;
+    return { left, top: 0, right, bottom: CH,
+      width: right - left, height: CH,
+      centerX: (left + right) / 2, centerY: CH / 2 };
   }
 
-  /** 디버그: 충돌 범위 붉은 쉐이드 그리기 */
+  /** 물기 판정용 충돌 범위 (입이 벌어져 있을 때 스냅샷) */
+  getBiteBounds() {
+    return this._peakBounds || this.getCollisionBounds();
+  }
+
+  /** 입 끝 위치 (주둥이 끝) — 자석 끌어오기 타겟 */
+  getMouthTip() {
+    const p = this._getRenderPose();
+    if (!p) return { x: this.x, y: this.y };
+    const { CW, CH } = p;
+    const cx = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
+    const cy = (this._py(p.ls, CW, CH) + this._py(p.rs, CW, CH)) / 2;
+    const facingRight = this._getFacingRight();
+    const jawW = this._calcJawW();
+    // facingRight=true → 악어 왼쪽, facingRight=false → 악어 오른쪽
+    return { x: facingRight ? cx - jawW * 0.9 : cx + jawW * 0.9, y: cy };
+  }
+
   drawCollisionDebug(ctx) {
     const b = this.getCollisionBounds();
     ctx.save();
@@ -758,13 +1019,14 @@ class EndingSystem {
     this.textAlpha = 0;
   }
 
-  start(score, totalBites, levelCleared = false, level = 1, selectedVegetable = null) {
+  start(score, totalBites, levelCleared = false, level = 1, selectedVegetable = null, stageResults = []) {
     this.active = true;
     this.score = score;
     this.totalBites = totalBites;
     this.levelCleared = levelCleared;
     this.level = level;
     this.vegEmoji = selectedVegetable ? selectedVegetable.emoji : '🥬';
+    this.stageResults = stageResults; // [{emoji, count}, ...]
     this.timer = 0;
     this.spawnTimer = 0;
     this.textAlpha = 0;
@@ -882,61 +1144,86 @@ class EndingSystem {
 
       const cx = this.CW / 2;
 
-      // 이모지 하나씩 등장 + 점수 텍스트
+      // 단계별 이모지 + 점수 텍스트
       if (this.timer > 0.5) {
-        const ds = Math.floor(this.displayScore);
-        const emojiSize = 56;
-        const emojiGap = 64;
-        const totalEmojis = Math.min(ds, this.score);
-        const emojiRowY = this.CH * 0.28;
-        const emojiStartX = cx - (totalEmojis - 1) * emojiGap / 2;
+        const results = this.stageResults || [];
+        const emojiSize = 48;
+        const emojiGap = 56;
+        const stageGap = this.CH * 0.08; // 단계 간 세로 간격
+        const startY = this.CH * 0.22;
+        let curDelay = 0.5;
 
-        // 이모지들 차례대로 팝업
-        ctx.font = `${emojiSize}px sans-serif`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        for (let i = 0; i < totalEmojis; i++) {
-          const delay = 0.5 + i * 0.15;
-          if (this.timer > delay) {
-            const pop = Math.min(1, (this.timer - delay) * 6);
-            const popScale = pop < 1 ? pop * 1.3 : 1 + Math.sin(this.timer * 3 + i) * 0.05;
+
+        for (let s = 0; s < results.length; s++) {
+          const res = results[s];
+          const rowY = startY + s * stageGap;
+
+          // 단계 라벨
+          if (this.timer > curDelay) {
+            const labelAlpha = Math.min(1, (this.timer - curDelay) * 4);
             ctx.save();
-            ctx.translate(emojiStartX + i * emojiGap, emojiRowY);
-            ctx.scale(popScale, popScale);
-            ctx.globalAlpha = this.textAlpha;
-            ctx.fillText(this.vegEmoji, 0, 0);
+            ctx.globalAlpha = this.textAlpha * labelAlpha;
+            ctx.fillStyle = '#FFD700';
+            ctx.font = "bold 28px 'Jua', 'Apple SD Gothic Neo', sans-serif";
+            ctx.fillText((typeof getLang==='function'&&getLang()==='en'?`Stage ${s+1}`:`${s+1}단계`), cx - (Math.max(res.count, 1)) * emojiGap / 2 - 50, rowY);
             ctx.restore();
           }
+
+          // 이모지들
+          const totalEmojis = res.count;
+          const emojiStartX = cx - (totalEmojis - 1) * emojiGap / 2;
+          ctx.font = `${emojiSize}px sans-serif`;
+          for (let i = 0; i < totalEmojis; i++) {
+            const delay = curDelay + 0.1 + i * 0.12;
+            if (this.timer > delay) {
+              const pop = Math.min(1, (this.timer - delay) * 6);
+              const popScale = pop < 1 ? pop * 1.3 : 1 + Math.sin(this.timer * 3 + i + s) * 0.05;
+              ctx.save();
+              ctx.translate(emojiStartX + i * emojiGap, rowY);
+              ctx.scale(popScale, popScale);
+              ctx.globalAlpha = this.textAlpha;
+              ctx.fillText(res.emoji, 0, 0);
+              ctx.restore();
+            }
+          }
+          // 0개면 텍스트로 표시
+          if (totalEmojis === 0 && this.timer > curDelay + 0.1) {
+            ctx.save();
+            ctx.globalAlpha = this.textAlpha * 0.5;
+            ctx.fillStyle = '#aaa';
+            ctx.font = "600 28px 'Jua', 'Apple SD Gothic Neo', sans-serif";
+            ctx.fillText((typeof getLang==='function'&&getLang()==='en'?'0':'0개'), cx, rowY);
+            ctx.restore();
+          }
+
+          curDelay += 0.1 + totalEmojis * 0.12 + 0.15;
         }
 
-        // 텍스트
-        const textDelay = 0.5 + totalEmojis * 0.15 + 0.2;
-        if (this.timer > textDelay) {
-          const textAlpha = Math.min(1, (this.timer - textDelay) * 3);
+        // 총 점수 텍스트
+        if (this.timer > curDelay) {
+          const ds = Math.floor(this.displayScore);
+          const textAlpha = Math.min(1, (this.timer - curDelay) * 3);
           ctx.globalAlpha = this.textAlpha * textAlpha;
           ctx.fillStyle = '#fff';
-          ctx.font = "bold 90px 'Jua', 'Apple SD Gothic Neo', sans-serif";
+          ctx.font = "bold 80px 'Jua', 'Apple SD Gothic Neo', sans-serif";
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 10;
           ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 5;
-          const scoreText = `${ds}개 먹었어요!`;
-          ctx.strokeText(scoreText, cx, this.CH * 0.43);
-          ctx.fillText(scoreText, cx, this.CH * 0.43);
+          const totalY = startY + results.length * stageGap + 20;
+          const _enMode = typeof getLang==='function'&&getLang()==='en';
+          const scoreText = _enMode ? `Total ${ds} eaten!` : `총 ${ds}개 먹었어요!`;
+          ctx.strokeText(scoreText, cx, totalY);
+          ctx.fillText(scoreText, cx, totalY);
           ctx.shadowBlur = 0;
 
-          ctx.font = "600 36px 'Jua', 'Apple SD Gothic Neo', sans-serif";
+          ctx.font = "600 32px 'Jua', 'Apple SD Gothic Neo', sans-serif";
           ctx.fillStyle = 'rgba(255,255,255,0.7)';
-          ctx.fillText(`총 ${this.totalBites}번 물었어요`, cx, this.CH * 0.55);
+          ctx.fillText(_enMode ? `${this.totalBites} bites!` : `${this.totalBites}번 물었어요`, cx, totalY + 55);
         }
       }
 
-      // 다시하기 안내 (깜빡이)
-      if (this.timer > 2.5) {
-        ctx.globalAlpha = 0.5 + 0.5 * Math.sin(this.timer * 4);
-        ctx.fillStyle = '#fff';
-        ctx.font = "bold 20px 'Apple SD Gothic Neo', sans-serif";
-        const restartText = this.levelCleared ? '스페이스바를 눌러 다음 레벨!' : '스페이스바를 눌러 다시 시작!';
-        ctx.fillText(restartText, cx, this.CH * 0.66);
-      }
+      // "한번 더?/그만할래" 버튼은 DOM에서 표시 (캔버스에는 그리지 않음)
 
       ctx.restore();
     }
@@ -1059,7 +1346,9 @@ class GameEngine {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.CW = canvas.width; this.CH = canvas.height;
-    this.lion = new Lion();
+    this.lion = new Lion();   // 플레이어 1 (왼쪽)
+    this.lion2 = new Lion();  // 플레이어 2 (오른쪽)
+    this.coopMode = false;    // 1인 모드
     this.particles = new ParticleSystem();
     this.floatingText = new FloatingText();
     this.screenShake = new ScreenShake();
@@ -1067,16 +1356,21 @@ class GameEngine {
     this.ending = new EndingSystem(canvas.width, canvas.height);
     this.cabbages = [];
     this.score = 0; this.totalBites = 0; this.totalEaten = 0;
-    this.timeLeft = 60; this.totalTime = 60;
+    this.playTime = 0; // 플레이 경과 시간 (초)
     this.running = false; this.paused = false;
     this.gameEnded = false;
     this.flashAlpha = 0; this.flashColor = '#fff';
-    this.config = { cabbageSize: 140, fxIntensity: 1, maxCabbages: 5, spawnWaitSec: 10, clearGoal: 5 };
+    this.config = { cabbageSize: 140, fxIntensity: 1, maxCabbages: 5, spawnWaitSec: 10, totalStages: 3, stageDuration: 20 };
     this.selectedVegetable = null;
     this._waitingForSelection = false;
-    this.level = 1;
+    this.stage = 1; // 현재 단계 (1~3)
+    this.level = 1; // 호환용
     this.levelCleared = false;
     this._lastTime = 0;
+    this.stageTime = 0; // 현재 단계 경과 시간 (초)
+    this.cycleEaten = 0; // 현재 단계 내 먹은 수
+    this.stageResults = []; // 단계별 결과 [{emoji, count}, ...]
+    this.logger = new EventLogger();
   }
 
   async init() {
@@ -1087,19 +1381,27 @@ class GameEngine {
     this.sound.loadFoodVoices();
     this.lion.x = this.CW / 2;
     this.lion.y = this.CH * 0.65;
+    this.lion2.x = this.CW / 2;
+    this.lion2.y = this.CH * 0.65;
   }
 
   start() {
     this.running = true; this.paused = false; this.gameEnded = false;
     this.levelCleared = false;
     this.score = 0; this.totalBites = 0; this.totalEaten = 0;
+    this.playTime = 0; this.cycleEaten = 0; this.stageTime = 0;
     this.cabbages = [];
     this.particles.particles = []; this.floatingText.texts = [];
     this.lion.bellyScale = 0; this.lion.jawOpen = 0;
+    this.lion2.bellyScale = 0; this.lion2.jawOpen = 0;
+    this._lastBiteTime = 0; this._lastBiteTime2 = 0;
     this._lastTime = performance.now();
     this.ending.stop();
     this.selectedVegetable = null;
     this._waitingForSelection = true;
+    this.stage = 1; this.level = 1;
+    this.stageResults = [];
+    this.logger.log('session_start', { timestamp: Date.now() });
   }
 
   /** 음식 선택 화면 표시 (index.html에서 호출) */
@@ -1114,6 +1416,7 @@ class GameEngine {
     this._waitingForSelection = false;
     this.sound.playSlotPick();
     if (food.voice) this.sound.playFoodVoice(food.voice);
+    this.logger.log('food_selected', { food: food.name, emoji: food.emoji, cycle: this.level });
   }
 
   /** 카운트다운 후 실제 게임 시작 (index.html에서 호출) */
@@ -1129,99 +1432,151 @@ class GameEngine {
     this.sound.stopBGM();
   }
 
-  startNextLevel() {
-    this.level++;
+  startNextStage() {
+    this.stage++; this.level = this.stage;
     this.paused = false; this.gameEnded = false;
     this.levelCleared = false;
-    this.score = 0; this.totalEaten = 0;
+    this.cycleEaten = 0; this.stageTime = 0;
     this.cabbages = [];
     this.particles.particles = []; this.floatingText.texts = [];
     this.lion.jawOpen = 0;
-    this.timeLeft = 60; this.totalTime = 60;
     this._lastTime = performance.now();
     this.ending.stop();
     this.selectedVegetable = null;
     this._waitingForSelection = true;
+    this.logger.log('next_stage', { stage: this.stage, totalScore: this.score, playTime: Math.round(this.playTime) });
     if (this.onShowFoodSelect) this.onShowFoodSelect();
   }
 
+  // 호환용
+  startNextCycle() { this.startNextStage(); }
+
   spawnCabbage() {
-    const fromLeft = Math.random() < 0.5;
-    const startX = fromLeft ? -60 : this.CW + 60;
-    const startY = this.CH * (0.1 + Math.random() * 0.3);
-    const vx = fromLeft ? (180 + Math.random() * 220) : -(180 + Math.random() * 220);
-    const vy = -(120 + Math.random() * 180);
-    const c = new Cabbage(startX, startY, vx, vy, this.config.cabbageSize, this.CW, this.CH);
+    // 당구대 스타일: 4면 중 랜덤 벽에서 랜덤 각도로 진입
+    const side = Math.floor(Math.random() * 4); // 0=left,1=right,2=top,3=bottom
+    let startX, startY, vx, vy;
+    const spd = 180 + Math.random() * 200;
+    const angle = (Math.random() - 0.5) * Math.PI * 0.6; // ±54° 랜덤 각도
+    if (side === 0) {        // left
+      startX = -60; startY = this.CH * (0.15 + Math.random() * 0.7);
+      vx = Math.cos(angle) * spd; vy = Math.sin(angle) * spd;
+    } else if (side === 1) { // right
+      startX = this.CW + 60; startY = this.CH * (0.15 + Math.random() * 0.7);
+      vx = -Math.cos(angle) * spd; vy = Math.sin(angle) * spd;
+    } else if (side === 2) { // top
+      startX = this.CW * (0.15 + Math.random() * 0.7); startY = -60;
+      vx = Math.sin(angle) * spd; vy = Math.cos(angle) * spd;
+    } else {                 // bottom
+      startX = this.CW * (0.15 + Math.random() * 0.7); startY = this.CH + 60;
+      vx = Math.sin(angle) * spd; vy = -Math.cos(angle) * spd;
+    }
+    // 사이클 내 먹은 수에 따라 크기 점진적 증가 (1→5: 100%→140%)
+    const sizeBoost = 1 + this.cycleEaten * 0.1;
+    const size = Math.round(this.config.cabbageSize * sizeBoost);
+    const c = new Cabbage(startX, startY, vx, vy, size, this.CW, this.CH);
     if (this.selectedVegetable) c.vegEmoji = this.selectedVegetable.emoji;
     this.cabbages.push(c);
   }
 
   flash(color = '#fff', alpha = 0.3) { this.flashColor = color; this.flashAlpha = alpha; }
 
-  tryBite() {
+  /** 사이클 내 몇 번째 먹었는지에 따라 다른 메시지 */
+  _getEatMessage(cycleN, emoji) {
+    const ko = typeof getLang === 'function' && getLang() !== 'ko' ? false : true;
+    if (cycleN >= 5) return ko ? '초거대 ' + emoji + '!! 와구!!' : 'MEGA ' + emoji + '!! CHOMP!!';
+    if (cycleN === 4) return ko ? emoji + emoji + emoji + ' 세 개!' : emoji + emoji + emoji + ' Three!';
+    if (cycleN === 3) return ko ? emoji + emoji + ' 두 개!' : emoji + emoji + ' Two!';
+    if (cycleN === 2) return ko ? '더 큰 ' + emoji + '!' : 'Bigger ' + emoji + '!';
+    return '+1 ' + emoji;
+  }
+
+  tryBite(playerLion) {
+    const lion = playerLion || this.lion;
     if (!this.running || this.paused || this._waitingForSelection) return;
+    // 연속 물기 방지: 최소 120ms 간격 (아이들 빠른 동작 대응)
+    const now = performance.now();
+    const key = lion === this.lion2 ? '_lastBiteTime2' : '_lastBiteTime';
+    if (now - (this[key] || 0) < 120) return;
+    this[key] = now;
     this.totalBites++;
     this.sound.resume();
-    this.lion.snapJaw();
+    lion.snapJaw();
 
-    const bounds = this.lion.getCollisionBounds();
-    const mouthX = bounds.centerX;
-    const sc = this.lion.baseScale;
-    const jawDown = this.lion.jawOpen * this.lion.jawMaxOffset * sc;
-    const upperBottom = this.lion.UPPER_H * 0.28 * sc;
-    const mouthY = this.lion.y + upperBottom + jawDown * 0.35;
+    // 입 끝 위치 (자석 끌어오기 타겟)
+    const tip = lion.getMouthTip();
+    const mouthX = tip.x;
+    const mouthY = tip.y;
 
-    const praisePool = ['잘했어!', '대단해!', '최고야!', '멋져!', '와 잘한다!', '굿!'];
+    const _ko = typeof getLang === 'function' ? getLang() === 'ko' : true;
+    const praisePool = _ko
+      ? ['잘했어!', '대단해!', '최고야!', '멋져!', '와 잘한다!', '굿!']
+      : ['Great!', 'Amazing!', 'Awesome!', 'Cool!', 'You got it!', 'Nice!'];
     const vegIcon = this.selectedVegetable ? this.selectedVegetable.emoji : '🥬';
 
     // 1) 이미 끼여있는 양배추가 있으면 그것을 물기
     let stuck = this.cabbages.find(c => c.isStuck());
     if (stuck) {
+      const healthBefore = stuck.health;
       const fullyEaten = stuck.bite();
-      this.sound.playCrunchBite(); // 와구작 크런치 사운드
       if (this.selectedVegetable && this.selectedVegetable.voice) this.sound.playFoodVoice(this.selectedVegetable.voice);
-      this.particles.emitBiteSparkle(stuck.x, stuck.y);
 
       if (fullyEaten) {
-        this.score++; this.totalEaten++;
-        // 최대 타격감 폭발!
+        // ── 3번째 물기: 와구!! 완전히 먹음 ──
+        this.score++; this.totalEaten++; this.cycleEaten++;
+        this.logger.log('eat', { type: 'stuck_bite', food: vegIcon, cycleEaten: this.cycleEaten, totalEaten: this.totalEaten, playTime: Math.round(this.playTime) });
+        this.sound.playCrunchBite(); // 최강 와구작 사운드
         this.particles.emitEat(stuck.x, stuck.y, 5, vegIcon);
-        this.floatingText.add('+1 ' + vegIcon, stuck.x, stuck.y - 30, '#FFD700', 52);
+        const eatMsg = this._getEatMessage(this.cycleEaten, vegIcon);
+        this.floatingText.add(eatMsg, stuck.x, stuck.y - 30, '#FFD700', 52);
         this.sound.playEatComplete();
         this.screenShake.trigger(35, 0.6);
         this.flash('#FFD700', 0.7);
-        // 2차 지연 쉐이크 (여운)
         setTimeout(() => { this.screenShake.trigger(18, 0.3); this.flash('#fff', 0.25); }, 120);
-        // 칭찬 피드백 (매 먹을 때 + 특별 칭찬)
         const praise = praisePool[this.totalEaten % praisePool.length];
         this.floatingText.add(praise, this.CW/2, this.CH*0.15, '#fff', 40);
         this.sound.playPraise(praise);
-        if (this.totalEaten % 5 === 0) {
-          this.floatingText.add('🏆 ' + this.totalEaten + '개 달성!', this.CW/2, this.CH*0.22, '#FFD700', 36);
-        }
-      } else {
+      } else if (healthBefore === 2) {
+        // ── 2번째 물기: 으적! 중간 단계 ──
+        this.sound.playMidCrunch();
         this.particles.emitCrush(stuck.x, stuck.y);
-        this.sound.playCrush();
-        this.screenShake.trigger(16, 0.3);
-        this.flash('#fff', 0.3);
-        const r = stuck.health;
-        this.floatingText.add(r===2 ? '아삭! ' + vegIcon : '우적! 💥', stuck.x, stuck.y-20, r===2 ? '#8fc98f' : '#FF8C00', 34);
+        this.particles.emitBiteSparkle(stuck.x, stuck.y);
+        this.screenShake.trigger(20, 0.35);
+        this.flash('#FFA500', 0.35);
+        this.floatingText.add((typeof getLang==='function'&&getLang()==='en'?'Crunch! 💥':'으적! 💥'), stuck.x, stuck.y-20, '#FF8C00', 38);
+      } else {
+        // ── 1번째 물기(방금 잡힌 직후): 아삭 ──
+        this.sound.playBite();
+        this.particles.emitBiteSparkle(stuck.x, stuck.y);
+        this.screenShake.trigger(10, 0.2);
+        this.flash('#fff', 0.2);
+        this.floatingText.add((typeof getLang==='function'&&getLang()==='en'?'Chomp! ':' 아삭! ') + vegIcon, stuck.x, stuck.y-20, '#8fc98f', 34);
       }
       return;
     }
 
-    // 2) 가장 가까운 bouncing 양배추를 잡아서 끌어오기
+    // 2) 입 벌렸을 때 스냅샷 범위(peakBounds) 안에 있는 음식만 대상
+    const colBounds = lion.getBiteBounds();
     let best = null, bestDist = Infinity;
     for (const c of this.cabbages) {
       if (!c.isEdible()) continue;
+      // 양배추 가장자리가 충돌 범위에 닿으면 OK (반지름 고려)
+      const hr = c.getHitRadius();
+      if (c.x + hr < colBounds.left || c.x - hr > colBounds.right ||
+          c.y + hr < colBounds.top || c.y - hr > colBounds.bottom) continue;
       const dx = c.x - mouthX, dy = c.y - mouthY;
       const dist = Math.sqrt(dx*dx + dy*dy);
       if (dist < bestDist) { bestDist = dist; best = c; }
     }
 
-    if (!best) return;
+    if (!best) {
+      // 빈 물기 — 입 범위에 아무것도 없음
+      this.screenShake.trigger(4, 0.15);
+      this.logger.log('bite', { result: 'miss', playTime: Math.round(this.playTime) });
+      return;
+    }
 
     // 양배추를 입으로 끌어당기고 첫 물기
+    best._stuckLion = lion; // 어느 플레이어 입에 물렸는지 기록
     best.attractTo(mouthX, mouthY);
     const fullyEaten = best.bite();
     this.sound.playBite();
@@ -1231,10 +1586,10 @@ class GameEngine {
     this.sound.playCrush();
     this.screenShake.trigger(6, 0.15);
     this.flash('#fff', 0.12);
-    this.floatingText.add('아삭! ' + vegIcon, best.x, best.y-20, '#8fc98f', 30);
+    this.floatingText.add((typeof getLang==='function'&&getLang()==='en'?'Chomp! ':' 아삭! ') + vegIcon, best.x, best.y-20, '#8fc98f', 30);
 
     if (fullyEaten) {
-      this.score++; this.totalEaten++;
+      this.score++; this.totalEaten++; this.cycleEaten++;
       this.particles.emitEat(best.x, best.y, 5, vegIcon);
       this.floatingText.add('+1 ' + vegIcon, best.x, best.y-30, '#FFD700', 52);
       this.sound.playEatComplete();
@@ -1256,6 +1611,7 @@ class GameEngine {
 
     // 게임 끝나도 사자/파티클/쉐이크 계속 업데이트 (화면 freeze 방지)
     this.lion.update(dt);
+    if (this.coopMode) this.lion2.update(dt);
     this.particles.update(dt);
     this.floatingText.update(dt);
     this.screenShake.update(dt);
@@ -1265,23 +1621,34 @@ class GameEngine {
 
     if (this._waitingForSelection) return;
 
-    this.timeLeft -= dt;
-    // 게임 종료 조건: 시간 종료 OR 클리어 목표 달성
-    const timeUp = this.timeLeft <= 0;
-    const goalReached = this.totalEaten >= this.config.clearGoal;
-    if (timeUp || goalReached) {
-      if (timeUp) this.timeLeft = 0;
-      this.levelCleared = goalReached;
+    this.playTime += dt;
+    this.stageTime += dt;
+
+    // 20초 타이머 → 단계 종료
+    if (this.stageTime >= this.config.stageDuration) {
+      this.levelCleared = true;
       this.cabbages = [];
       this.stop();
-      this.gameEnded = true;
-      this.ending.start(this.score, this.totalBites, this.levelCleared, this.level, this.selectedVegetable);
-      this.sound.playFanfare();
-      this.flash('#FFD700', 0.6);
-      this.screenShake.trigger(15, 0.4);
-      const endPraise = goalReached ? '레벨 클리어! 대단해!' : this.score >= 10 ? '대단해요! 정말 최고야!' : this.score >= 5 ? '와 정말 잘했어!' : this.score >= 1 ? '잘했어요!' : '수고했어요!';
-      setTimeout(() => this.sound.playPraise(endPraise), 800);
-      if (this.onGameEnd) this.onGameEnd(this.score, this.levelCleared);
+      this.logger.log('stage_complete', { stage: this.stage, score: this.score, cycleEaten: this.cycleEaten, playTime: Math.round(this.playTime) });
+      // 현재 단계 결과 저장
+      this.stageResults.push({ emoji: this.selectedVegetable ? this.selectedVegetable.emoji : '🥬', count: this.cycleEaten });
+
+      if (this.stage >= this.config.totalStages) {
+        // 3단계 모두 끝 → 게임 완료
+        this.gameEnded = true;
+        this.ending.start(this.score, this.totalBites, true, this.stage, this.selectedVegetable, this.stageResults);
+        this.sound.playFanfare();
+        this.flash('#FFD700', 0.6);
+        this.screenShake.trigger(15, 0.4);
+        setTimeout(() => this.sound.playPraise(typeof getLang==='function'&&getLang()==='en'?'Amazing! All 3 stages clear!':'대단해! 3단계 모두 클리어!'), 800);
+        if (this.onGameEnd) this.onGameEnd(this.score, true);
+      } else {
+        // 다음 단계로 → 음식 선택
+        this.sound.playFanfare();
+        this.flash('#FFD700', 0.4);
+        setTimeout(() => this.sound.playPraise(typeof getLang==='function'&&getLang()==='en'?'Stage '+this.stage+' clear!':this.stage+'단계 클리어!'), 500);
+        if (this.onStageEnd) this.onStageEnd(this.stage);
+      }
       return;
     }
 
@@ -1299,18 +1666,60 @@ class GameEngine {
       }
     }
 
-    // stuck 양배추는 사자 턱 사이 위치로 고정
-    const sc = this.lion.baseScale;
-    const jawDown = this.lion.jawOpen * this.lion.jawMaxOffset * sc;
+    // stuck 양배추는 해당 악어 입 끝에 고정
     for (const c of this.cabbages) {
       if (c.phase === 'stuck') {
-        c.x = this.lion.x;
-        const upperBottom = this.lion.UPPER_H * 0.28 * sc;
-        c.y = this.lion.y + upperBottom + jawDown * 0.35;
+        const stuckLion = c._stuckLion || this.lion;
+        const mouthTip = stuckLion.getMouthTip();
+        c.x = mouthTip.x;
+        c.y = mouthTip.y;
+        // 입안 크기 스무스 보간
+        const targetScale = c.stuckSizeMultiplier || 1;
+        c.scale += (targetScale - c.scale) * Math.min(1, 8 * dt);
       }
       c.update(dt);
     }
     this.cabbages = this.cabbages.filter(c => !c.dead);
+  }
+
+  /** 3단계 씹기 진행도 UI (입 안에 물고 있을 때) */
+  drawChewingUI(ctx) {
+    const stuck = this.cabbages.find(c => c.isStuck());
+    if (!stuck) return;
+    const bites = CABBAGE_MAX_HEALTH - stuck.health; // 0, 1, 2 (먹은 횟수)
+    const total = CABBAGE_MAX_HEALTH; // 3
+    const cx = stuck.x;
+    const cy = stuck.y - stuck.size * stuck.scale * 0.7 - 12;
+    const dotR = 10;
+    const gap = 28;
+    const startX = cx - (total - 1) * gap / 2;
+
+    for (let i = 0; i < total; i++) {
+      const x = startX + i * gap;
+      const filled = i < bites;
+      // 원 배경
+      ctx.beginPath();
+      ctx.arc(x, cy, dotR, 0, Math.PI * 2);
+      ctx.fillStyle = filled ? '#FF6B00' : 'rgba(255,255,255,0.3)';
+      ctx.fill();
+      ctx.strokeStyle = filled ? '#FFD700' : 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      // 이모지 (채워진 것만)
+      if (filled) {
+        ctx.font = 'bold 13px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('✓', x, cy + 1);
+      }
+    }
+    // 라벨
+    ctx.font = 'bold 16px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4;
+    ctx.fillText(`${bites}/${total}`, cx, cy - dotR - 10);
+    ctx.shadowBlur = 0;
   }
 
   renderCameraBackground(video) {
@@ -1325,6 +1734,38 @@ class GameEngine {
     ctx.drawImage(video, sx,sy,sw,sh, 0,0, this.CW,this.CH);
     ctx.restore();
     ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(0,0, this.CW,this.CH);
+  }
+}
+
+
+// ─── Event Logger (PMF 측정용) ──────────────────────────────
+class EventLogger {
+  constructor() {
+    this.events = [];
+    this.sessionId = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+  log(type, data = {}) {
+    this.events.push({ t: Date.now(), session: this.sessionId, type, ...data });
+  }
+  toCSV() {
+    if (this.events.length === 0) return '';
+    const keys = [...new Set(this.events.flatMap(e => Object.keys(e)))];
+    const header = keys.join(',');
+    const rows = this.events.map(e => keys.map(k => {
+      const v = e[k]; return v === undefined ? '' : typeof v === 'string' && v.includes(',') ? '"' + v + '"' : v;
+    }).join(','));
+    return header + '\n' + rows.join('\n');
+  }
+  download() {
+    const csv = this.toCSV();
+    if (!csv) return;
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'waguwagu_log_' + this.sessionId + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 }
 
@@ -1344,3 +1785,4 @@ window.checkLionCollision = checkLionCollision;
 window.FOODS = FOODS;
 window.FOOD_GROUPS = FOOD_GROUPS;
 window.getEmojiImage = getEmojiImage;
+window.EventLogger = EventLogger;
