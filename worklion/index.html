@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>와구와구 게임</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #111; font-family: 'Jua', 'Apple SD Gothic Neo', system-ui, sans-serif; }
+#wrap { position: relative; overflow: hidden; width: 100vw; height: 100vh; }
+canvas { display: block; width: 100%; height: 100%; }
+
+/* ─── 캐주얼 게임 HUD ─── */
+.hud { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10; }
+.hud-top-area { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; justify-content: center; align-items: flex-start; gap: 10px; }
+
+/* 중앙: 레벨 뱃지 + 먹은 양배추 패널 */
+.hud-left { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.hud-level-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  border: 3px solid #c8860a; border-radius: 14px;
+  padding: 4px 14px; box-shadow: 0 3px 0 #b07608, 0 4px 12px rgba(0,0,0,0.3);
+  color: #fff; font-size: 20px; font-weight: 900;
+  text-shadow: 1px 1px 0 #b07608, 0 0 8px rgba(255,165,0,0.4);
+}
+.hud-level-badge .level-star { font-size: 18px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3)); }
+/* 프로그래스 (5개 이모지) */
+.hud-progress {
+  display: flex; gap: 12px; align-items: center;
+  background: none; border: none; padding: 0;
+  box-shadow: none;
+}
+.progress-dot {
+  font-size: 56px; line-height: 1; width: 64px; height: 64px;
+  text-align: center; transition: filter 0.3s, transform 0.3s;
+  filter: grayscale(1) brightness(0.35) drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  transform: scale(0.8);
+}
+.progress-dot.lit {
+  filter: drop-shadow(0 3px 10px rgba(255,215,0,0.6));
+  transform: scale(1);
+  animation: progress-pop 0.5s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes progress-pop {
+  0% { transform: scale(0.5) rotate(-15deg); }
+  50% { transform: scale(1.4) rotate(8deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+/* 음식 선택 화면 */
+.food-select-overlay {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  display: none; flex-direction: column; align-items: center; justify-content: center;
+  z-index: 35; gap: 2vh; padding: 2vh 5vw;
+}
+.food-select-title {
+  font-size: clamp(48px, 8vh, 80px); font-weight: 900; color: #FFD700;
+  text-shadow: 0 4px 0 rgba(0,0,0,0.3), 0 0 30px rgba(255,215,0,0.3);
+}
+.food-select-grid {
+  display: flex; flex-direction: column; gap: 2.5vh;
+  width: auto;
+}
+.food-group { display: flex; align-items: center; gap: clamp(12px, 2vw, 24px); }
+.food-group-label {
+  font-size: clamp(32px, 5vh, 48px); font-weight: 900; color: rgba(255,255,255,0.6);
+  text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  white-space: nowrap; width: 2.5em; text-align: center; flex-shrink: 0;
+}
+.food-group-items {
+  display: flex; flex-wrap: nowrap; gap: clamp(8px, 1.2vw, 14px);
+}
+.food-btn {
+  font-size: clamp(56px, 10vh, 96px); line-height: 1;
+  width: clamp(80px, 14vh, 130px); height: clamp(80px, 14vh, 130px);
+  background: rgba(255,255,255,0.12); border: 3px solid rgba(255,255,255,0.15);
+  border-radius: 24px; cursor: pointer;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.food-btn:hover { transform: scale(1.12); background: rgba(255,255,255,0.25); border-color: #FFD700; box-shadow: 0 0 16px rgba(255,215,0,0.4); }
+.food-btn:active { transform: scale(0.92); }
+
+/* 컨트롤 버튼 */
+.ctrl { position: absolute; bottom: 12px; right: 12px; display: flex; flex-direction: column; gap: 6px; pointer-events: all; }
+.ctrl button {
+  font-family: 'Jua', sans-serif; font-size: 13px; padding: 7px 16px; border-radius: 20px;
+  border: 2.5px solid rgba(255,255,255,0.25); background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(6px); color: #fff; cursor: pointer; font-weight: 600;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.3); transition: all 0.15s;
+}
+.ctrl button:hover { background: rgba(255,255,255,0.15); transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0,0,0,0.3); }
+.ctrl button:active { transform: translateY(1px); box-shadow: 0 0 0 rgba(0,0,0,0.3); }
+
+/* 힌트 */
+.hint {
+  position: absolute; bottom: 62px; left: 50%; transform: translateX(-50%);
+  color: rgba(255,255,255,0.75); font-size: 15px; font-weight: 700; pointer-events: none;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.3); backdrop-filter: blur(6px);
+  border: 2px solid rgba(255,255,255,0.15); border-radius: 20px;
+  padding: 8px 20px; white-space: nowrap;
+}
+
+/* 포즈 상태 */
+.pose-status {
+  position: absolute; bottom: 60px; left: 12px;
+  font-size: 14px; font-weight: 700; padding: 5px 18px; border-radius: 20px;
+  transition: all 0.2s; pointer-events: none;
+  border: 2px solid transparent; backdrop-filter: blur(4px);
+}
+.pose-status.idle { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); border-color: rgba(255,255,255,0.1); }
+.pose-status.ready { background: rgba(90,154,64,0.2); color: #a0d080; border-color: rgba(90,154,64,0.3); }
+.pose-status.detected { background: rgba(90,154,64,0.5); color: #fff; border-color: rgba(160,216,90,0.5); transform: scale(1.05); }
+.pose-status.noperson { background: rgba(255,100,100,0.15); color: rgba(255,150,150,0.7); border-color: rgba(255,100,100,0.2); }
+.start-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(160deg, #FFF6E8, #F0FFF6); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 30; transition: opacity 0.4s; overflow: hidden; }
+.start-overlay.hidden { opacity: 0; pointer-events: none; }
+.scatter-emoji { position: absolute; font-size: 32px; opacity: 0.5; pointer-events: none; }
+.scatter-emoji.anim-float { animation: scatter-float 4s ease-in-out infinite alternate; }
+.scatter-emoji.anim-orbit { animation: scatter-orbit 6s linear infinite; }
+.scatter-emoji.anim-pulse { animation: scatter-pulse 3s ease-in-out infinite; }
+.scatter-emoji.anim-drift { animation: scatter-drift 5s ease-in-out infinite alternate; }
+@keyframes scatter-float { 0% { transform: translateY(0) rotate(0deg) scale(1); } 100% { transform: translateY(-18px) rotate(20deg) scale(1.15); } }
+@keyframes scatter-orbit { 0% { transform: rotate(0deg) translateX(8px) rotate(0deg); } 100% { transform: rotate(360deg) translateX(8px) rotate(-360deg); } }
+@keyframes scatter-pulse { 0%, 100% { transform: scale(0.85); opacity: 0.3; } 50% { transform: scale(1.2); opacity: 0.7; } }
+@keyframes scatter-drift { 0% { transform: translate(0, 0) rotate(-10deg); } 100% { transform: translate(15px, -20px) rotate(15deg); } }
+.scatter-dot { position: absolute; border-radius: 50%; pointer-events: none; animation: dot-twinkle 2s ease-in-out infinite; }
+@keyframes dot-twinkle { 0%, 100% { opacity: 0.2; transform: scale(0.8); } 50% { opacity: 0.8; transform: scale(1.3); } }
+.start-title { font-size: 72px; font-weight: 900; color: #3a6e28; text-shadow: 0 4px 0 rgba(58,110,40,0.18), 0 8px 20px rgba(58,110,40,0.10); letter-spacing: 6px; }
+.start-btn-img { width: 320px; cursor: pointer; transition: transform 0.15s; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); margin-top: 8px; }
+.start-btn-img:hover { transform: scale(1.08); }
+.start-btn-img:active { transform: scale(0.95); }
+.jaw-ctrl { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); pointer-events: all; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.jaw-ctrl label { font-size: 10px; color: rgba(255,255,255,0.5); writing-mode: vertical-rl; }
+.jaw-ctrl input[type=range] { writing-mode: bt-lr; -webkit-appearance: slider-vertical; width: 20px; height: 100px; accent-color: #5b9a40; }
+#skipTutorialBtn:hover { transform: scale(1.08); }
+#skipTutorialBtn:active { transform: scale(0.95); }
+#btnRetry:hover, #btnQuit:hover { transform: scale(1.1); }
+#btnRetry:active, #btnQuit:active { transform: scale(0.95); }
+</style>
+</head>
+<body>
+
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <video id="cam" playsinline style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1"></video>
+  <div class="hud" id="hud" style="display:none">
+    <!-- 단계 아이콘: 좌상단 -->
+    <div id="hudStage" style="position:absolute;top:16px;left:16px;background:rgba(0,0,0,0.45);backdrop-filter:blur(6px);border-radius:14px;padding:6px 14px;border:2px solid rgba(255,255,255,0.15);display:flex;align-items:center;gap:4px;"></div>
+    <!-- 먹은 갯수: 중앙 상단, 크게 -->
+    <div class="hud-top-area">
+      <div class="hud-left">
+        <div class="hud-progress" id="hudProgress"></div>
+      </div>
+    </div>
+    <!-- 남은시간: 좌하단 -->
+    <div id="hudTimer" style="position:absolute;bottom:80px;left:16px;display:flex;align-items:center;justify-content:center;width:64px;height:64px;background:rgba(0,0,0,0.4);backdrop-filter:blur(6px);border-radius:50%;border:2px solid rgba(255,255,255,0.1);"></div>
+    <div class="pose-status idle" id="poseStatus">대기 중</div>
+    <div class="hint">🐊 팔을 앞으로! 한쪽 위 한쪽 아래로 벌려 → 모으면 와구! (3번 물면 터짐!)</div>
+    <div class="ctrl">
+      <button onclick="toggleDebug()">🔧 디버그</button>
+      <button onclick="spawnNew()">🥬 추가</button>
+      <button onclick="forceClear()">🏆 강제클리어</button>
+      <button onclick="engine.logger.download()">📊 로그 저장</button>
+    </div>
+    <div class="jaw-ctrl">
+      <label>하악</label>
+      <input type="range" id="jawSlider" min="0" max="100" value="0" orient="vertical"
+             oninput="engine.lion.setJawFromPose(this.value/100)">
+    </div>
+  </div>
+
+  <!-- 한번 더? / 그만할래 선택 오버레이 -->
+  <div id="choiceOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:flex-end;justify-content:center;z-index:36;pointer-events:none;padding-bottom:12vh;">
+    <div style="display:flex;gap:clamp(20px,4vw,40px);pointer-events:all;">
+      <button id="btnRetry" onclick="onChoiceRetry()" style="font-family:'Jua',sans-serif;font-size:clamp(28px,5vh,48px);padding:16px 36px;border-radius:30px;border:4px solid rgba(125,216,90,0.6);background:linear-gradient(135deg,#5b9a40,#7dd85a);color:#fff;cursor:pointer;font-weight:900;box-shadow:0 5px 0 #3a6e28,0 8px 20px rgba(0,0,0,0.3);text-shadow:2px 2px 0 #3a6e28;transition:transform 0.15s;">🔄 다른 음식 선택하기</button>
+      <button id="btnQuit" onclick="onChoiceQuit()" style="font-family:'Jua',sans-serif;font-size:clamp(28px,5vh,48px);padding:16px 36px;border-radius:30px;border:4px solid rgba(255,150,150,0.4);background:linear-gradient(135deg,#e8845a,#ff9966);color:#fff;cursor:pointer;font-weight:900;box-shadow:0 5px 0 #b05030,0 8px 20px rgba(0,0,0,0.3);text-shadow:2px 2px 0 #b05030;transition:transform 0.15s;">👋 그만할래</button>
+    </div>
+  </div>
+
+  <!-- 음식 선택 화면 -->
+  <div class="food-select-overlay" id="foodSelectOverlay">
+    <div class="food-select-title">오늘은 뭘 먹어볼까?</div>
+    <div class="food-select-grid" id="foodSelectGrid"></div>
+  </div>
+
+  <div class="start-overlay" id="startOverlay">
+    <div id="scatterContainer" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:0;"></div>
+    <img src="assets/main screen/mainIcon.png" style="width:160px; position:relative; z-index:2; filter:drop-shadow(0 4px 12px rgba(0,0,0,0.15));" alt="와구와구">
+    <div class="start-title" style="position:relative; z-index:2;">와구와구 게임</div>
+    <img src="assets/startBt/Subject.png" class="start-btn-img" style="position:relative; z-index:2;" onclick="beginGame()" alt="게임시작">
+  </div>
+  <!-- 튜토리얼 영상 -->
+  <div id="tutorialOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);display:none;align-items:center;justify-content:center;z-index:32;">
+    <div style="display:flex;align-items:center;gap:4vw;max-width:96vw;max-height:96vh;">
+      <video id="tutorialVideo" playsinline style="height:min(88vh,88vw);aspect-ratio:1/1;border-radius:20px;box-shadow:0 0 60px rgba(255,215,0,0.15);object-fit:cover;" src="assets/video/tutorial_video.mp4"></video>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:3vh;">
+        <div style="font-size:clamp(28px,4vh,44px);font-weight:900;color:#FFD700;text-shadow:0 2px 8px rgba(0,0,0,0.5);font-family:'Jua',sans-serif;text-align:center;line-height:1.3;">이렇게<br>하는 거야!</div>
+        <button id="skipTutorialBtn" onclick="skipTutorial()" style="font-family:'Jua',sans-serif;font-size:clamp(22px,3vh,34px);padding:16px 48px;border-radius:40px;border:none;background:linear-gradient(135deg,#FFD700,#FFA500);color:#fff;cursor:pointer;font-weight:900;box-shadow:0 4px 0 #b07608,0 8px 24px rgba(0,0,0,0.4);text-shadow:1px 1px 0 #b07608;transition:transform 0.15s;">시작하기</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="countdownOverlay" style="position:absolute;top:0;left:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;z-index:40;pointer-events:none;">
+    <div id="countdownText" style="font-size:110px;font-weight:900;color:#fff;text-shadow:0 0 20px rgba(0,0,0,0.7),0 0 40px rgba(0,0,0,0.4),0 4px 0 #3a6e28,0 5px 0 #2d5a1f;-webkit-text-stroke:3px #3a6e28;paint-order:stroke fill;transition:transform 0.3s ease-out, opacity 0.3s ease-out;"></div>
+  </div>
+</div>
+
+<script src="engine.js"></script>
+<script>
+const canvas = document.getElementById('c');
+canvas.width = innerWidth; canvas.height = innerHeight;
+const video = document.getElementById('cam');
+const engine = new GameEngine(canvas);
+let cameraReady = false;
+let prevEatenCount = 0;
+
+// ─── Resize ───
+function resize() {
+  const vw = innerWidth, vh = innerHeight;
+  const wrap = document.getElementById('wrap');
+  wrap.style.width = vw+'px'; wrap.style.height = vh+'px';
+  wrap.style.marginTop = '0';
+  // 캔버스 해상도도 화면에 맞춤
+  const c = document.getElementById('c');
+  c.width = vw; c.height = vh;
+  if (engine) {
+    engine.CW = vw; engine.CH = vh;
+    engine.ending.CW = vw; engine.ending.CH = vh;
+  }
+}
+addEventListener('resize', resize); resize();
+
+// ─── Camera ───
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width:{ideal:640}, height:{ideal:480}, facingMode:'user' }, audio: false });
+    video.srcObject = stream; video.setAttribute('playsinline','');
+    await video.play();
+    await new Promise(r => { if (video.videoWidth>0) return r(); video.onloadedmetadata = () => r(); });
+    cameraReady = true;
+  } catch(e) { cameraReady = false; }
+}
+
+// ─── MediaPipe Pose (1P / 2P 협동) ───
+let pose=null, pose2=null, poseAvailable=false, poseBusy=false, poseBusy2=false;
+let landmarks=null, personBBox=null;
+let poseDetected=false, prevJawOpen=0, lastBiteTime=0, jawPeak=0;
+let prevLwY=0, prevRwY=0;
+// 플레이어 2 상태
+let landmarks2=null, personBBox2=null;
+let poseDetected2=false, prevJawOpen2=0, lastBiteTime2=0, jawPeak2=0;
+let prevLwY2=0, prevRwY2=0;
+// 크롭 캔버스 (협동 모드용)
+let cropCanvas=null, cropCtx=null;
+
+function loadScript(url) {
+  return new Promise((res,rej) => { const s=document.createElement('script'); s.src=url; s.crossOrigin='anonymous'; s.onload=res; s.onerror=()=>rej(new Error('load fail: '+url)); document.head.appendChild(s); });
+}
+
+async function initPose() {
+  try {
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js');
+    const opts = { modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 };
+    pose = new Pose({ locateFile: f => 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/' + f });
+    pose.setOptions(opts);
+    pose.onResults(r => onPoseResults(r, 1));
+    await pose.send({ image: video });
+
+    // 항상 2인 감지 초기화 (1~2명 자동)
+    pose2 = new Pose({ locateFile: f => 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/' + f });
+    pose2.setOptions(opts);
+    pose2.onResults(r => onPoseResults(r, 2));
+    cropCanvas = document.createElement('canvas');
+    cropCtx = cropCanvas.getContext('2d');
+    await pose2.send({ image: video });
+    poseAvailable = true;
+    requestAnimationFrame(poseLoop);
+  } catch(e) { poseAvailable = false; }
+}
+
+async function poseLoop() {
+  if (video.readyState < 2) { requestAnimationFrame(poseLoop); return; }
+  const vw = video.videoWidth, vh = video.videoHeight;
+
+  if (engine.coopMode && pose2) {
+    // 협동: 좌/우 절반 크롭해서 각각 보내기
+    const halfW = Math.floor(vw / 2);
+    cropCanvas.width = halfW; cropCanvas.height = vh;
+    // P1: 오른쪽 절반 (카메라 미러링 → 화면 왼쪽 = 영상 오른쪽)
+    if (!poseBusy) { poseBusy=true; cropCtx.drawImage(video, halfW, 0, halfW, vh, 0, 0, halfW, vh); try { await pose.send({image:cropCanvas}); } catch(e){} poseBusy=false; }
+    // P2: 왼쪽 절반 (화면 오른쪽 = 영상 왼쪽)
+    if (!poseBusy2) { poseBusy2=true; cropCtx.drawImage(video, 0, 0, halfW, vh, 0, 0, halfW, vh); try { await pose2.send({image:cropCanvas}); } catch(e){} poseBusy2=false; }
+  } else {
+    // 1인: 전체 영상
+    if (!poseBusy) { poseBusy=true; try { await pose.send({image:video}); } catch(e){} poseBusy=false; }
+  }
+  requestAnimationFrame(poseLoop);
+}
+
+function onPoseResults(r, playerNum) {
+  const lm_raw = r.poseLandmarks || null;
+  const isP2 = playerNum === 2;
+  const lion = isP2 ? engine.lion2 : engine.lion;
+
+  if (!lm_raw) {
+    if (isP2) { landmarks2=null; personBBox2=null; poseDetected2=false; }
+    else { landmarks=null; personBBox=null; poseDetected=false; }
+    return;
+  }
+
+  // 협동 모드: 크롭된 좌표를 전체 화면 좌표로 변환
+  let lm;
+  if (engine.coopMode) {
+    lm = lm_raw.map(l => {
+      // 크롭 절반이므로 x를 0.5배 축소 후 오프셋
+      const nx = isP2 ? l.x * 0.5 : l.x * 0.5 + 0.5; // P1=오른쪽, P2=왼쪽
+      return { ...l, x: nx };
+    });
+  } else {
+    lm = lm_raw;
+  }
+
+  // 바운딩박스 체크
+  let x0=1,x1=0,y0=1,y1=0;
+  lm.forEach(l => { if(l.visibility>0.3){x0=Math.min(x0,l.x);x1=Math.max(x1,l.x);y0=Math.min(y0,l.y);y1=Math.max(y1,l.y);} });
+  const bbox = {x:x0,y:y0,width:x1-x0,height:y1-y0};
+  if (!engine.coopMode && bbox.width * bbox.height < 0.15) {
+    if (isP2) { landmarks2=null; personBBox2=null; poseDetected2=false; }
+    else { landmarks=null; personBBox=null; poseDetected=false; }
+    return;
+  }
+
+  if (isP2) { landmarks2=lm; personBBox2=bbox; }
+  else { landmarks=lm; personBBox=bbox; }
+
+  const ls=lm[11],rs=lm[12],lw=lm[15],rw=lm[16];
+  const le=lm[13],re=lm[14];
+  const lh=lm[23],rh=lm[24];
+  const lf=lm[19],rf=lm[20];
+
+  if (ls.visibility>0.4 && rs.visibility>0.4) {
+    lion.x = (1-(ls.x+rs.x)/2)*engine.CW;
+    const shoulderWidthPx = Math.abs(rs.x-ls.x)*engine.CW;
+    lion.targetScale = Math.max(0.3, Math.min(2.0, shoulderWidthPx / lion.UPPER_W * 1.3));
+    lion.y = (ls.y+rs.y)/2*engine.CH;
+    lion.setPose({ ls, rs, lw, rw, le, re, lh, rh, lf, rf, nose: lm[0], CW: engine.CW, CH: engine.CH });
+  }
+
+  const armsVisible = lw.visibility>0.4 && rw.visibility>0.4 && ls.visibility>0.4 && rs.visibility>0.4;
+  // 각 플레이어 독립 상태
+  let _prevLwY, _prevRwY, _jawPeak, _lastBite, _prevJaw;
+  if (isP2) { _prevLwY=prevLwY2; _prevRwY=prevRwY2; _jawPeak=jawPeak2; _lastBite=lastBiteTime2; _prevJaw=prevJawOpen2; }
+  else { _prevLwY=prevLwY; _prevRwY=prevRwY; _jawPeak=jawPeak; _lastBite=lastBiteTime; _prevJaw=prevJawOpen; }
+
+  if (armsVisible) {
+    if (isP2) poseDetected2=true; else poseDetected=true;
+    const lwVelY = lw.y - _prevLwY;
+    const rwVelY = rw.y - _prevRwY;
+    _prevLwY = lw.y; _prevRwY = rw.y;
+    const oppositeScore = -(lwVelY * rwVelY);
+    const wristDiff = Math.abs(lw.y - rw.y);
+    const jawThreshold = 0.04, jawMax = 0.22;
+    const jawAmount = wristDiff > jawThreshold ? Math.min(1, (wristDiff - jawThreshold) / (jawMax - jawThreshold)) : 0;
+    lion.setJawFromPose(jawAmount);
+    const now = performance.now();
+    if (jawAmount > (_jawPeak || 0) && oppositeScore > 0.00001) _jawPeak = jawAmount;
+    if (_jawPeak >= 0.12 && jawAmount <= 0.04 && now - _lastBite > 150 && engine.running) {
+      engine.tryBite(lion); _lastBite = now; _jawPeak = 0;
+    }
+    if (_jawPeak > 0 && jawAmount < _jawPeak * 0.3) _jawPeak *= 0.95;
+    _prevJaw = jawAmount;
+  } else {
+    if (isP2) poseDetected2=false; else poseDetected=false;
+    lion.setJawFromPose(0); _prevJaw=0;
+  }
+
+  // 상태 저장
+  if (isP2) { prevLwY2=_prevLwY; prevRwY2=_prevRwY; jawPeak2=_jawPeak; lastBiteTime2=_lastBite; prevJawOpen2=_prevJaw; }
+  else { prevLwY=_prevLwY; prevRwY=_prevRwY; jawPeak=_jawPeak; lastBiteTime=_lastBite; prevJawOpen=_prevJaw; }
+}
+
+// ─── Skeleton debug ───
+function drawSkeleton(ctx) {
+  if (!landmarks) return;
+  const lm=landmarks, CW=engine.CW, CH=engine.CH;
+  const conn=[[11,13],[13,15],[12,14],[14,16],[11,12],[11,23],[12,24],[23,25],[25,27],[24,26],[26,28],[23,24]];
+  ctx.strokeStyle='rgba(90,154,64,0.6)'; ctx.lineWidth=2;
+  conn.forEach(([a,b])=>{ if(lm[a].visibility>0.3&&lm[b].visibility>0.3){ ctx.beginPath(); ctx.moveTo((1-lm[a].x)*CW,lm[a].y*CH); ctx.lineTo((1-lm[b].x)*CW,lm[b].y*CH); ctx.stroke(); }});
+  ctx.fillStyle='rgba(160,208,128,0.8)';
+  lm.forEach(l=>{ if(l.visibility>0.3){ ctx.beginPath(); ctx.arc((1-l.x)*CW,l.y*CH,4,0,Math.PI*2); ctx.fill(); }});
+}
+
+// ─── HUD ───
+function updatePoseStatus() {
+  const el=document.getElementById('poseStatus'); if(!el) return;
+  if(!poseAvailable&&!cameraReady){el.className='pose-status idle';el.textContent='키보드 모드';}
+  else if(!landmarks){el.className='pose-status noperson';el.textContent='사람 미감지';}
+  else if(poseDetected&&prevJawOpen>0.5){el.className='pose-status detected';el.textContent='악어 입! 벌림!';}
+  else if(poseDetected){el.className='pose-status detected';el.textContent='팔 인식 중';}
+  else{el.className='pose-status ready';el.textContent='팔을 앞으로 뻗어보세요';}
+}
+let _prevHudEaten = -1;
+function updateProgress() {
+  const stage = engine.stage;
+  const total = engine.config.totalStages;
+  const eaten = engine.cycleEaten;
+  const emoji = engine.selectedVegetable ? engine.selectedVegetable.emoji : '🥬';
+  const dur = engine.config.stageDuration;
+  const remaining = Math.max(0, dur - engine.stageTime);
+  const remainSec = Math.ceil(remaining);
+
+  // ① 단계 텍스트 (좌상단)
+  const stageEl = document.getElementById('hudStage');
+  stageEl.innerHTML = `<span style="font-size:18px;font-weight:900;color:#FFD700;text-shadow:0 1px 3px rgba(0,0,0,0.4);">${stage} / ${total} 단계</span>`;
+
+  // ② 먹은 갯수 (중앙, 크게) — 변경 시에만 DOM 업데이트
+  if (eaten !== _prevHudEaten) {
+    const el = document.getElementById('hudProgress');
+    let h = '';
+    for (let i = 0; i < eaten; i++) {
+      const isNew = i === eaten - 1 && eaten > _prevHudEaten;
+      h += `<div class="progress-dot lit${isNew ? ' new' : ''}">${emoji}</div>`;
+    }
+    el.innerHTML = h;
+    _prevHudEaten = eaten;
+  }
+
+  // ③ 남은시간 (좌하단) — 원형 타이머 + 숫자
+  const timerEl = document.getElementById('hudTimer');
+  const pct = remaining / dur;
+  const barColor = remaining > 10 ? '#4cdf6b' : remaining > 5 ? '#ffb830' : '#ff4444';
+  const pulse = remaining <= 5 ? 'animation:progress-pop 0.5s infinite;' : '';
+  const r = 22, cx = 26, cy = 26, stroke = 5;
+  const circ = 2 * Math.PI * r;
+  const dashOffset = circ * (1 - pct);
+  timerEl.innerHTML =
+    `<svg width="52" height="52" style="transform:rotate(-90deg);">` +
+      `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="${stroke}"/>` +
+      `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${barColor}" stroke-width="${stroke}" ` +
+        `stroke-dasharray="${circ}" stroke-dashoffset="${dashOffset}" stroke-linecap="round"/>` +
+    `</svg>` +
+    `<span style="position:absolute;left:0;width:52px;text-align:center;font-size:16px;font-weight:900;color:${barColor};text-shadow:0 1px 3px rgba(0,0,0,0.5);${pulse}">${remainSec}</span>`;
+}
+
+// ─── Game loop ───
+let showSkeleton = false;
+function loop(ts) {
+  engine.tick(ts);
+  const ctx = engine.ctx;
+  ctx.clearRect(0, 0, engine.CW, engine.CH);
+
+  // 스크린 쉐이크
+  ctx.save();
+  ctx.translate(engine.screenShake.offsetX, engine.screenShake.offsetY);
+
+  if (cameraReady) {
+    engine.renderCameraBackground(video);
+    if (showSkeleton) drawSkeleton(ctx);
+  } else {
+    const bg=ctx.createLinearGradient(0,0,0,engine.CH);
+    bg.addColorStop(0,'#FFF6E8'); bg.addColorStop(1,'#F0FFF6');
+    ctx.fillStyle=bg; ctx.fillRect(0,0,engine.CW,engine.CH);
+  }
+
+  // 레이어 순서: 하악 → 상악 → 양배추 → 파티클
+  engine.lion.drawLowerJaw(ctx);
+  engine.lion.drawUpperJaw(ctx);
+  if (poseDetected2) {
+    engine.lion2.drawLowerJaw(ctx);
+    engine.lion2.drawUpperJaw(ctx);
+  }
+  if (!engine.gameEnded) for (const c of engine.cabbages) c.draw(ctx);
+  if (!engine.gameEnded) engine.drawChewingUI(ctx);
+  engine.particles.draw(ctx);
+  engine.floatingText.draw(ctx);
+
+  // 화면 플래시
+  if (engine.flashAlpha > 0) {
+    ctx.globalAlpha=engine.flashAlpha; ctx.fillStyle=engine.flashColor;
+    ctx.fillRect(0,0,engine.CW,engine.CH); ctx.globalAlpha=1;
+  }
+
+  // 디버그: 충돌 범위 (lion 이미지 = 충돌 범위) 빨간 쉐이드
+  if (engine.debugMode) {
+    engine.lion.drawCollisionDebug(ctx);
+    if (poseDetected2) engine.lion2.drawCollisionDebug(ctx);
+    for (const c of engine.cabbages) {
+      if(c.dead)continue;
+      ctx.beginPath(); ctx.arc(c.x,c.y,c.getHitRadius(),0,Math.PI*2);
+      ctx.strokeStyle=c.isEdible()?'rgba(0,255,0,0.5)':'rgba(255,255,0,0.3)'; ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(`HP:${c.health} S:${c.crushState}`, c.x, c.y-c.size/2-10);
+    }
+  }
+
+  // 엔딩 (캔버스 위에 직접 그림)
+  engine.ending.draw(ctx);
+
+  ctx.restore(); // 스크린 쉐이크 해제
+
+  // HUD (게임 중 타이머 실시간 업데이트)
+  if (engine.running && !engine._waitingForSelection) {
+    updateProgress();
+  }
+  updatePoseStatus();
+
+  requestAnimationFrame(loop);
+}
+
+// ─── Init ───
+async function initAll() {
+  await engine.init();
+  await startCamera();
+  if (cameraReady) await initPose();
+  engine._lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
+initAll();
+
+// 단계 종료 → 1.5초 후 자동으로 다음 단계 음식 선택
+engine.onStageEnd = (completedStage) => {
+  setTimeout(() => {
+    prevEatenCount = 0;
+    engine.startNextStage();
+  }, 1500);
+};
+
+engine.onGameEnd = (score) => {
+  document.getElementById('hud').style.display = 'none';
+  // 1.5초 후 "한번 더?/그만할래" 버튼 표시
+  choiceTimer = setTimeout(() => {
+    document.getElementById('choiceOverlay').style.display = 'flex';
+    choiceShownAt = Date.now();
+    // 10초 무응답 감지
+    choiceTimeoutTimer = setTimeout(() => {
+      engine.logger.log('choice_timeout', { playTime: Math.round(engine.playTime) });
+    }, 10000);
+  }, 1500);
+};
+
+let choiceTimer = null, choiceTimeoutTimer = null, choiceShownAt = 0;
+
+function onChoiceRetry() {
+  clearTimeout(choiceTimeoutTimer);
+  document.getElementById('choiceOverlay').style.display = 'none';
+  const reactionMs = Date.now() - choiceShownAt;
+  engine.logger.log('choice', { choice: 'retry', reactionMs, cycle: engine.level, playTime: Math.round(engine.playTime) });
+  prevEatenCount = 0;
+  engine.startNextCycle();
+}
+
+function onChoiceQuit() {
+  clearTimeout(choiceTimeoutTimer);
+  document.getElementById('choiceOverlay').style.display = 'none';
+  const reactionMs = Date.now() - choiceShownAt;
+  engine.logger.log('choice', { choice: 'quit', reactionMs, cycle: engine.level, totalScore: engine.score, playTime: Math.round(engine.playTime) });
+  // 시작 화면으로 돌아가기
+  engine.ending.stop();
+  engine.gameEnded = false;
+  document.getElementById('startOverlay').classList.remove('hidden');
+  // CSV 자동 다운로드 비활성화 (수동 버튼으로만 가능)
+}
+
+// 음식 선택 UI
+engine.onShowFoodSelect = () => {
+  const overlay = document.getElementById('foodSelectOverlay');
+  const grid = document.getElementById('foodSelectGrid');
+  grid.innerHTML = '';
+  FOOD_GROUPS.forEach(group => {
+    const row = document.createElement('div');
+    row.className = 'food-group';
+    const label = document.createElement('div');
+    label.className = 'food-group-label';
+    label.textContent = group.label;
+    row.appendChild(label);
+    const items = document.createElement('div');
+    items.className = 'food-group-items';
+    group.items.forEach(food => {
+      const btn = document.createElement('button');
+      btn.className = 'food-btn';
+      btn.textContent = food.emoji;
+      btn.title = food.name;
+      btn.onclick = () => {
+        overlay.style.display = 'none';
+        engine.selectFood(food);
+        prevEatenCount = -1; _prevHudEaten = -1;
+        updateProgress();
+        // 선택 후 카운트다운 → 게임 시작
+        playCountdownAndStart();
+      };
+      items.appendChild(btn);
+    });
+    row.appendChild(items);
+    grid.appendChild(row);
+  });
+  overlay.style.display = 'flex';
+};
+
+function playCountdownAndStart() {
+  document.getElementById('hud').style.display = 'block';
+  prevEatenCount = -1; _prevHudEaten = -1;
+  updateProgress();
+
+  const overlay = document.getElementById('countdownOverlay');
+  const text = document.getElementById('countdownText');
+  overlay.style.display = 'flex';
+
+  engine.sound.playReady();
+
+  setTimeout(() => {
+    text.textContent = '준비';
+    text.style.transform = 'scale(1)';
+    text.style.opacity = '1';
+  }, 500);
+
+  setTimeout(() => {
+    text.style.transform = 'scale(1.3)';
+    text.style.opacity = '0';
+  }, 1400);
+
+  setTimeout(() => {
+    text.textContent = '시작!';
+    text.style.transition = 'none';
+    text.style.transform = 'scale(0.5)';
+    text.style.opacity = '0';
+    requestAnimationFrame(() => {
+      text.style.transition = 'transform 0.3s ease-out, opacity 0.3s ease-out';
+      text.style.transform = 'scale(1)';
+      text.style.opacity = '1';
+    });
+  }, 2000);
+
+  setTimeout(() => {
+    text.style.transform = 'scale(1.3)';
+    text.style.opacity = '0';
+    setTimeout(() => { overlay.style.display = 'none'; }, 400);
+    engine.startGame();
+  }, 2900);
+}
+
+async function beginGame() {
+  document.getElementById('startOverlay').classList.add('hidden');
+  await engine.sound.resume();
+  showTutorial();
+}
+
+function showTutorial() {
+  const overlay = document.getElementById('tutorialOverlay');
+  const vid = document.getElementById('tutorialVideo');
+  overlay.style.display = 'flex';
+  vid.currentTime = 0;
+  vid.play().catch(() => {});
+  // 영상 끝나면 자동으로 '시작하기' 버튼 강조
+  vid.onended = () => {
+    document.getElementById('skipTutorialBtn').style.animation = 'progress-pop 0.5s cubic-bezier(0.34,1.56,0.64,1)';
+  };
+}
+
+function skipTutorial() {
+  const overlay = document.getElementById('tutorialOverlay');
+  const vid = document.getElementById('tutorialVideo');
+  vid.pause();
+  overlay.style.display = 'none';
+  engine.showFoodSelect();
+}
+
+function toggleDebug() { engine.debugMode = !engine.debugMode; showSkeleton = !showSkeleton; }
+function spawnNew() { engine.spawnCabbage(); }
+function forceClear() {
+  if (!engine.running) return;
+  engine.stageTime = engine.config.stageDuration; // 타이머 강제 종료
+}
+
+// ─── Input ───
+addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'Enter') {
+    // 게임 끝났을 때는 "한번 더?/그만할래" 버튼으로만 진행
+    if (engine.gameEnded) {
+      e.preventDefault();
+      return;
+    }
+    if (!engine.running) {
+      beginGame();
+    } else {
+      engine.tryBite();
+      if (engine.coopMode) engine.tryBite(engine.lion2);
+    }
+    e.preventDefault();
+  }
+});
+addEventListener('touchend', e => {
+  if (engine.gameEnded) return;
+  if (engine.running) {
+    engine.tryBite();
+    if (engine.coopMode) engine.tryBite(engine.lion2);
+  }
+}, { passive: true });
+
+// ─── Start screen particles (이모지 + 반짝이 도트 + 다양한 애니메이션) ───
+(function() {
+  const emojiPool = ['🥬','⭐','💚','🌿','✨','🎉','🦁','🌟','💫','🎈','🎀','🏆'];
+  const animClasses = ['anim-float', 'anim-orbit', 'anim-pulse', 'anim-drift'];
+  const dotColors = ['#FFD700','#a0d080','#FF6B9D','#4D96FF','#C084FC','#FB923C','#34D399','#FBBF24'];
+  const container = document.getElementById('scatterContainer');
+
+  // 이모지 파티클 (40개, 화면 전체에 예쁘게)
+  for (let i = 0; i < 40; i++) {
+    const angle = (Math.PI * 2 / 40) * i + (Math.random() - 0.5) * 0.6;
+    const ring = i < 16 ? Math.random() * 0.25 : i < 30 ? 0.18 + Math.random() * 0.25 : 0.35 + Math.random() * 0.2;
+    const px = 50 + Math.cos(angle) * ring * 105;
+    const py = 50 + Math.sin(angle) * ring * 100;
+    const sizeFactor = 1 - ring * 0.6;
+    const el = document.createElement('span');
+    el.className = 'scatter-emoji ' + animClasses[i % animClasses.length];
+    el.textContent = emojiPool[Math.floor(Math.random() * emojiPool.length)];
+    el.style.left = px + '%';
+    el.style.top = py + '%';
+    el.style.fontSize = (16 + 30 * sizeFactor + Math.random() * 10) + 'px';
+    el.style.opacity = (0.15 + 0.45 * sizeFactor).toFixed(2);
+    el.style.animationDelay = (Math.random() * -6) + 's';
+    el.style.animationDuration = (2.5 + Math.random() * 4) + 's';
+    container.appendChild(el);
+  }
+
+  // 반짝이 도트 파티클 (25개, 작은 원형 반짝임)
+  for (let i = 0; i < 25; i++) {
+    const px = 5 + Math.random() * 90;
+    const py = 5 + Math.random() * 90;
+    const size = 3 + Math.random() * 8;
+    const dot = document.createElement('div');
+    dot.className = 'scatter-dot';
+    dot.style.left = px + '%';
+    dot.style.top = py + '%';
+    dot.style.width = size + 'px';
+    dot.style.height = size + 'px';
+    dot.style.background = dotColors[Math.floor(Math.random() * dotColors.length)];
+    dot.style.animationDelay = (Math.random() * -3) + 's';
+    dot.style.animationDuration = (1.5 + Math.random() * 2.5) + 's';
+    container.appendChild(dot);
+  }
+})();
+</script>
+</body>
+</html>
