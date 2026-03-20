@@ -894,19 +894,14 @@ class Lion {
     }
     const { CW, CH } = p;
     const cx = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
-    const cy = (this._py(p.ls, CW, CH) + this._py(p.rs, CW, CH)) / 2;
     const facingRight = this._getFacingRight();
-    const shoulderW = Math.abs(this._px(p.ls, CW, CH) - this._px(p.rs, CW, CH));
-    const jawW = Math.max(100, shoulderW * 2.2);
-    const maxAngle = Math.PI / 7;
-    const openAngle = this.jawOpen * maxAngle;
-    const spread = jawW * Math.sin(openAngle) + 20;
-    const reach = jawW * Math.cos(openAngle);
-    const left  = facingRight ? cx         : cx - reach;
-    const right = facingRight ? cx + reach : cx;
-    return { left, top: cy - spread, right, bottom: cy + spread,
-      width: reach, height: spread * 2,
-      centerX: (left + right) / 2, centerY: cy };
+    // 좌우 방향만 맞으면 먹힘: 악어가 향하는 쪽 화면 절반 전체
+    // facingRight=true → 악어 왼쪽, facingRight=false → 악어 오른쪽
+    const left  = facingRight ? 0  : cx;
+    const right = facingRight ? cx : CW;
+    return { left, top: 0, right, bottom: CH,
+      width: right - left, height: CH,
+      centerX: (left + right) / 2, centerY: CH / 2 };
   }
 
   /** 물기 판정용 충돌 범위 (입이 벌어져 있을 때 스냅샷) */
@@ -924,7 +919,8 @@ class Lion {
     const facingRight = this._getFacingRight();
     const shoulderW = Math.abs(this._px(p.ls, CW, CH) - this._px(p.rs, CW, CH));
     const jawW = Math.max(100, shoulderW * 2.2);
-    return { x: facingRight ? cx + jawW * 0.9 : cx - jawW * 0.9, y: cy };
+    // facingRight=true → 악어 왼쪽, facingRight=false → 악어 오른쪽
+    return { x: facingRight ? cx - jawW * 0.9 : cx + jawW * 0.9, y: cy };
   }
 
   drawCollisionDebug(ctx) {
