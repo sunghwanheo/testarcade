@@ -749,55 +749,39 @@ class Lion {
     return { x: wx + dx * 0.5, y: wy + dy * 0.5 };
   }
 
-  /** 팔을 따라 악어 턱 이미지 그리기 */
-  _drawJaw(ctx, arm, isUpper, CW, CH) {
+  /** 어깨 중심에서 좌/우 방향으로 나오는 악어 턱 */
+  _drawJaw(ctx, isUpper, CW, CH) {
     const img = isUpper ? Assets.croc.upper : Assets.croc.lower;
     if (!img) return;
-
-    // 시작점: 상악은 반대쪽 어깨에서 시작 (입이 팔 끝에서 나오는 느낌)
     const p = this._getRenderPose();
-    let sx, sy;
-    if (isUpper) {
-      // 상악: 반대쪽 어깨에서 시작
-      const otherShoulder = (arm.shoulder === p.ls) ? p.rs : p.ls;
-      sx = this._px(otherShoulder, CW, CH);
-      sy = this._py(otherShoulder, CW, CH);
-    } else {
-      sx = this._px(arm.shoulder, CW, CH);
-      sy = this._py(arm.shoulder, CW, CH);
-    }
-    const end = this._getArmEnd(arm, CW, CH);
-    const wx = end.x, wy = end.y;
+    if (!p) return;
 
-    // 시작점→손가락끝 방향 각도
-    const angle = Math.atan2(wy - sy, wx - sx);
+    // 어깨 중심점
+    const cx = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
+    const cy = (this._py(p.ls, CW, CH) + this._py(p.rs, CW, CH)) / 2;
 
-    // 팔 골격 길이 (어깨→팔꿈치→손목→손끝) 기반으로 일정한 크기 유지
-    const shX = this._px(arm.shoulder, CW, CH), shY = this._py(arm.shoulder, CW, CH);
-    const elX = this._px(arm.elbow, CW, CH), elY = this._py(arm.elbow, CW, CH);
-    const wrX = this._px(arm.wrist, CW, CH), wrY = this._py(arm.wrist, CW, CH);
-    const boneLen = Math.sqrt((elX-shX)**2 + (elY-shY)**2)
-                  + Math.sqrt((wrX-elX)**2 + (wrY-elY)**2) * 1.5; // 손가락끝까지 포함
+    const facingRight = this._getFacingRight();
 
-    // 이미지 비율 유지하며 팔 골격 길이에 맞춤
+    // 어깨 너비 기반 크기
+    const shoulderW = Math.abs(this._px(p.ls, CW, CH) - this._px(p.rs, CW, CH));
+    const jawW = Math.max(100, shoulderW * 2.2);
     const aspect = img.naturalWidth / img.naturalHeight;
-    const jawW = boneLen * 1.05;
     const jawH = jawW / aspect;
 
+    // 입 열림 각도 (최대 26도): 상악은 위로, 하악은 아래로
+    const maxAngle = Math.PI / 7;
+    const openAngle = this.jawOpen * maxAngle;
+    const angle = isUpper ? -openAngle : openAngle;
+
+    // 닫혔을 때 상악 하단·하악 상단이 어깨 중심선에서 맞닿음
+    const offsetY = isUpper ? -jawH : 0;
+
     ctx.save();
-    ctx.translate(sx, sy);
+    ctx.translate(cx, cy);
+    if (facingRight) ctx.scale(-1, 1); // 손목이 왼쪽 → scale로 악어를 왼쪽으로 뻗음
     ctx.rotate(angle);
-
-    // 팔이 왼쪽을 향할 때(|angle| > 90°) 이미지가 뒤집혀 보이므로 세로 flip
-    const needsFlip = Math.abs(angle) > Math.PI / 2;
-    if (needsFlip) {
-      ctx.scale(1, -1);
-    }
-
-    // 이미지 좌우 반전: drawImage에 음수 width로 미러링 (눈→어깨쪽, 입끝→손가락쪽)
-    const offsetY = isUpper ? -jawH * 0.7 : -jawH * 0.3;
-    ctx.drawImage(img, jawW * 0.95, offsetY, -jawW, jawH);
-
+    // 얼굴(눈) = x=0 (어깨 중심), 입/주둥이 끝 = x=jawW (바깥 방향)
+    ctx.drawImage(img, 0, offsetY, jawW, jawH);
     ctx.restore();
   }
 
@@ -842,23 +826,15 @@ class Lion {
   }
 
   drawLowerJaw(ctx) {
-    const arms = this._getJawArms();
-    if (!arms) {
-      this._drawFallbackJaw(ctx, false);
-      return;
-    }
     const rp = this._getRenderPose();
-    this._drawJaw(ctx, arms.lower, false, rp.CW, rp.CH);
+    if (!rp) { this._drawFallbackJaw(ctx, false); return; }
+    this._drawJaw(ctx, false, rp.CW, rp.CH);
   }
 
   drawUpperJaw(ctx) {
-    const arms = this._getJawArms();
-    if (!arms) {
-      this._drawFallbackJaw(ctx, true);
-      return;
-    }
     const rp = this._getRenderPose();
-    this._drawJaw(ctx, arms.upper, true, rp.CW, rp.CH);
+    if (!rp) { this._drawFallbackJaw(ctx, true); return; }
+    this._drawJaw(ctx, true, rp.CW, rp.CH);
   }
 
   /** 몸통 (z-index 최상단 — 상악/하악 위에 그림) */
@@ -902,11 +878,10 @@ class Lion {
 
   draw(ctx) { this.drawLowerJaw(ctx); this.drawUpperJaw(ctx); }
 
-  /** 충돌 범위 = 상악 손목 ~ 하악 손목 사이 직사각형 */
+  /** 충돌 범위 = 어깨 중심 ~ 주둥이 끝 사이 영역 */
   getCollisionBounds() {
-    const arms = this._getJawArms();
-    if (!arms) {
-      // fallback
+    const p = this._getRenderPose();
+    if (!p) {
       const sc = this.baseScale;
       const jawDown = this.jawOpen * this.jawMaxOffset * sc;
       const w = 200 * sc;
@@ -917,24 +892,21 @@ class Lion {
         centerX: this.x, centerY: this.y + jawDown / 2,
       };
     }
-    const { CW, CH } = this.pose;
-    const u = arms.upper, l = arms.lower;
-    // 상악/하악: 어깨~손가락끝 사이 영역
-    const usx = this._px(u.shoulder, CW, CH), usy = this._py(u.shoulder, CW, CH);
-    const ue = this._getArmEnd(u, CW, CH);
-    const lsx = this._px(l.shoulder, CW, CH), lsy = this._py(l.shoulder, CW, CH);
-    const le = this._getArmEnd(l, CW, CH);
-
-    const allX = [usx, ue.x, lsx, le.x];
-    const allY = [usy, ue.y, lsy, le.y];
-    const left = Math.min(...allX);
-    const right = Math.max(...allX);
-    const top = Math.min(...allY);
-    const bottom = Math.max(...allY);
-    const width = right - left;
-    const height = bottom - top;
-    return { left, top, right, bottom, width, height,
-      centerX: (left + right) / 2, centerY: (top + bottom) / 2 };
+    const { CW, CH } = p;
+    const cx = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
+    const cy = (this._py(p.ls, CW, CH) + this._py(p.rs, CW, CH)) / 2;
+    const facingRight = this._getFacingRight();
+    const shoulderW = Math.abs(this._px(p.ls, CW, CH) - this._px(p.rs, CW, CH));
+    const jawW = Math.max(100, shoulderW * 2.2);
+    const maxAngle = Math.PI / 7;
+    const openAngle = this.jawOpen * maxAngle;
+    const spread = jawW * Math.sin(openAngle) + 20;
+    const reach = jawW * Math.cos(openAngle);
+    const left  = facingRight ? cx         : cx - reach;
+    const right = facingRight ? cx + reach : cx;
+    return { left, top: cy - spread, right, bottom: cy + spread,
+      width: reach, height: spread * 2,
+      centerX: (left + right) / 2, centerY: cy };
   }
 
   /** 물기 판정용 충돌 범위 (입이 벌어져 있을 때 스냅샷) */
@@ -942,14 +914,17 @@ class Lion {
     return this._peakBounds || this.getCollisionBounds();
   }
 
-  /** 입 끝 위치 (양 손가락끝 중간점) — 자석 끌어오기 타겟 */
+  /** 입 끝 위치 (주둥이 끝) — 자석 끌어오기 타겟 */
   getMouthTip() {
-    const arms = this._getJawArms();
-    if (!arms) return { x: this.x, y: this.y };
-    const { CW, CH } = this.pose;
-    const ue = this._getArmEnd(arms.upper, CW, CH);
-    const le = this._getArmEnd(arms.lower, CW, CH);
-    return { x: (ue.x + le.x) / 2, y: (ue.y + le.y) / 2 };
+    const p = this._getRenderPose();
+    if (!p) return { x: this.x, y: this.y };
+    const { CW, CH } = p;
+    const cx = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
+    const cy = (this._py(p.ls, CW, CH) + this._py(p.rs, CW, CH)) / 2;
+    const facingRight = this._getFacingRight();
+    const shoulderW = Math.abs(this._px(p.ls, CW, CH) - this._px(p.rs, CW, CH));
+    const jawW = Math.max(100, shoulderW * 2.2);
+    return { x: facingRight ? cx + jawW * 0.9 : cx - jawW * 0.9, y: cy };
   }
 
   drawCollisionDebug(ctx) {
