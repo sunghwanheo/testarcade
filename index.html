@@ -158,6 +158,14 @@
 
         }
     </style>
+    <script>
+        (function () {
+            const lang = new URLSearchParams(window.location.search).get('lang');
+            if (lang === 'en' || lang === 'ko') {
+                localStorage.setItem('gemgem_lang', lang);
+            }
+        })();
+    </script>
     <script src="./lang.js"></script>
 </head>
 
@@ -272,10 +280,6 @@
                 throw new Error('[접근차단] site 파라미터 없음');
             }
             localStorage.setItem(SITE_KEY, site);
-            const lang = params.get('lang');
-            if (lang === 'en' || lang === 'ko') {
-                localStorage.setItem('gemgem_lang', lang);
-            }
         })();
 
         function getSite() {
@@ -311,7 +315,7 @@
             sendLog({ event: 'visit', session_id: sessionId, site: getSite(), locale: getLocale() });
         })();
     </script>
-    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.12.1 (2026-03-23)</div>
+    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.12.2 (2026-03-23)</div>
 </body>
 
 </html>
