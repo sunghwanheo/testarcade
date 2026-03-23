@@ -59,7 +59,17 @@ description: Add Korean/English bilingual support to HTML games with a language 
 
   function updateBtn(l) {
     const btn = document.getElementById('lang-btn');
-    if (btn) btn.textContent = l === 'ko' ? 'EN' : '한';
+    if (!btn) return;
+    const koStyle = l === 'ko'
+      ? 'color:#fff;font-weight:900;'
+      : 'color:rgba(255,255,255,0.35);font-weight:400;';
+    const enStyle = l === 'en'
+      ? 'color:#fff;font-weight:900;'
+      : 'color:rgba(255,255,255,0.35);font-weight:400;';
+    btn.innerHTML =
+      '<span style="' + koStyle + '">KO</span>' +
+      '<span style="color:rgba(255,255,255,0.3);margin:0 4px;">|</span>' +
+      '<span style="' + enStyle + '">EN</span>';
   }
 
   function injectBtn() {
@@ -69,12 +79,12 @@ description: Add Korean/English bilingual support to HTML games with a language 
     btn.onclick = window.toggleLang;
     btn.style.cssText = [
       'position:fixed', 'top:10px', 'right:12px', 'z-index:9999',
-      'background:rgba(255,255,255,.15)', 'border:1px solid rgba(255,255,255,.4)',
-      'color:#fff', 'font-size:.72rem', 'font-weight:700',
-      'padding:4px 10px', 'border-radius:10px', 'cursor:pointer',
+      'background:rgba(255,255,255,.1)', 'border:1px solid rgba(255,255,255,.35)',
+      'font-size:.8rem', 'padding:5px 12px', 'border-radius:12px',
+      'cursor:pointer', 'display:flex', 'align-items:center', 'gap:0',
     ].join(';');
-    updateBtn(getLang());
     document.body.appendChild(btn);
+    updateBtn(getLang());
   }
 
   function init() {

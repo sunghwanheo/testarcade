@@ -152,6 +152,25 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
   transition: transform 0.1s;
 }
 #startBtn:active { transform: scale(0.96); }
+#cameraMsg {
+  display: none;
+  font-size: clamp(14px, 2vw, 17px); font-weight: bold;
+  color: #fff;
+  background: rgba(0,0,0,0.32);
+  border: 2px solid rgba(255,255,255,0.6);
+  border-radius: 24px; padding: 16px 30px;
+  max-width: min(360px, 80vw); line-height: 1.8;
+  text-align: center;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.35);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  backdrop-filter: blur(6px);
+  transition: background 0.3s, border-color 0.3s;
+}
+#cameraMsg.ready {
+  background: rgba(30,140,80,0.55);
+  border-color: rgba(100,255,160,0.8);
+  box-shadow: 0 4px 20px rgba(0,200,100,0.3);
+}
 
 /* ── 종료 화면 ── */
 #endScreen {
@@ -209,7 +228,7 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
 
 <!-- 튜토리얼 화면 -->
 <div id="tutorialScreen">
-  <video id="tutorialVideo" src="tutorial.mp4" playsinline></video>
+  <video id="tutorialVideo" src="media/tutorial.mp4" playsinline></video>
   <canvas id="tutorialOverlay"></canvas>
   <button id="tutorialSkipBtn">건너뛰기 ▶</button>
 </div>
@@ -237,6 +256,7 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
     <img id="titleImg" src="assets/title.png" style="max-width:min(560px,80vw);margin-bottom:24px;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.18));" alt="풍선 팡팡">
 
     <button id="startBtn">🎈 게임 시작!</button>
+    <div id="cameraMsg"></div>
   </div>
 </div>
 
@@ -252,10 +272,8 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
   </div>
 </div>
 
-<!-- ── 트래킹 ── -->
-<script src="../tracking.js" data-game="풍선 팡팡"></script>
-
 <script src="./lang.js"></script>
+<script src="../tracking.js" data-game="풍선 팡팡"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 <script>
@@ -295,6 +313,7 @@ const LANG = {
 
 function applyLang(l) {
   const t = LANG[l];
+  document.title = l === 'en' ? '🎈 Balloon Pop!' : '🎈 풍선 팡팡';
   document.getElementById('tutorialSkipBtn').textContent = t.skipBtn;
   document.getElementById('startBtn').textContent        = t.startBtn;
   document.querySelector('.end-title').textContent       = t.endTitle;
@@ -325,13 +344,13 @@ function initAudio() {
 }
 
 // ── 보이스 응원 사운드 ─────────────────────────────────────
-const CHEER_FILES = ['voice_cheer_04a.wav','voice_cheer_04b.wav','voice_cheer_07.wav','voice_cheer_09.wav','voice_cheer_12.wav'];
+const CHEER_FILES = ['media/voice_cheer_04a.wav','media/voice_cheer_04b.wav','media/voice_cheer_07.wav','media/voice_cheer_09.wav','media/voice_cheer_12.wav'];
 const cheerAudios = CHEER_FILES.map(f => { const a=new Audio(f); a.preload='auto'; return a; });
-const readyStartAudio = (() => { const a=new Audio('voice_ready_start.wav'); a.preload='auto'; return a; })();
+const readyStartAudio = (() => { const a=new Audio('media/voice_ready_start.wav'); a.preload='auto'; return a; })();
 
-const EN_CHEER_FILES = ['voice_cheer_04a_en-US.ogg','voice_cheer_04b_en-US.ogg','voice_cheer_09_en-US.ogg','voice_cheer_12_en-US.ogg'];
+const EN_CHEER_FILES = ['media/voice_cheer_04a_en-US.ogg','media/voice_cheer_04b_en-US.ogg','media/voice_cheer_09_en-US.ogg','media/voice_cheer_12_en-US.ogg'];
 const enCheerAudios = EN_CHEER_FILES.map(f => { const a=new Audio(f); a.preload='auto'; return a; });
-const enReadyStartAudio = (() => { const a=new Audio('voice_ready_start_en-US.ogg'); a.preload='auto'; return a; })();
+const enReadyStartAudio = (() => { const a=new Audio('media/voice_ready_start_en-US.ogg'); a.preload='auto'; return a; })();
 
 let lastCheerIdx = -1;
 function playCheer() {
@@ -588,6 +607,7 @@ let finaleParticles=[], finaleElapsed=0;
 let feverSparkles=[];
 let shakeAmt = 0;
 let bodyPoints=[], prevBodyPos={}, cameraReady=false;
+let cameraPermission = 'pending'; // 'pending' | 'granted' | 'denied'
 let baselineShoulderW = 0; // 가장 앞 사람 기준값 (어깨 너비 px)
 
 // ── 메인화면 데코 풍선 ─────────────────────────────────────
@@ -605,11 +625,13 @@ function initDecoB() {
   mctx = mcCanvas.getContext('2d');
   const mW=mcCanvas.width, mH=mcCanvas.height;
   decoB.forEach(b=>{
-    b.r     = rand(28,58);
-    b.x     = rand(b.r, mW-b.r);
-    b.y     = rand(mH*0.4, mH+b.r*2);
-    b.speed = rand(40,90);
-    b.swing = rand(18,40);
+    b.r      = rand(28,58);
+    b.x      = rand(b.r, mW-b.r);
+    b.y      = rand(mH*0.4, mH+b.r*2);
+    b.speed  = rand(40,90);
+    b.swing  = rand(18,40);
+    b._shade1 = shadeColor(b.color, -40); // 매 프레임 파싱 방지
+    b._shade2 = shadeColor(b.color, -30);
   });
 }
 function updateDecoB(dt) {
@@ -630,12 +652,12 @@ function drawDecoB() {
     const grad=mctx.createRadialGradient(bx-b.r*0.28,b.y-b.r*0.28,b.r*0.08,bx,b.y,b.r);
     grad.addColorStop(0,'rgba(255,255,255,0.55)');
     grad.addColorStop(0.45,b.color);
-    grad.addColorStop(1,shadeColor(b.color,-40));
+    grad.addColorStop(1,b._shade1);
     mctx.beginPath(); mctx.ellipse(bx,b.y,b.r,b.r*1.18,0,0,Math.PI*2);
     mctx.fillStyle=grad; mctx.fill();
     mctx.beginPath();
     mctx.arc(bx,b.y+b.r*1.18,b.r*0.13,0,Math.PI*2);
-    mctx.fillStyle=shadeColor(b.color,-30); mctx.fill();
+    mctx.fillStyle=b._shade2; mctx.fill();
     mctx.beginPath();
     mctx.moveTo(bx,b.y+b.r*1.3);
     mctx.bezierCurveTo(bx+12,b.y+b.r*2,bx-8,b.y+b.r*2.8,bx+4,b.y+b.r*3.5);
@@ -916,7 +938,6 @@ function doPop() {
 
 // ── Game end ──────────────────────────────────────────────
 function triggerGameEnd() {
-  if (typeof trackComplete === 'function') trackComplete();
   gameState='finale';
   balloon=null; finaleParticles=[]; finaleElapsed=0; feverSparkles=[];
   stopFeverBGM(); stopBGM();
@@ -924,6 +945,7 @@ function triggerGameEnd() {
   for (let i=0;i<80;i++) spawnFP(true);
 }
 function showEndScreen() {
+  if (typeof trackComplete === 'function') trackComplete();
   gameState='ended';
   spawnEndConfetti();
   document.getElementById('finalScore').textContent = popped;
@@ -941,6 +963,7 @@ function restartGame() {
   document.getElementById('endScreen').classList.remove('show');
   document.getElementById('feverOuter').classList.remove('fever-active');
   document.getElementById('feverLabel').textContent='';
+  document.getElementById('cameraMsg').style.display='none';
   updateHUD(); updateTimerDisplay();
   initAudio();
 }
@@ -1173,8 +1196,8 @@ function drawHandDots() {
 
 // ── Countdown ─────────────────────────────────────────────
 function startPlaying() {
-  if (gameState!=='countdown') return;
   if (typeof trackPlay === 'function') trackPlay();
+  if (gameState!=='countdown') return;
   gameState='playing';
   startBGM();
   spawnBalloon();
@@ -1189,7 +1212,7 @@ function playReadyStart() {
 }
 function updateCountdown(dt) {
   countdownT+=dt;
-  if (countdownN===1 && countdownT>=1.0) {
+  if (countdownN===1 && countdownT>=(getLang()==='en' ? 0.5 : 1.0)) {
     countdownT=0;
     countdownN=0; // 시작! 표시 — 오디오 종료 시 게임 시작
   }
@@ -1215,6 +1238,14 @@ let prevTs=0;
 function loop(ts) {
   const dt=Math.min((ts-prevTs)/1000,.05); prevTs=ts;
 
+  // 메인화면: 게임 캔버스는 #mainScreen 뒤에 가려져 있으므로 데코 풍선만 처리
+  if (gameState==='main') {
+    updateDecoB(dt);
+    drawDecoB();
+    requestAnimationFrame(loop);
+    return;
+  }
+
   ctx.save();
   if (shakeAmt>.5) {
     ctx.translate((Math.random()-.5)*shakeAmt,(Math.random()-.5)*shakeAmt);
@@ -1222,22 +1253,14 @@ function loop(ts) {
   } else shakeAmt=0;
   ctx.clearRect(-50,-50,W+100,H+100);
 
+  wobbleT+=dt;
+
   // 배경 (카메라 or 스카이)
   if (cameraReady&&videoEl.readyState>=2) {
     ctx.save(); ctx.scale(-1,1); ctx.drawImage(videoEl,-W,0,W,H); ctx.restore();
     drawCloudOverlay();
   } else {
     drawBG();
-  }
-
-  wobbleT+=dt;
-
-  if (gameState==='main') {
-    ctx.restore();
-    updateDecoB(dt);
-    drawDecoB();
-    requestAnimationFrame(loop);
-    return;
   }
 
   if (gameState==='countdown') {
@@ -1339,8 +1362,25 @@ async function initMediaPipe() {
     width:1280,height:720
   });
   camera.start()
-    .then(()=>{cameraReady=true;initAudio();})
-    .catch(()=>{ initAudio(); });
+    .then(()=>{
+      cameraPermission='granted'; cameraReady=true; initAudio();
+      const msg=document.getElementById('cameraMsg');
+      const isEn=typeof getLang==='function'&&getLang()==='en';
+      msg.textContent=isEn?'✅ Ready!':'✅ 카메라 준비 완료!';
+      msg.classList.add('ready');
+      msg.style.display='block';
+    })
+    .catch(()=>{ cameraPermission='denied'; showCameraError(); initAudio(); });
+}
+
+function showCameraError() {
+  const msg = document.getElementById('cameraMsg');
+  if (!msg) return;
+  const isEn = typeof getLang === 'function' && getLang() === 'en';
+  msg.textContent = isEn
+    ? '📷 Camera permission is required to play.'
+    : '📷 카메라 권한이 필요해요.\n브라우저에서 권한을 허용해주세요.';
+  msg.style.display = 'block';
 }
 
 // ── 마우스/터치 폴백 ──────────────────────────────────────
@@ -1640,6 +1680,15 @@ tutorialSkipBtn.addEventListener('touchstart', e=>{e.preventDefault();endTutoria
 window.addEventListener('resize', resizeTutCanvas);
 
 function startGame() {
+  if (cameraPermission === 'denied') { showCameraError(); return; }
+  if (cameraPermission === 'pending') {
+    const msg = document.getElementById('cameraMsg');
+    const isEn = typeof getLang === 'function' && getLang() === 'en';
+    if (msg) { msg.textContent = isEn ? '📷 Connecting camera...' : '📷 카메라 연결 중...'; msg.style.display = 'block'; }
+    return;
+  }
+  const msg = document.getElementById('cameraMsg');
+  msg.style.display = 'none'; msg.classList.remove('ready');
   initAudio();
   baselineShoulderW = 0;
   document.getElementById('mainScreen').classList.remove('show');
@@ -1653,8 +1702,15 @@ document.getElementById('restartBtn').addEventListener('touchstart', e => { e.pr
 // ── 시작 ─────────────────────────────────────────────────
 updateHUD(); updateTimerDisplay();
 initDecoB();
+// 카메라 연결 중 상태 초기 표시
+(()=>{
+  const msg=document.getElementById('cameraMsg');
+  const isEn=typeof getLang==='function'&&getLang()==='en';
+  msg.textContent=isEn?'📷 Connecting camera...':'📷 카메라 연결 중...';
+  msg.style.display='block';
+})();
 requestAnimationFrame(loop);
-initMediaPipe();
+setTimeout(initMediaPipe, 200);
 </script>
 </body>
 </html>
