@@ -705,6 +705,7 @@
           if (tutHintEl) tutHintEl.innerHTML = t.tutorialHint;
           const tutStartEl = document.querySelector('#tutorialStartBtn span');
           if (tutStartEl) tutStartEl.textContent = t.tutorialStart;
+          document.querySelectorAll('.dwell-badge').forEach(el => el.textContent = t.handBadge);
           if (typeof currentStageIndex !== 'undefined' && LANG[l].stages[currentStageIndex]) {
             const s = LANG[l].stages[currentStageIndex];
             document.getElementById('stageTitle').innerText = t.stageTitle(s.name, s.weapon);
@@ -4253,6 +4254,7 @@
                     if (!s.wasHovered) {
                         s.wasHovered = true;
                         el.classList.add('dwell-active');
+                        s.badge.textContent = LANG[getLang()].handBadge;
                         s.badge.classList.add('visible');
                         s.timer.style.display = 'block';
                     }
