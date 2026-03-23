@@ -13,15 +13,17 @@
 (function () {
     const STORAGE_KEY = 'gemgem_tracking';
     const SITE_KEY = 'gemgem_site';
+    const LOCALE_KEY = 'gemgem_lang';
     const SESSION_KEY = 'gemgem_session_id';
     const SUPABASE_URL = 'https://rwbgrdiecfkcedctnggv.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_uAWk5AgQeps9HxnkxtHXoQ_P3g5OeRP';
+    const TABLE = 'game_logs';
 
     function getSite() {
         return localStorage.getItem(SITE_KEY) || 'hospital';
     }
-    function getTable() {
-        return getSite() === 'kang' ? 'kang_logs' : 'hospital_logs';
+    function getLocale() {
+        return localStorage.getItem(LOCALE_KEY) || 'ko';
     }
     function getSessionId() {
         return localStorage.getItem(SESSION_KEY) || 'unknown';
@@ -39,7 +41,7 @@ function getGameName() {
             console.log('[트래킹 - local]', payload);
             return;
         }
-        fetch(`${SUPABASE_URL}/rest/v1/${getTable()}`, {
+        fetch(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -119,7 +121,9 @@ function getGameName() {
                 game: getGameName(),
                 duration: getElapsedSec(),
                 completed: false,
-                session_id: getSessionId()
+                session_id: getSessionId(),
+                site: getSite(),
+                locale: getLocale()
             });
         }
     });
@@ -143,7 +147,9 @@ function getGameName() {
         sendLog({
             event: 'game_start',
             game: game,
-            session_id: getSessionId()
+            session_id: getSessionId(),
+            site: getSite(),
+            locale: getLocale()
         });
 
         console.log(`[트래킹] ${game} 플레이 기록됨`);
@@ -166,7 +172,9 @@ function getGameName() {
             game: getGameName(),
             duration: duration,
             completed: true,
-            session_id: getSessionId()
+            session_id: getSessionId(),
+            site: getSite(),
+            locale: getLocale()
         });
 
         console.log(`[트래킹] 게임 정상 완료`);
