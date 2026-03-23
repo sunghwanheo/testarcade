@@ -28,6 +28,16 @@
     function getSessionId() {
         return localStorage.getItem(SESSION_KEY) || 'unknown';
     }
+
+    // ── IP 위치 정보 (세션당 1회 조회, 캐시) ──
+    let geoCache = null;
+    function getGeo() {
+        return geoCache || { country: null, city: null };
+    }
+    fetch('https://ipapi.co/json/')
+        .then(r => r.json())
+        .then(d => { geoCache = { country: d.country_name || null, city: d.city || null, ip: d.ip || null }; })
+        .catch(() => {});
 function getGameName() {
         const scripts = document.querySelectorAll('script[data-game]');
         for (const s of scripts) {
@@ -123,7 +133,8 @@ function getGameName() {
                 completed: false,
                 session_id: getSessionId(),
                 site: getSite(),
-                locale: getLocale()
+                locale: getLocale(),
+                ...getGeo()
             });
         }
     });
@@ -149,7 +160,8 @@ function getGameName() {
             game: game,
             session_id: getSessionId(),
             site: getSite(),
-            locale: getLocale()
+            locale: getLocale(),
+            ...getGeo()
         });
 
         console.log(`[트래킹] ${game} 플레이 기록됨`);
@@ -174,7 +186,8 @@ function getGameName() {
             completed: true,
             session_id: getSessionId(),
             site: getSite(),
-            locale: getLocale()
+            locale: getLocale(),
+            ...getGeo()
         });
 
         console.log(`[트래킹] 게임 정상 완료`);
