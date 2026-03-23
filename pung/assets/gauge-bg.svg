@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 70">
+  <defs>
+    <linearGradient id="trackGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   style="stop-color:rgba(0,0,0,0.5)"/>
+      <stop offset="100%" style="stop-color:rgba(0,0,0,0.3)"/>
+    </linearGradient>
+    <filter id="gshadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+  <!-- 트랙 배경 -->
+  <rect x="4" y="4" width="692" height="62" rx="32"
+    fill="url(#trackGrad)"
+    stroke="rgba(255,255,255,0.4)" stroke-width="3"
+    filter="url(#gshadow)"/>
+  <!-- 내부 반사 -->
+  <rect x="12" y="8" width="676" height="20" rx="20"
+    fill="rgba(255,255,255,0.06)"/>
+</svg>

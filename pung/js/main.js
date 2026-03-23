@@ -204,6 +204,7 @@ let isDetecting = false;
 // ── 렌더링 ───────────────────────────────────────────────
 let canvas, ctx, video;
 let CW = 1280, CH = 720;
+let tutorialVid = null;  // 튜토리얼 가이드 영상 전용 엘리먼트
 
 // ── 게이지 파티클 ─────────────────────────────────────────
 let gaugeParticles = [];
@@ -271,14 +272,20 @@ $btnStart.addEventListener('click', () => {
   showTutorial();
 });
 
-// ── 튜토리얼 영상 (캘리브 전 재생) ──────────────────────
+// ── 튜토리얼 영상 — 게임 캔버스에 가이드 영상 + 이펙트 직접 렌더링 ──
 function showTutorial() {
-  const screen = document.getElementById('screen-tutorial');
-  const vid    = document.getElementById('tutorial-video');
-  screen.style.display = 'flex';
-  vid.src = 'assets/guide_loop.mp4';
-  vid.load();
-  vid.play().catch(() => {});
+  // 기존 overlay 화면은 숨김
+  document.getElementById('screen-tutorial').style.display = 'none';
+
+  phase = 'tutorial';
+
+  // 가이드 영상 엘리먼트 생성
+  tutorialVid = document.createElement('video');
+  tutorialVid.src = 'assets/guide_raw.mp4';
+  tutorialVid.muted = true;
+  tutorialVid.playsInline = true;
+  tutorialVid.style.display = 'none';
+  document.body.appendChild(tutorialVid);
 
   // 튜토리얼 보이스 (한/영 선택, 2회 재생)
   const voiceSrc = getLang() === 'ko'
@@ -290,11 +297,39 @@ function showTutorial() {
     v.play().catch(() => {});
   };
   playTutVoice();
-  setTimeout(playTutVoice, 4200);
+  setTimeout(playTutVoice, 7000);
 
-  vid.addEventListener('ended', function onEnd() {
-    vid.removeEventListener('ended', onEnd);
-    screen.style.display = 'none';
+  // 이펙트 트리거 (게임과 동일한 이펙트 엔진 사용)
+  let t1Done = false, t2Done = false;
+  const effectTimer = setInterval(() => {
+    if (!tutorialVid) { clearInterval(effectTimer); return; }
+    const t = tutorialVid.currentTime;
+    const hx = CW * 0.5, hy = CH * 0.63;
+    if (!t1Done && t >= 4.0) {
+      t1Done = true;
+      fx.spawnFart(hx, hy, 0, cfg.effectLevel, true);
+      showFartText(hx, hy - 90);
+      new Audio('assets/fart_2.ogg').play().catch(() => {});
+    }
+    if (!t2Done && t >= 10.2) {
+      t2Done = true;
+      fx.spawnPoopFountain(hx, hy, CW, cfg.effectLevel, 0, true, CH);
+      showFartText(hx, hy - 90);
+      new Audio('assets/fart_0.ogg').play().catch(() => {});
+    }
+  }, 33);
+
+  tutorialVid.addEventListener('ended', function onEnd() {
+    clearInterval(effectTimer);
+    document.body.removeChild(tutorialVid);
+    tutorialVid = null;
+    startCalibration();
+  });
+
+  tutorialVid.play().catch(() => {
+    // 재생 실패 시 튜토리얼 스킵
+    clearInterval(effectTimer);
+    if (tutorialVid) { document.body.removeChild(tutorialVid); tutorialVid = null; }
     startCalibration();
   });
 }
@@ -337,6 +372,11 @@ function selectTopTwo(poses) {
 //  캘리브레이션
 // ============================================================
 function startCalibration() {
+  // 튜토리얼 이펙트 잔상 제거
+  fx.gas = []; fx.waves = []; fx.flashes = [];
+  fx.poops = []; fx.physicPoops = []; fx.confetti = [];
+  fx.fallingPoops = []; fx.explodingPoops = [];
+
   phase   = 'calibrating';
   players = [makePlayer(), makePlayer()];
   $calib.style.display = 'flex';
@@ -638,8 +678,8 @@ function endFever() {
 }
 
 function endGame() {
-  phase = 'end';
   if (typeof trackComplete === 'function') trackComplete();
+  phase = 'end';
   audio.stopBGM();
   audio.playApplause();
   fx.spawnEndGamePoops(CW, CH);
@@ -716,12 +756,13 @@ function render() {
   ctx.save();
   ctx.translate(sh.x, sh.y);
 
-  // ── 카메라 피드 (좌우 반전) ──
-  if (video && video.readyState >= 2) {
+  // ── 카메라 피드 (좌우 반전) — 튜토리얼 중엔 가이드 영상 사용 ──
+  const drawSrc = (phase === 'tutorial' && tutorialVid) ? tutorialVid : video;
+  if (drawSrc && drawSrc.readyState >= 2) {
     ctx.save();
     ctx.scale(-1, 1);
     ctx.translate(-CW, 0);
-    ctx.drawImage(video, 0, 0, CW, CH);
+    ctx.drawImage(drawSrc, 0, 0, CW, CH);
     ctx.restore();
   } else {
     ctx.fillStyle = '#111';
@@ -736,12 +777,12 @@ function render() {
   drawFeverOverlay();
   if (phase === 'fever') {
     const rem = Math.max(0, Math.ceil((feverEndTime - Date.now()) / 1000));
-    document.getElementById('fever-timer').textContent = `🔥 ${rem}초`;
+    document.getElementById('fever-timer').textContent = getLang() === 'ko' ? `🔥 ${rem}초` : `🔥 ${rem}s`;
     if (Date.now() >= feverEndTime) endFever();
   }
 
   // ── 캐릭터 오버레이 (최대 2명) ──
-  if (phase !== 'start') {
+  if (phase !== 'start' && phase !== 'tutorial') {
     const vW = video.videoWidth  || 1280;
     const vH = video.videoHeight || 720;
     for (let i = 0; i < 2; i++) {
