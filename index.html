@@ -268,16 +268,17 @@
         (function () {
             const params = new URLSearchParams(window.location.search);
             const site = params.get('site');
-            if (!site) {
+            const VALID_SITES = ['hospital', 'angels_haven', 'handong', 'kang', 'global', 'local'];
+            if (!site || !VALID_SITES.includes(site)) {
                 const isKo = (typeof getLang === 'function' ? getLang() : 'ko') === 'ko';
                 document.body.innerHTML = `
                     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;gap:20px;text-align:center;padding:20px;">
                         <div style="font-size:3rem;">🔒</div>
                         <div style="font-size:1.4rem;font-weight:700;color:#ffd93d;">${isKo ? '접근 불가' : 'Access Denied'}</div>
-                        <div style="color:#aaa;font-size:1rem;">${isKo ? 'URL에 <b style="color:white;">?site=</b> 파라미터가 필요합니다.' : 'A <b style="color:white;">?site=</b> parameter is required in the URL.'}</div>
-                        <div style="color:#888;font-size:0.9rem;">예시: ?site=hospital &nbsp;|&nbsp; ?site=angels_haven &nbsp;|&nbsp; ?site=handong &nbsp;|&nbsp; ?site=kang &nbsp;|&nbsp; ?site=global&amp;lang=en</div>
+                        <div style="color:#aaa;font-size:1rem;">${isKo ? 'URL에 유효한 <b style="color:white;">?site=</b> 파라미터가 필요합니다.' : 'A valid <b style="color:white;">?site=</b> parameter is required in the URL.'}</div>
+                        <div style="color:#888;font-size:0.9rem;">?site=hospital &nbsp;|&nbsp; ?site=angels_haven &nbsp;|&nbsp; ?site=handong &nbsp;|&nbsp; ?site=kang &nbsp;|&nbsp; ?site=global&amp;lang=en</div>
                     </div>`;
-                throw new Error('[접근차단] site 파라미터 없음');
+                throw new Error('[접근차단] 유효하지 않은 site 파라미터: ' + site);
             }
             localStorage.setItem(SITE_KEY, site);
         })();
@@ -315,7 +316,7 @@
             sendLog({ event: 'visit', session_id: sessionId, site: getSite(), locale: getLocale() });
         })();
     </script>
-    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.13.0 (2026-03-23)</div>
+    <div style="position:fixed; bottom:10px; right:15px; font-size:0.75rem; color:rgba(255,255,255,0.25);">v1.13.1 (2026-03-23)</div>
 </body>
 
 </html>
