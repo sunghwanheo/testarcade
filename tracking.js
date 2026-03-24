@@ -31,13 +31,13 @@
 
     // ── IP 위치 정보 (세션당 1회 조회, 캐시) ──
     let geoCache = null;
-    function getGeo() {
-        return geoCache || { country: null, city: null };
-    }
-    fetch('https://ipapi.co/json/')
+    let geoPromise = fetch('https://ipwho.is/')
         .then(r => r.json())
-        .then(d => { geoCache = { country: d.country_name || null, city: d.city || null, ip: d.ip || null }; })
-        .catch(() => {});
+        .then(d => { geoCache = { country: d.country || null, city: d.city || null, ip: d.ip || null }; })
+        .catch(() => { geoCache = { country: null, city: null, ip: null }; });
+    function getGeo() {
+        return geoPromise.then(() => geoCache || { country: null, city: null, ip: null });
+    }
 function getGameName() {
         const scripts = document.querySelectorAll('script[data-game]');
         for (const s of scripts) {
@@ -134,7 +134,7 @@ function getGameName() {
                 session_id: getSessionId(),
                 site: getSite(),
                 locale: getLocale(),
-                ...getGeo()
+                ...(geoCache || { country: null, city: null, ip: null })
             });
         }
     });
@@ -155,14 +155,14 @@ function getGameName() {
         sessionIdx = records.length - 1;
         startTimeTracking();
 
-        sendLog({
+        getGeo().then(geo => sendLog({
             event: 'game_start',
             game: game,
             session_id: getSessionId(),
             site: getSite(),
             locale: getLocale(),
-            ...getGeo()
-        });
+            ...geo
+        }));
 
         console.log(`[트래킹] ${game} 플레이 기록됨`);
     }
@@ -179,7 +179,7 @@ function getGameName() {
             setRecords(records);
         }
 
-        sendLog({
+        getGeo().then(geo => sendLog({
             event: 'game_end',
             game: getGameName(),
             duration: duration,
@@ -187,8 +187,8 @@ function getGameName() {
             session_id: getSessionId(),
             site: getSite(),
             locale: getLocale(),
-            ...getGeo()
-        });
+            ...geo
+        }));
 
         console.log(`[트래킹] 게임 정상 완료`);
     }
