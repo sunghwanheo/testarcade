@@ -31,7 +31,7 @@
 
     // ── IP 위치 정보 (세션당 1회 조회, 캐시) ──
     let geoCache = null;
-    let geoPromise = fetch('https://ipwho.is/')
+    let geoPromise = fetch('https://ipinfo.io/json')
         .then(r => r.json())
         .then(d => { geoCache = { country: d.country || null, city: d.city || null, ip: d.ip || null }; })
         .catch(() => { geoCache = { country: null, city: null, ip: null }; });
