@@ -1667,13 +1667,13 @@ function startTutorial() {
   tutLastTime = 0;
   tutRAF = requestAnimationFrame(tutRenderLoop);
   startTutBGM();
-  tutorialVideoEl.play().catch(()=>{ endTutorial(); });
-
-  if (getLang() === 'ko') {
-    const v1 = new Audio('balloon_tut_1.wav');
-    v1.play().catch(() => {});
-    v1.onended = () => { new Audio('balloon_tut_2.wav').play().catch(() => {}); };
-  }
+  tutorialVideoEl.play().then(() => {
+    if (getLang() === 'ko') {
+      const v1 = new Audio('balloon_tut_1.wav');
+      v1.play().catch(() => {});
+      v1.onended = () => { new Audio('balloon_tut_2.wav').play().catch(() => {}); };
+    }
+  }).catch(() => { endTutorial(); });
 }
 
 function endTutorial() {
