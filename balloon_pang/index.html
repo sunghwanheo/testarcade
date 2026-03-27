@@ -885,7 +885,9 @@ function drawFeverOverlay() {
   ctx.restore();
 }
 function updateFeverGauge() {
-  const pct = feverActive ? 100 : (feverCycleN / FEVER_EVERY * 100);
+  const pct = getSite() === 'handong'
+    ? ((GAME_TIME - gameTimer) / GAME_TIME * 100)
+    : feverActive ? 100 : (feverCycleN / FEVER_EVERY * 100);
   document.getElementById('feverInner').style.width = pct + '%';
 }
 
@@ -1277,6 +1279,7 @@ function loop(ts) {
     if (gameTimer<=0) { gameTimer=0; triggerGameEnd(); }
     updateTimerDisplay();
     updateFever(dt);
+    if (getSite() === 'handong') updateFeverGauge();
 
     hintTimer+=dt;
 
