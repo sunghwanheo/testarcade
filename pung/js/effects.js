@@ -538,11 +538,13 @@ class EffectsEngine {
     for (let i = 0; i < 16; i++) this.gas.push(new GasPuff(x, y, colorHue));
     for (let i = 0; i < 20; i++) this.dots.push(new GasDot(x, y, colorHue));
 
-    const launchPoopImg = this._getPoopImg(colorHue, rainbow);
-    for (let i = 0; i < cnt; i++) {
-      setTimeout(() => {
-        this.poops.push(new PoopObject(x, y, canvasW, launchPoopImg, colorHue, rainbow));
-      }, i * 170);
+    if (getSite() !== 'handong') {
+      const launchPoopImg = this._getPoopImg(colorHue, rainbow);
+      for (let i = 0; i < cnt; i++) {
+        setTimeout(() => {
+          this.poops.push(new PoopObject(x, y, canvasW, launchPoopImg, colorHue, rainbow));
+        }, i * 170);
+      }
     }
 
     this.shake.t = 1.0;
@@ -562,20 +564,21 @@ class EffectsEngine {
       if (p.settled) p.bump();
     }
 
-    // 새 똥 스폰 — 무지개 레벨은 무지개 똥만
-    const ch = canvasH || 720, cw = canvasW;
-    for (let i = 0; i < poopCnt; i++) {
-      const img = rainbow ? this.poopImgs[6] : this._getPoopImg(colorHue, false);
-      // 이미 올바른 색 이미지를 선택했으므로 hue-rotate 필터 중복 적용 방지 (-1 전달)
-      this.physicPoops.push(new PhysicsPoop(cx, cy, img, ch, cw, this.physicPoops, rainbow ? colorHue : -1, rainbow));
-    }
+    if (getSite() !== 'handong') {
+      // 새 똥 스폰 — 무지개 레벨은 무지개 똥만
+      const ch = canvasH || 720, cw = canvasW;
+      for (let i = 0; i < poopCnt; i++) {
+        const img = rainbow ? this.poopImgs[6] : this._getPoopImg(colorHue, false);
+        this.physicPoops.push(new PhysicsPoop(cx, cy, img, ch, cw, this.physicPoops, rainbow ? colorHue : -1, rainbow));
+      }
 
-    // 총 개수 제한 (오래된 것부터 제거)
-    if (this.physicPoops.length > 28) {
-      this.physicPoops.splice(0, this.physicPoops.length - 28);
-    }
+      // 총 개수 제한 (오래된 것부터 제거)
+      if (this.physicPoops.length > 28) {
+        this.physicPoops.splice(0, this.physicPoops.length - 28);
+      }
 
-    for (let i = 0; i < 12; i++) this.confetti.push(new Confetti(cx, cy, colorHue));
+      for (let i = 0; i < 12; i++) this.confetti.push(new Confetti(cx, cy, colorHue));
+    }
 
     this.shake.t = 1.0;
     this.shake.intensity = 22;

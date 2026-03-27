@@ -313,7 +313,7 @@ function showTutorial() {
     }
     if (!t2Done && t >= 10.2) {
       t2Done = true;
-      fx.spawnPoopFountain(hx, hy, CW, cfg.effectLevel, 0, true, CH);
+      if (getSite() !== 'handong') fx.spawnPoopFountain(hx, hy, CW, cfg.effectLevel, 0, true, CH);
       showFartText(hx, hy - 90);
       new Audio('assets/fart_0.ogg').play().catch(() => {});
     }
@@ -878,8 +878,9 @@ function drawFartFlash() {
 }
 
 function drawFartTexts() {
+  const lifeDecay = getSite() === 'handong' ? 0.013 : 0.026;
   fartTexts = fartTexts.filter(t => {
-    t.life -= 0.026;
+    t.life -= lifeDecay;
     t.scale = Math.min(1.0, t.scale + 0.17);
     t.y += t.vy;
     t.vy *= 0.90;

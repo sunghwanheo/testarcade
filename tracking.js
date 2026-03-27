@@ -196,4 +196,5 @@ function getGameName() {
     // 전역에 노출
     window.trackPlay = trackPlay;
     window.trackComplete = trackComplete;
+    window.getSite = getSite;
 })();
