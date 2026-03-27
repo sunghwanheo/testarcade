@@ -287,17 +287,26 @@ function showTutorial() {
   tutorialVid.style.display = 'none';
   document.body.appendChild(tutorialVid);
 
-  // 튜토리얼 보이스 (한/영 선택, 2회 재생)
-  const voiceSrc = getLang() === 'ko'
-    ? 'assets/voice_tutorial.wav'
-    : 'assets/voice_tutorial_en-US.ogg';
-  const playTutVoice = () => {
-    const v = new Audio(voiceSrc);
-    v.volume = cfg.volume;
-    v.play().catch(() => {});
-  };
-  playTutVoice();
-  setTimeout(playTutVoice, 7000);
+  // 튜토리얼 보이스 (한/영 선택)
+  if (getLang() === 'ko') {
+    const v1 = new Audio('pung_tut_1.wav');
+    v1.volume = cfg.volume;
+    v1.play().catch(() => {});
+    setTimeout(() => {
+      const v2 = new Audio('pung_tut_2.wav');
+      v2.volume = cfg.volume;
+      v2.play().catch(() => {});
+    }, 7000);
+  } else {
+    const voiceSrc = 'assets/voice_tutorial_en-US.ogg';
+    const playTutVoice = () => {
+      const v = new Audio(voiceSrc);
+      v.volume = cfg.volume;
+      v.play().catch(() => {});
+    };
+    playTutVoice();
+    setTimeout(playTutVoice, 7000);
+  }
 
   // 이펙트 트리거 (게임과 동일한 이펙트 엔진 사용)
   let t1Done = false, t2Done = false;

@@ -142,6 +142,128 @@
 
 
 
+        /* ── 아이 선택 (handong 전용) ── */
+        #childBar {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 14px;
+            padding: 12px 20px;
+        }
+        #childBar .child-label {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+        #childBar .child-name {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #ffd93d;
+        }
+        #childBar .child-change-btn {
+            margin-left: auto;
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: transparent;
+            color: white;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #childBar .child-change-btn:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        /* ── 아이 선택 모달 ── */
+        #childModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        #childModal.open { display: flex; }
+        #childModalBox {
+            background: #1a1a3e;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            padding: 30px;
+            width: min(480px, 90vw);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        #childModalBox h2 {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #ffd93d;
+        }
+        #childGrid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .child-item {
+            position: relative;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.05);
+            transition: all 0.2s;
+            display: flex;
+            align-items: stretch;
+            overflow: hidden;
+        }
+        .child-item:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.4); }
+        .child-item.selected { background: rgba(255,217,61,0.2); border-color: #ffd93d; }
+        .child-item.editing { border-color: #4d96ff; background: rgba(77,150,255,0.1); }
+        .child-select-btn {
+            flex: 1;
+            padding: 12px 6px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-align: center;
+        }
+        .child-item.selected .child-select-btn { color: #ffd93d; font-weight: 700; }
+        .child-edit-btn {
+            padding: 0 8px;
+            background: transparent;
+            border: none;
+            border-left: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.35);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .child-edit-btn:hover { color: white; }
+        .child-item input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 0.9rem;
+            padding: 12px 8px;
+            outline: none;
+            text-align: center;
+        }
+        .child-confirm-btn {
+            padding: 0 10px;
+            background: transparent;
+            border: none;
+            border-left: 1px solid rgba(255,255,255,0.1);
+            color: #6bcb77;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .child-confirm-btn:hover { color: #fff; }
+
 @media (max-width: 600px) {
             h1 {
                 font-size: 2rem;
@@ -169,6 +291,21 @@
 
 <body>
     <h1 id="main-title">야호 놀이터</h1>
+
+    <!-- 아이 선택 바 (handong 전용) -->
+    <div id="childBar">
+        <span class="child-label">현재 아이</span>
+        <span class="child-name" id="childNameDisplay">선택 안 됨</span>
+        <button class="child-change-btn" onclick="openChildModal()">변경</button>
+    </div>
+
+    <!-- 아이 선택 모달 -->
+    <div id="childModal">
+        <div id="childModalBox">
+            <h2>아이를 선택하세요</h2>
+            <div id="childGrid"></div>
+        </div>
+    </div>
 
     <!-- 게임 목록 -->
     <div id="gameSection">
@@ -308,6 +445,124 @@
                 body: JSON.stringify(payload)
             }).catch(e => console.warn('[로그] 전송 실패', e));
         }
+
+        // ── 아이 선택 (handong 전용) ──────────────────────────────
+        const CHILD_KEY = 'gemgem_child';
+        const CHILD_NAMES_KEY = 'gemgem_child_names';
+        const CHILD_NAMES_DEFAULT = [
+            '1번', '2번', '3번', '4번', '5번',
+            '6번', '7번', '8번', '9번', '10번',
+            '11번', '12번', '13번', '14번', '15번'
+        ];
+
+        function getChildNames() {
+            try { return JSON.parse(localStorage.getItem(CHILD_NAMES_KEY)) || CHILD_NAMES_DEFAULT.slice(); }
+            catch (e) { return CHILD_NAMES_DEFAULT.slice(); }
+        }
+        function saveChildNames(names) {
+            localStorage.setItem(CHILD_NAMES_KEY, JSON.stringify(names));
+        }
+        function getSelectedChild() {
+            return localStorage.getItem(CHILD_KEY) || null;
+        }
+        function setSelectedChild(name) {
+            localStorage.setItem(CHILD_KEY, name);
+        }
+        function updateChildBar() {
+            const name = getSelectedChild();
+            document.getElementById('childNameDisplay').textContent = name || '선택 안 됨';
+        }
+
+        function buildChildGrid() {
+            const grid = document.getElementById('childGrid');
+            const names = getChildNames();
+            const selected = getSelectedChild();
+            grid.innerHTML = '';
+            names.forEach((name, idx) => {
+                const item = document.createElement('div');
+                item.className = 'child-item' + (name === selected ? ' selected' : '');
+                item.dataset.idx = idx;
+
+                const selBtn = document.createElement('button');
+                selBtn.className = 'child-select-btn';
+                selBtn.textContent = name;
+                selBtn.onclick = () => {
+                    setSelectedChild(name);
+                    updateChildBar();
+                    closeChildModal();
+                };
+
+                const editBtn = document.createElement('button');
+                editBtn.className = 'child-edit-btn';
+                editBtn.title = '이름 편집';
+                editBtn.textContent = '✏';
+                editBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    startEdit(item, idx, name);
+                };
+
+                item.appendChild(selBtn);
+                item.appendChild(editBtn);
+                grid.appendChild(item);
+            });
+        }
+
+        function startEdit(item, idx, currentName) {
+            item.classList.add('editing');
+            item.innerHTML = '';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentName;
+            input.maxLength = 20;
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.className = 'child-confirm-btn';
+            confirmBtn.textContent = '✓';
+
+            const confirm = () => {
+                const newName = input.value.trim() || currentName;
+                const names = getChildNames();
+                // 선택된 아이였으면 새 이름으로 갱신
+                if (getSelectedChild() === names[idx]) setSelectedChild(newName);
+                names[idx] = newName;
+                saveChildNames(names);
+                buildChildGrid();
+                updateChildBar();
+            };
+
+            confirmBtn.onclick = confirm;
+            input.onkeydown = (e) => { if (e.key === 'Enter') confirm(); if (e.key === 'Escape') buildChildGrid(); };
+
+            item.appendChild(input);
+            item.appendChild(confirmBtn);
+            input.focus();
+            input.select();
+        }
+
+        function openChildModal() {
+            document.getElementById('childModal').classList.add('open');
+            buildChildGrid();
+        }
+        function closeChildModal() {
+            document.getElementById('childModal').classList.remove('open');
+        }
+        function initChildUI() {
+            if (getSite() !== 'handong') return;
+            document.getElementById('childBar').style.display = 'flex';
+            updateChildBar();
+            // 모달 바깥 클릭 시 닫기
+            document.getElementById('childModal').addEventListener('click', e => {
+                if (e.target === document.getElementById('childModal')) closeChildModal();
+            });
+            // 아이 미선택 시 모달 자동 오픈
+            if (!getSelectedChild()) openChildModal();
+        }
+        window.openChildModal = openChildModal;
+        // ────────────────────────────────────────────────────────
+
+        // ── 아이 선택 UI 초기화 ──
+        initChildUI();
 
         // ── 페이지 방문 로그 ──
         (function () {

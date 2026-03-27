@@ -50,6 +50,8 @@
 
   // ── 버튼 텍스트 업데이트 ─────────────────────────────────
   function updateBtn(l) {
+    const exitBtn = document.getElementById('exit-btn');
+    if (exitBtn) exitBtn.textContent = l === 'en' ? 'Exit' : '나가기';
     const btn = document.getElementById('lang-btn');
     if (!btn) return;
     const koStyle = l === 'ko'

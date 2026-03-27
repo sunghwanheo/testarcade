@@ -15,6 +15,7 @@
     const SITE_KEY = 'gemgem_site';
     const LOCALE_KEY = 'gemgem_lang';
     const SESSION_KEY = 'gemgem_session_id';
+    const CHILD_KEY = 'gemgem_child';
     const SUPABASE_URL = 'https://rwbgrdiecfkcedctnggv.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_uAWk5AgQeps9HxnkxtHXoQ_P3g5OeRP';
     const TABLE = 'game_logs';
@@ -27,6 +28,9 @@
     }
     function getSessionId() {
         return localStorage.getItem(SESSION_KEY) || 'unknown';
+    }
+    function getChild() {
+        return getSite() === 'handong' ? (localStorage.getItem(CHILD_KEY) || null) : null;
     }
 
     // ── IP 위치 정보 (세션당 1회 조회, 캐시) ──
@@ -126,6 +130,7 @@ function getGameName() {
     window.addEventListener('beforeunload', () => {
         saveSession();
         if (sessionIdx >= 0 && !isCompleted) {
+            const child = getChild();
             sendLog({
                 event: 'game_abandon',
                 game: getGameName(),
@@ -134,6 +139,7 @@ function getGameName() {
                 session_id: getSessionId(),
                 site: getSite(),
                 locale: getLocale(),
+                ...(child ? { child } : {}),
                 ...(geoCache || { country: null, city: null, ip: null })
             });
         }
@@ -155,12 +161,14 @@ function getGameName() {
         sessionIdx = records.length - 1;
         startTimeTracking();
 
+        const child = getChild();
         getGeo().then(geo => sendLog({
             event: 'game_start',
             game: game,
             session_id: getSessionId(),
             site: getSite(),
             locale: getLocale(),
+            ...(child ? { child } : {}),
             ...geo
         }));
 
@@ -179,6 +187,7 @@ function getGameName() {
             setRecords(records);
         }
 
+        const child = getChild();
         getGeo().then(geo => sendLog({
             event: 'game_end',
             game: getGameName(),
@@ -187,6 +196,7 @@ function getGameName() {
             session_id: getSessionId(),
             site: getSite(),
             locale: getLocale(),
+            ...(child ? { child } : {}),
             ...geo
         }));
 
