@@ -782,8 +782,9 @@ class Lion {
     const openAngle = this.jawOpen * maxAngle;
     const angle = isUpper ? -openAngle : openAngle;
 
-    // 닫혔을 때 상악 하단·하악 상단이 어깨 중심선에서 맞닿음
-    const offsetY = isUpper ? -jawH : 0;
+    // 닫혔을 때 상악 하단·하악 상단이 어깨 중심선에서 살짝 겹침
+    const overlap = jawH * 0.11;
+    const offsetY = isUpper ? -jawH + overlap : -overlap;
 
     ctx.save();
     ctx.translate(cx, cy);
