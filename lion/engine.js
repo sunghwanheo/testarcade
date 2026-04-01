@@ -640,8 +640,8 @@ class Cabbage {
 }
 
 
-// ─── Lion (Crocodile AR Renderer) ───────────────────────────
-// 포즈 랜드마크 기반으로 악어를 사용자 몸 위에 렌더링
+// ─── Lion (Dinosaur AR Renderer) ───────────────────────────
+// 포즈 랜드마크 기반으로 공룡을 사용자 몸 위에 렌더링
 class Lion {
   constructor() {
     // 기본 위치 (포즈 없을 때 fallback)
@@ -757,10 +757,10 @@ class Lion {
 
   /** jawW 계산 공통 헬퍼 — _drawJaw / getMouthTip 등에서 동일 값 사용 */
   _calcJawW() {
-    return Math.max(520, Math.min(1100, this.baseScale * this.UPPER_W * 3.5));
+    return Math.max(440, Math.min(950, this.baseScale * this.UPPER_W * 3.0));
   }
 
-  /** 어깨 중심에서 좌/우 방향으로 나오는 악어 턱 */
+  /** 어깨 중심에서 좌/우 방향으로 나오는 공룡 턱 */
   _drawJaw(ctx, isUpper, CW, CH) {
     const img = isUpper ? Assets.croc.upper : Assets.croc.lower;
     if (!img) return;
@@ -788,14 +788,14 @@ class Lion {
 
     ctx.save();
     ctx.translate(cx, cy);
-    if (facingRight) ctx.scale(-1, 1); // 손목이 왼쪽 → scale로 악어를 왼쪽으로 뻗음
+    if (facingRight) ctx.scale(-1, 1); // 손목이 왼쪽 → scale로 공룡을 왼쪽으로 뻗음
     ctx.rotate(angle);
     // 얼굴(눈) = x=0 (어깨 중심), 입/주둥이 끝 = x=jawW (바깥 방향)
     ctx.drawImage(img, 0, offsetY, jawW, jawH);
     ctx.restore();
   }
 
-  /** 악어 몸통 — 사용자 어깨 위에 이미지 렌더링 (입 방향으로 눈이 향함) */
+  /** 공룡 몸통 — 사용자 어깨 위에 이미지 렌더링 (입 방향으로 눈이 향함) */
   _drawBody(ctx, CW, CH) {
     const img = Assets.croc.body;
     if (!img) return;
@@ -855,7 +855,7 @@ class Lion {
     this._drawBody(ctx, CW, CH);
   }
 
-  /** 포즈 없을 때 fallback 렌더링 (간단한 악어 머리) */
+  /** 포즈 없을 때 fallback 렌더링 (간단한 공룡 머리) */
   _drawFallbackJaw(ctx, isUpper) {
     const sc = this.baseScale;
     const jawDown = this.jawOpen * this.jawMaxOffset;
@@ -905,8 +905,8 @@ class Lion {
     const { CW, CH } = p;
     const cx = (this._px(p.ls, CW, CH) + this._px(p.rs, CW, CH)) / 2;
     const facingRight = this._getFacingRight();
-    // 좌우 방향만 맞으면 먹힘: 악어가 향하는 쪽 화면 절반 전체
-    // facingRight=true → 악어 왼쪽, facingRight=false → 악어 오른쪽
+    // 좌우 방향만 맞으면 먹힘: 공룡이 향하는 쪽 화면 절반 전체
+    // facingRight=true → 공룡 왼쪽, facingRight=false → 공룡 오른쪽
     const left  = facingRight ? 0  : cx;
     const right = facingRight ? cx : CW;
     return { left, top: 0, right, bottom: CH,
@@ -928,7 +928,7 @@ class Lion {
     const cy = (this._py(p.ls, CW, CH) + this._py(p.rs, CW, CH)) / 2;
     const facingRight = this._getFacingRight();
     const jawW = this._calcJawW();
-    // facingRight=true → 악어 왼쪽, facingRight=false → 악어 오른쪽
+    // facingRight=true → 공룡 왼쪽, facingRight=false → 공룡 오른쪽
     return { x: facingRight ? cx - jawW * 0.9 : cx + jawW * 0.9, y: cy };
   }
 
@@ -1667,7 +1667,7 @@ class GameEngine {
       }
     }
 
-    // stuck 양배추는 해당 악어 입 끝에 고정
+    // stuck 양배추는 해당 공룡 입 끝에 고정
     for (const c of this.cabbages) {
       if (c.phase === 'stuck') {
         const stuckLion = c._stuckLion || this.lion;
