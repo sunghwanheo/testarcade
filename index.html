@@ -403,7 +403,7 @@
         (function () {
             const params = new URLSearchParams(window.location.search);
             const site = params.get('site');
-            const VALID_SITES = ['hospital', 'angels_haven', 'handong', 'kang', 'global', 'local', 'c01-ss', 'p02-h', 'p02-l', 'gemgem', 's01-narae', 'c02-hs', 'c03-ccs'];
+            const VALID_SITES = ['hospital', 'angels_haven', 'handong', 'kang', 'global', 'local', 'c01-ss', 'p02-h', 'p02-l', 'gemgem', 's01-narae', 'c02-hs', 'c03-ccs', 'sc00'];
             if (!site || !VALID_SITES.includes(site)) {
                 const isKo = (typeof getLang === 'function' ? getLang() : 'ko') === 'ko';
                 document.body.innerHTML = `
