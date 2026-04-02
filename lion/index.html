@@ -629,6 +629,7 @@ engine.onGameEnd = (score) => {
   // 1.5초 후 "한번 더?/그만할래" 버튼 표시
   choiceTimer = setTimeout(() => {
     document.getElementById('choiceOverlay').style.display = 'flex';
+    applyLang(getLang());
     choiceShownAt = Date.now();
     // 10초 무응답 감지
     choiceTimeoutTimer = setTimeout(() => {
