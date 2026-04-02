@@ -50,8 +50,8 @@ const LANG = {
     fever3: '3초', fever5: '5초', fever7: '7초',
     btnStart:         '시작하기! 🚀',
     btnStartLoading:  '모델 로딩 중... ⏳',
-    calibTitle:       '똑바로 서 주세요!',
-    calibSub:         '2초 동안 기다려요…',
+    calibTitle:       '게임을 진행할 위치에 서 주세요!',
+    calibSub:         '3초 동안 기다려요…',
     introTitle:       '🌈 무지개 똥을 완성해봐요! 🌈',
     introSub:         '방귀를 모아서 색깔 똥을 하나씩 쌓아요!',
     levelAnnNext:     '다음은',
@@ -81,8 +81,8 @@ const LANG = {
     fever3: '3s', fever5: '5s', fever7: '7s',
     btnStart:         'Start! 🚀',
     btnStartLoading:  'Loading... ⏳',
-    calibTitle:       'Stand up straight!',
-    calibSub:         'Hold still for 2 seconds…',
+    calibTitle:       'Stand where you will play!',
+    calibSub:         'Hold still for 3 seconds…',
     introTitle:       '🌈 Complete the Rainbow Poop! 🌈',
     introSub:         'Collect farts to stack up colorful poops!',
     levelAnnNext:     'Next up',
@@ -193,8 +193,8 @@ function makePlayer() {
 }
 let players = [makePlayer(), makePlayer()];
 
-const CALIB_FRAMES = 60;
-const SQUAT_THRESH = 0.07;  // 폴백 (동적 임계값 우선)
+const CALIB_FRAMES = 90;
+const SQUAT_THRESH = 0.05;  // 폴백 (동적 임계값 우선)
 
 // ── 포즈 감지 상태 ────────────────────────────────────────
 let detector    = null;
@@ -972,6 +972,15 @@ function drawHint() {
 // ============================================================
 //  TF.js MoveNet 초기화
 // ============================================================
+function setLoadingText(ko, en) {
+  const el = document.getElementById('loading-text');
+  if (el) el.textContent = getLang() === 'ko' ? ko : en;
+}
+function hideLoadingStatus() {
+  const el = document.getElementById('loading-status');
+  if (el) el.style.display = 'none';
+}
+
 async function initPose() {
   video  = document.getElementById('input-video');
   canvas = document.getElementById('game-canvas');
@@ -984,8 +993,10 @@ async function initPose() {
   resize();
   window.addEventListener('resize', resize);
 
+  setLoadingText('이미지 불러오는 중...', 'Loading assets...');
   await loadAssets();
 
+  setLoadingText('카메라 연결 중...', 'Connecting camera...');
   // 카메라 스트림 시작
   const stream = await navigator.mediaDevices.getUserMedia({
     video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
@@ -994,10 +1005,12 @@ async function initPose() {
   await new Promise(res => { video.onloadedmetadata = res; });
   await video.play();
 
+  setLoadingText('AI 초기화 중... (잠깐만요!)', 'Initializing AI... (almost there!)');
   // TF.js 백엔드 초기화
   await tf.setBackend('webgl');
   await tf.ready();
 
+  setLoadingText('AI 모델 다운로드 중... (조금만 기다려주세요)', 'Downloading AI model... (hang tight!)');
   // MoveNet MultiPose Lightning 로드
   detector = await poseDetection.createDetector(
     poseDetection.SupportedModels.MoveNet,
@@ -1010,6 +1023,7 @@ async function initPose() {
   );
 
   // 모델 준비 완료 → 버튼 활성화
+  hideLoadingStatus();
   $btnStart.disabled    = false;
   $btnStart.textContent = LANG[getLang()].btnStart;
 
