@@ -91,6 +91,7 @@ tbody tr:hover { background:rgba(255,215,61,0.04); }
   <input type="text" id="filterSearch" placeholder="세션/IP 검색...">
   <button class="btn-primary" onclick="applyFilter()">필터 적용</button>
   <button class="btn-secondary" onclick="resetFilter()">초기화</button>
+  <button class="btn-secondary" id="btnTz" onclick="toggleTz()" style="margin-left:auto;">🕐 KST (+9)</button>
 </div>
 
 <div class="stats" id="statsArea"></div>
@@ -117,6 +118,26 @@ let filtered = [];
 let currentPage = 0;
 let sortCol = 'created_at';
 let sortAsc = false;
+let useKST = true;
+
+function formatTime(utcStr) {
+  if (!utcStr) return '-';
+  if (!useKST) return utcStr.replace('T', ' ').slice(0, 19);
+  try {
+    const d = new Date(utcStr);
+    if (isNaN(d.getTime())) return utcStr.replace('T', ' ').slice(0, 19);
+    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return kst.toISOString().replace('T', ' ').slice(0, 19);
+  } catch (e) {
+    return utcStr.replace('T', ' ').slice(0, 19);
+  }
+}
+
+function toggleTz() {
+  useKST = !useKST;
+  document.getElementById('btnTz').textContent = useKST ? '🕐 KST (+9)' : '🕐 UTC';
+  renderTable();
+}
 
 const COLUMNS = [
   { key:'created_at', label:'시간' },
@@ -261,7 +282,7 @@ function renderTable() {
   // 바디
   document.getElementById('tableBody').innerHTML = page.map(r => '<tr>' + COLUMNS.map(c => {
     let v = r[c.key];
-    if (c.key === 'created_at' && v) v = v.replace('T', ' ').slice(0, 19);
+    if (c.key === 'created_at') v = formatTime(v);
     if (c.key === 'event') return `<td><span class="event-badge event-${v || 'other'}">${v || '-'}</span></td>`;
     if (c.key === 'completed') return `<td>${v === true ? '✅' : v === false ? '❌' : '-'}</td>`;
     if (c.key === 'session_id' && v) v = v.slice(0, 10) + '...';
