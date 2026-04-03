@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Jua','Apple SD Gothic Neo',system-ui,sans-serif; background:#0f1117; color:#e0e0e0; min-height:100vh; }
+
+.header { background:linear-gradient(135deg,#1a1d2e,#252840); padding:20px 28px; border-bottom:1px solid rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+.header h1 { font-size:1.4rem; color:#ffd93d; }
+.header-right { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+.filter-row { background:#161825; padding:14px 28px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+select, input[type=date], input[type=text] {
+  font-family:inherit; font-size:0.85rem; padding:7px 12px; border-radius:8px;
+  border:1px solid rgba(255,255,255,0.15); background:#1e2030; color:#e0e0e0; outline:none;
+}
+select:focus, input:focus { border-color:#ffd93d; }
+
+button {
+  font-family:inherit; font-size:0.85rem; padding:7px 16px; border-radius:8px; border:none;
+  cursor:pointer; font-weight:700; transition:transform 0.1s,opacity 0.1s;
+}
+button:hover { opacity:0.85; }
+button:active { transform:scale(0.96); }
+
+.btn-primary { background:linear-gradient(135deg,#ffd93d,#ffb800); color:#1a1d2e; }
+.btn-secondary { background:rgba(255,255,255,0.1); color:#ccc; border:1px solid rgba(255,255,255,0.15); }
+.btn-danger { background:#e85a5a; color:#fff; }
+
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; padding:20px 28px; }
+.stat-card { background:linear-gradient(135deg,#1e2030,#252840); border-radius:14px; padding:16px 20px; border:1px solid rgba(255,255,255,0.06); }
+.stat-card .label { font-size:0.75rem; color:#888; margin-bottom:4px; }
+.stat-card .value { font-size:1.6rem; color:#ffd93d; }
+.stat-card .sub { font-size:0.7rem; color:#666; margin-top:2px; }
+
+.table-wrap { padding:0 28px 28px; overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+thead th { background:#1a1d2e; color:#aaa; padding:10px 12px; text-align:left; position:sticky; top:0; white-space:nowrap; border-bottom:2px solid rgba(255,255,255,0.08); cursor:pointer; user-select:none; }
+thead th:hover { color:#ffd93d; }
+thead th .sort-arrow { margin-left:4px; font-size:0.7rem; }
+tbody td { padding:9px 12px; border-bottom:1px solid rgba(255,255,255,0.04); white-space:nowrap; }
+tbody tr:hover { background:rgba(255,215,61,0.04); }
+
+.event-badge { padding:2px 8px; border-radius:6px; font-size:0.72rem; font-weight:700; }
+.event-visit { background:rgba(100,149,237,0.2); color:#6495ed; }
+.event-game_start { background:rgba(90,200,90,0.2); color:#5ac85a; }
+.event-game_end { background:rgba(255,215,61,0.2); color:#ffd93d; }
+.event-game_abandon { background:rgba(232,90,90,0.2); color:#e85a5a; }
+.event-choice { background:rgba(180,130,255,0.2); color:#b482ff; }
+.event-other { background:rgba(255,255,255,0.08); color:#999; }
+
+.loading { text-align:center; padding:60px; color:#666; font-size:1.1rem; }
+.page-info { padding:8px 28px; color:#666; font-size:0.78rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+.pagination { display:flex; gap:6px; align-items:center; }
+.pagination button { padding:5px 10px; font-size:0.78rem; }
+
+.no-index { display:none; }
+</style>
+<!-- noindex, nofollow: 검색엔진 차단 -->
+<meta name="robots" content="noindex, nofollow">
+</head>
+<body>
+
+<div class="header">
+  <h1>Yayho Playground Dashboard</h1>
+  <div class="header-right">
+    <button class="btn-primary" onclick="fetchData()">새로고침</button>
+    <button class="btn-secondary" onclick="exportCSV()">CSV 다운로드</button>
+  </div>
+</div>
+
+<div class="filter-row">
+  <select id="filterSite"><option value="">전체 사이트</option></select>
+  <select id="filterEvent">
+    <option value="">전체 이벤트</option>
+    <option value="visit">visit</option>
+    <option value="game_start">game_start</option>
+    <option value="game_end">game_end</option>
+    <option value="game_abandon">game_abandon</option>
+    <option value="choice">choice</option>
+  </select>
+  <select id="filterGame"><option value="">전체 게임</option></select>
+  <input type="date" id="filterFrom" title="시작일">
+  <input type="date" id="filterTo" title="종료일">
+  <input type="text" id="filterSearch" placeholder="세션/IP 검색...">
+  <button class="btn-primary" onclick="applyFilter()">필터 적용</button>
+  <button class="btn-secondary" onclick="resetFilter()">초기화</button>
+  <button class="btn-secondary" id="btnTz" onclick="toggleTz()" style="margin-left:auto;">🕐 KST (+9)</button>
+</div>
+
+<div class="stats" id="statsArea"></div>
+
+<div class="page-info" id="pageInfo"></div>
+<div class="table-wrap">
+  <table>
+    <thead id="tableHead"></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+<div class="page-info" id="pageInfoBottom"></div>
+
+<div class="loading" id="loadingMsg">데이터를 불러오는 중...</div>
+
+<script>
+const SUPABASE_URL = 'https://rwbgrdiecfkcedctnggv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_uAWk5AgQeps9HxnkxtHXoQ_P3g5OeRP';
+const TABLE = 'game_logs';
+const PAGE_SIZE = 100;
+
+let allData = [];
+let filtered = [];
+let currentPage = 0;
+let sortCol = 'created_at';
+let sortAsc = false;
+let useKST = true;
+
+function formatTime(utcStr) {
+  if (!utcStr) return '-';
+  if (!useKST) return utcStr.replace('T', ' ').slice(0, 19);
+  try {
+    const d = new Date(utcStr);
+    if (isNaN(d.getTime())) return utcStr.replace('T', ' ').slice(0, 19);
+    const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+    return kst.toISOString().replace('T', ' ').slice(0, 19);
+  } catch (e) {
+    return utcStr.replace('T', ' ').slice(0, 19);
+  }
+}
+
+function toggleTz() {
+  useKST = !useKST;
+  document.getElementById('btnTz').textContent = useKST ? '🕐 KST (+9)' : '🕐 UTC';
+  renderTable();
+}
+
+const COLUMNS = [
+  { key:'created_at', label:'시간' },
+  { key:'event',      label:'이벤트' },
+  { key:'site',       label:'사이트' },
+  { key:'game',       label:'게임' },
+  { key:'duration',   label:'시간(초)' },
+  { key:'completed',  label:'완료' },
+  { key:'session_id', label:'세션 ID' },
+  { key:'locale',     label:'언어' },
+  { key:'child',      label:'아이' },
+  { key:'country',    label:'국가' },
+  { key:'city',       label:'도시' },
+  { key:'ip',         label:'IP' },
+];
+
+// ── 데이터 로드 ──
+async function fetchData() {
+  document.getElementById('loadingMsg').style.display = 'block';
+  document.getElementById('tableBody').innerHTML = '';
+  try {
+    // Supabase REST API: 최대 1000건씩 페이징
+    let rows = [], offset = 0, batch;
+    do {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/${TABLE}?select=*&order=created_at.desc&offset=${offset}&limit=1000`,
+        { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+      );
+      batch = await res.json();
+      rows = rows.concat(batch);
+      offset += 1000;
+    } while (batch.length === 1000);
+
+    allData = rows;
+    populateFilters();
+    applyFilter();
+  } catch (e) {
+    document.getElementById('loadingMsg').textContent = '데이터 로드 실패: ' + e.message;
+  }
+}
+
+// ── 필터 옵션 채우기 ──
+function populateFilters() {
+  const sites = [...new Set(allData.map(r => r.site).filter(Boolean))].sort();
+  const games = [...new Set(allData.map(r => r.game).filter(Boolean))].sort();
+  const selSite = document.getElementById('filterSite');
+  const selGame = document.getElementById('filterGame');
+  selSite.innerHTML = '<option value="">전체 사이트</option>' + sites.map(s => `<option value="${s}">${s}</option>`).join('');
+  selGame.innerHTML = '<option value="">전체 게임</option>' + games.map(g => `<option value="${g}">${g}</option>`).join('');
+}
+
+// ── 필터 적용 ──
+function applyFilter() {
+  const site  = document.getElementById('filterSite').value;
+  const event = document.getElementById('filterEvent').value;
+  const game  = document.getElementById('filterGame').value;
+  const from  = document.getElementById('filterFrom').value;
+  const to    = document.getElementById('filterTo').value;
+  const search = document.getElementById('filterSearch').value.toLowerCase();
+
+  filtered = allData.filter(r => {
+    if (site && r.site !== site) return false;
+    if (event && r.event !== event) return false;
+    if (game && r.game !== game) return false;
+    if (from && r.created_at && r.created_at < from) return false;
+    if (to && r.created_at && r.created_at.slice(0,10) > to) return false;
+    if (search) {
+      const hay = [r.session_id, r.ip, r.city, r.child].filter(Boolean).join(' ').toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  doSort();
+  currentPage = 0;
+  renderStats();
+  renderTable();
+  document.getElementById('loadingMsg').style.display = 'none';
+}
+
+function resetFilter() {
+  document.getElementById('filterSite').value = '';
+  document.getElementById('filterEvent').value = '';
+  document.getElementById('filterGame').value = '';
+  document.getElementById('filterFrom').value = '';
+  document.getElementById('filterTo').value = '';
+  document.getElementById('filterSearch').value = '';
+  applyFilter();
+}
+
+// ── 정렬 ──
+function doSort() {
+  filtered.sort((a, b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (va == null) va = '';
+    if (vb == null) vb = '';
+    if (typeof va === 'number' && typeof vb === 'number') return sortAsc ? va - vb : vb - va;
+    return sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+  });
+}
+
+function toggleSort(col) {
+  if (sortCol === col) { sortAsc = !sortAsc; } else { sortCol = col; sortAsc = true; }
+  doSort();
+  renderTable();
+}
+
+// ── 통계 카드 ──
+function renderStats() {
+  const total = filtered.length;
+  const visits = filtered.filter(r => r.event === 'visit').length;
+  const starts = filtered.filter(r => r.event === 'game_start').length;
+  const ends = filtered.filter(r => r.event === 'game_end').length;
+  const abandons = filtered.filter(r => r.event === 'game_abandon').length;
+  const avgDur = ends > 0 ? Math.round(filtered.filter(r => r.event === 'game_end' && r.duration).reduce((s, r) => s + r.duration, 0) / ends) : 0;
+  const sites = new Set(filtered.map(r => r.site).filter(Boolean)).size;
+  const sessions = new Set(filtered.map(r => r.session_id).filter(Boolean)).size;
+
+  document.getElementById('statsArea').innerHTML = `
+    <div class="stat-card"><div class="label">총 로그</div><div class="value">${total.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="label">방문</div><div class="value">${visits.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="label">게임 시작</div><div class="value">${starts.toLocaleString()}</div><div class="sub">완료 ${ends} / 이탈 ${abandons}</div></div>
+    <div class="stat-card"><div class="label">평균 플레이(초)</div><div class="value">${avgDur}</div><div class="sub">완료 기준</div></div>
+    <div class="stat-card"><div class="label">세션 수</div><div class="value">${sessions.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="label">사이트 수</div><div class="value">${sites}</div></div>
+  `;
+}
+
+// ── 테이블 렌더링 ──
+function renderTable() {
+  // 헤더
+  document.getElementById('tableHead').innerHTML = '<tr>' + COLUMNS.map(c =>
+    `<th onclick="toggleSort('${c.key}')">${c.label}<span class="sort-arrow">${sortCol === c.key ? (sortAsc ? '▲' : '▼') : ''}</span></th>`
+  ).join('') + '</tr>';
+
+  // 페이징
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  if (currentPage >= totalPages) currentPage = totalPages - 1;
+  const start = currentPage * PAGE_SIZE;
+  const page = filtered.slice(start, start + PAGE_SIZE);
+
+  // 바디
+  document.getElementById('tableBody').innerHTML = page.map(r => '<tr>' + COLUMNS.map(c => {
+    let v = r[c.key];
+    if (c.key === 'created_at') v = formatTime(v);
+    if (c.key === 'event') return `<td><span class="event-badge event-${v || 'other'}">${v || '-'}</span></td>`;
+    if (c.key === 'completed') return `<td>${v === true ? '✅' : v === false ? '❌' : '-'}</td>`;
+    if (c.key === 'session_id' && v) v = v.slice(0, 10) + '...';
+    return `<td>${v != null ? v : '-'}</td>`;
+  }).join('') + '</tr>').join('');
+
+  // 페이지 정보
+  const info = `${filtered.length.toLocaleString()}건 중 ${start + 1}~${Math.min(start + PAGE_SIZE, filtered.length)}건`;
+  const pag = `
+    <div class="pagination">
+      <button class="btn-secondary" onclick="goPage(0)" ${currentPage === 0 ? 'disabled' : ''}>≪</button>
+      <button class="btn-secondary" onclick="goPage(${currentPage - 1})" ${currentPage === 0 ? 'disabled' : ''}>◀</button>
+      <span>${currentPage + 1} / ${totalPages}</span>
+      <button class="btn-secondary" onclick="goPage(${currentPage + 1})" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>▶</button>
+      <button class="btn-secondary" onclick="goPage(${totalPages - 1})" ${currentPage >= totalPages - 1 ? 'disabled' : ''}>≫</button>
+    </div>`;
+  document.getElementById('pageInfo').innerHTML = `<span>${info}</span>${pag}`;
+  document.getElementById('pageInfoBottom').innerHTML = `<span>${info}</span>${pag}`;
+}
+
+function goPage(p) {
+  currentPage = Math.max(0, p);
+  renderTable();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── CSV 내보내기 ──
+function exportCSV() {
+  if (!filtered.length) return alert('데이터가 없습니다.');
+  const header = COLUMNS.map(c => c.label).join(',');
+  const rows = filtered.map(r => COLUMNS.map(c => {
+    let v = r[c.key];
+    if (v == null) return '';
+    if (typeof v === 'string' && (v.includes(',') || v.includes('"'))) return `"${v.replace(/"/g, '""')}"`;
+    return v;
+  }).join(','));
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + header + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `dashboard_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ── 초기 로드 ──
+fetchData();
+</script>
+</body>
+</html>
