@@ -157,7 +157,13 @@ canvas { display: block; width: 100%; height: 100%; }
       </div>
     </div>
     <!-- 남은시간: 좌하단 -->
-    <div id="hudTimer" style="position:absolute;bottom:80px;left:16px;display:flex;align-items:center;justify-content:center;width:64px;height:64px;background:rgba(0,0,0,0.4);backdrop-filter:blur(6px);border-radius:50%;border:2px solid rgba(255,255,255,0.1);"></div>
+    <div id="hudTimer" style="position:absolute;bottom:80px;left:16px;display:flex;align-items:center;justify-content:center;width:64px;height:64px;background:rgba(0,0,0,0.4);backdrop-filter:blur(6px);border-radius:50%;border:2px solid rgba(255,255,255,0.1);">
+      <svg id="timerSvg" width="52" height="52" style="transform:rotate(-90deg);">
+        <circle cx="26" cy="26" r="22" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="5"/>
+        <circle id="timerArc" cx="26" cy="26" r="22" fill="none" stroke="#4cdf6b" stroke-width="5" stroke-dasharray="138.23" stroke-dashoffset="0" stroke-linecap="round"/>
+      </svg>
+      <span id="timerText" style="position:absolute;left:0;width:52px;text-align:center;font-size:16px;font-weight:900;color:#4cdf6b;text-shadow:0 1px 3px rgba(0,0,0,0.5);"></span>
+    </div>
     <div class="pose-status idle" id="poseStatus">대기 중</div>
     <div class="hint">🐊 팔을 앞으로! 한쪽 위 한쪽 아래로 벌려 → 모으면 와구! (3번 물면 터짐!)</div>
     <div class="ctrl" style="display:none;">
@@ -357,7 +363,7 @@ async function initPose() {
   try {
     await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js');
     await loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js');
-    const opts = { modelComplexity:1, smoothLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 };
+    const opts = { modelComplexity:0, smoothLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 };
     pose = new Pose({ locateFile: f => 'https://cdn.jsdelivr.net/npm/@mediapipe/pose/' + f });
     pose.setOptions(opts);
     pose.onResults(r => onPoseResults(r, 1));
@@ -382,7 +388,9 @@ async function poseLoop() {
   if (engine.coopMode && pose2) {
     // 협동: 좌/우 절반 크롭해서 각각 보내기
     const halfW = Math.floor(vw / 2);
-    cropCanvas.width = halfW; cropCanvas.height = vh;
+    if (cropCanvas.width !== halfW || cropCanvas.height !== vh) {
+      cropCanvas.width = halfW; cropCanvas.height = vh;
+    }
     // P1: 오른쪽 절반 (카메라 미러링 → 화면 왼쪽 = 영상 오른쪽)
     if (!poseBusy) { poseBusy=true; cropCtx.drawImage(video, halfW, 0, halfW, vh, 0, 0, halfW, vh); try { await pose.send({image:cropCanvas}); } catch(e){} poseBusy=false; }
     // P2: 왼쪽 절반 (화면 오른쪽 = 영상 왼쪽)
@@ -523,21 +531,18 @@ function updateProgress() {
     _prevHudEaten = eaten;
   }
 
-  // ③ 남은시간 (좌하단) — 원형 타이머 + 숫자
-  const timerEl = document.getElementById('hudTimer');
+  // ③ 남은시간 (좌하단) — 원형 타이머 + 숫자 (속성만 업데이트, DOM 재생성 없음)
   const pct = remaining / dur;
   const barColor = remaining > 10 ? '#4cdf6b' : remaining > 5 ? '#ffb830' : '#ff4444';
-  const pulse = remaining <= 5 ? 'animation:progress-pop 0.5s infinite;' : '';
-  const r = 22, cx = 26, cy = 26, stroke = 5;
-  const circ = 2 * Math.PI * r;
+  const circ = 138.23; // 2 * Math.PI * 22
   const dashOffset = circ * (1 - pct);
-  timerEl.innerHTML =
-    `<svg width="52" height="52" style="transform:rotate(-90deg);">` +
-      `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="${stroke}"/>` +
-      `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${barColor}" stroke-width="${stroke}" ` +
-        `stroke-dasharray="${circ}" stroke-dashoffset="${dashOffset}" stroke-linecap="round"/>` +
-    `</svg>` +
-    `<span style="position:absolute;left:0;width:52px;text-align:center;font-size:16px;font-weight:900;color:${barColor};text-shadow:0 1px 3px rgba(0,0,0,0.5);${pulse}">${remainSec}</span>`;
+  const timerArc = document.getElementById('timerArc');
+  const timerText = document.getElementById('timerText');
+  timerArc.setAttribute('stroke', barColor);
+  timerArc.setAttribute('stroke-dashoffset', dashOffset);
+  timerText.style.color = barColor;
+  timerText.style.animation = remaining <= 5 ? 'progress-pop 0.5s infinite' : '';
+  timerText.textContent = remainSec;
 }
 
 // ─── Game loop ───

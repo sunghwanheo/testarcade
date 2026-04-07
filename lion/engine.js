@@ -670,7 +670,17 @@ class Lion {
     if (!data) { this._smoothPose = null; return; }
     const alpha = 0.12; // 0=완전스무딩, 1=원본 그대로 (낮을수록 부드러움)
     if (!this._smoothPose) {
-      this._smoothPose = JSON.parse(JSON.stringify(data));
+      this._smoothPose = {
+        lw: {...data.lw}, rw: {...data.rw},
+        ls: {...data.ls}, rs: {...data.rs},
+        le: {...data.le}, re: {...data.re},
+        lh: data.lh ? {...data.lh} : null,
+        rh: data.rh ? {...data.rh} : null,
+        lf: data.lf ? {...data.lf} : null,
+        rf: data.rf ? {...data.rf} : null,
+        nose: data.nose ? {...data.nose} : null,
+        CW: data.CW, CH: data.CH
+      };
       return;
     }
     const sp = this._smoothPose;
@@ -950,25 +960,31 @@ class ParticleSystem {
   constructor() { this.particles = []; }
 
   emitEat(x, y, intensity = 1, foodEmoji) {
-    const count = Math.floor(18 * intensity);
+    const count = Math.min(45, Math.floor(18 * intensity)); // 최대 45개로 상한
     const emojis = [foodEmoji || '⭐', '⭐', '✨', '🎉', '💥', '🔥'];
     const colors = ['#CFEFCF', '#E8D7FF', '#FFD6E8', '#FFE8A8', '#FFD700', '#FF6B6B', '#FF8C00'];
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
       const speed = (120 + Math.random() * 220) * Math.max(1, intensity * 0.7);
+      const useEmoji = Math.random() < 0.4; // 60% → 40%로 줄임
+      const emojiStr = useEmoji ? emojis[Math.floor(Math.random()*emojis.length)] : null;
+      const sz = Math.round((8+Math.random()*12)*Math.min(2.5, intensity*0.7));
       this.particles.push({ x, y, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed-100*intensity,
-        life: 1.2+Math.random()*1.0*intensity, age: 0, size: (8+Math.random()*12)*Math.min(2.5, intensity*0.7),
+        life: 1.2+Math.random()*1.0*intensity, age: 0, size: sz,
         color: colors[Math.floor(Math.random()*colors.length)],
-        emoji: Math.random()<0.6 ? emojis[Math.floor(Math.random()*emojis.length)] : null });
+        // 이모지는 미리 캐시된 이미지로 변환
+        emojiImg: emojiStr ? getEmojiImage(emojiStr, sz*2) : null,
+        dead: false });
     }
   }
 
   emitCrush(x, y) {
+    const colors = ['#B8E6B8','#CFEFCF','#A6D9A6','#FFE8A8'];
     for (let i = 0; i < 8; i++) {
       this.particles.push({ x, y, vx: (Math.random()-0.5)*120, vy: -50-Math.random()*80,
         life: 0.6+Math.random()*0.3, age: 0, size: 4+Math.random()*6,
-        color: ['#B8E6B8','#CFEFCF','#A6D9A6','#FFE8A8'][Math.floor(Math.random()*4)],
-        emoji: Math.random()<0.3 ? '💥' : null });
+        color: colors[Math.floor(Math.random()*4)],
+        emojiImg: null, dead: false });
     }
   }
 
@@ -976,28 +992,38 @@ class ParticleSystem {
     for (let i = 0; i < 6; i++) {
       const a = (Math.PI*2/6)*i;
       this.particles.push({ x, y, vx: Math.cos(a)*60, vy: Math.sin(a)*60,
-        life: 0.4, age: 0, size: 3+Math.random()*4, color: '#fff', emoji: null });
+        life: 0.4, age: 0, size: 3+Math.random()*4, color: '#fff', emojiImg: null, dead: false });
     }
   }
 
   update(dt) {
-    for (let i = this.particles.length-1; i >= 0; i--) {
+    let hasDeads = false;
+    for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i];
+      if (p.dead) continue;
       p.age += dt; p.vy += 500*dt; p.x += p.vx*dt; p.y += p.vy*dt;
-      if (p.age >= p.life) this.particles.splice(i, 1);
+      if (p.age >= p.life) { p.dead = true; hasDeads = true; }
     }
+    // dead 파티클 일괄 제거 (splice 루프 대신 filter 1회)
+    if (hasDeads) this.particles = this.particles.filter(p => !p.dead);
   }
 
   draw(ctx) {
+    // 원형 파티클 먼저 일괄 렌더 (ctx.font 변경 없음)
     for (const p of this.particles) {
-      const alpha = Math.max(0, 1-p.age/p.life);
+      if (p.emojiImg) continue;
+      const alpha = Math.max(0, 1 - p.age / p.life);
       ctx.globalAlpha = alpha;
-      if (p.emoji) {
-        ctx.font = `${p.size*2}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(p.emoji, p.x, p.y);
-      } else {
-        ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
-      }
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+    }
+    // 이모지 파티클 나중에 일괄 렌더 (drawImage, fillText 없음)
+    for (const p of this.particles) {
+      if (!p.emojiImg) continue;
+      const alpha = Math.max(0, 1 - p.age / p.life);
+      ctx.globalAlpha = alpha;
+      const s = p.emojiImg.width;
+      ctx.drawImage(p.emojiImg, p.x - s/2, p.y - s/2, s, s);
     }
     ctx.globalAlpha = 1;
   }
