@@ -268,8 +268,10 @@ $btnStart.addEventListener('click', () => {
   if (!detector) return;  // 모델 로딩 중엔 무시
   audio.init();
   audio.setVolume(cfg.volume);
+  const bgVid = document.getElementById('bg-tut-video');
+  if (bgVid) bgVid.pause();
   $start.style.display = 'none';
-  showTutorial();
+  startCalibration(); // 튜토리얼 없이 바로 캘리브레이션
 });
 
 // ── 튜토리얼 영상 — 게임 캔버스에 가이드 영상 + 이펙트 직접 렌더링 ──
