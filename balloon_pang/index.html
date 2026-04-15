@@ -257,6 +257,7 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
   <div class="main-content">
     <img id="titleImg" src="assets/title.png" style="max-width:min(560px,80vw);margin-bottom:24px;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.18));" alt="풍선 팡팡">
 
+    <div id="player-select" data-max="3"></div>
     <button id="startBtn">🎈 게임 시작!</button>
     <div id="cameraMsg"></div>
   </div>
@@ -274,6 +275,7 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
   </div>
 </div>
 
+<script src="../player-select.js"></script>
 <script src="./lang.js"></script>
 <script src="../tracking.js" data-game="풍선 팡팡"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
