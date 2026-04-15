@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>player-select 테스트</title>
+  <style>
+    body { background: #111; color: white; font-family: sans-serif;
+           display: flex; flex-direction: column; align-items: center;
+           padding: 40px; gap: 20px; }
+    button { padding: 12px 28px; font-size: 1rem; cursor: pointer;
+             background: #333; color: white; border: none; border-radius: 8px; }
+  </style>
+  <script src="./player-select.js"></script>
+</head>
+<body>
+  <h2>player-select 모듈 테스트</h2>
+
+  <h3>max=3 (풍선팡팡/뿡뿡이/얼음깨기)</h3>
+  <div id="player-select" data-max="3"></div>
+
+  <button onclick="alert('playerCount = ' + window.playerCount)">
+    현재 playerCount 확인
+  </button>
+
+  <p style="color:#aaa; font-size:0.85rem">
+    1인/2인/3인 토글 → "현재 playerCount 확인" 클릭 → 값이 바뀌면 OK
+  </p>
+</body>
+</html>
