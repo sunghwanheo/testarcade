@@ -502,7 +502,7 @@
         <div id="ui">
             <div class="ui-item">SCORE: <span id="score">0</span></div>
         </div>
-        <div id="stageTitle" style="position:absolute; top:30px; left:40px; z-index:4; font-size:24px; font-weight:900; color:#ffdd00; text-shadow:0 0 15px rgba(255,220,0,0.8), 2px 2px 4px rgba(0,0,0,0.8);">Lv.1 얼음 동굴 (무기: 파란 마법장갑)</div>
+        <div id="stageTitle" style="position:absolute; top:30px; left:40px; z-index:4; font-size:24px; font-weight:900; color:#ffdd00; text-shadow:0 0 15px rgba(255,220,0,0.8), 2px 2px 4px rgba(0,0,0,0.8);">Lv.1 얼음 동굴 (무기: 노란 번개 장갑)</div>
 
         <div class="time-box" id="timeBox">01:00</div>
 
@@ -511,21 +511,24 @@
         </div>
         <div class="fever-title" id="feverTitle">FEVER</div>
 
-        <div id="overlay">
-            <h1 id="endTitle"
-                style="color: #00ffff; font-size: 72px; margin-bottom: 20px; text-transform: uppercase; font-style: italic; text-shadow: 0 0 30px #00d2ff;">
-                쾅쾅 얼음깨기</h1>
-            <div
-                style="background: rgba(0,0,0,0.5); padding: 30px; border-radius: 20px; border: 1px solid #00d2ff; margin-bottom: 50px;">
-                <p id="endDesc"
-                    style="font-size: 26px; max-width: 700px; text-align: center; line-height: 1.6; color: #dff9ff; margin: 0;">
-                    <b>1분</b> 동안 신나고 재미있게 얼음 큐브를 파괴하세요!<br><br>
-                    거대한 얼음도 포기하지 않고 팡팡 두드리면 시원하게 터집니다.<br>
-                    신나게 움직여서 <b>무지개 파티(FEVER)</b>를 켜면 모든 얼음이 반짝이며 터집니다!
-                </p>
-            </div>
-            <!-- 임시 레벨 선택 -->
-            <div id="levelSelect" style="margin-bottom:20px; display:flex; gap:12px; justify-content:center;">
+        <div id="overlay" style="justify-content:flex-start; padding:20px 20px 24px; gap:12px; overflow-y:auto;">
+            <!-- JS 참조용 (숨김) -->
+            <h1 id="endTitle" style="display:none;">쾅쾅 얼음깨기</h1>
+            <p id="endDesc" style="display:none;"></p>
+
+            <!-- 로고 (상단 중앙) -->
+            <img src="assets/logo.png"
+                style="max-width:min(300px,46vw); filter:drop-shadow(0 4px 20px rgba(0,200,255,0.5));"
+                alt="쾅쾅 얼음깨기">
+
+            <!-- 튜토리얼 영상 (동시 표시, 루프) -->
+            <video id="overlayTutVideo" src="tutorial_web.mp4"
+                style="width:min(540px,74vw); max-height:38vh; border-radius:12px;
+                border:2px solid #00ffff; box-shadow:0 0 24px rgba(0,255,255,0.35);"
+                playsinline muted loop autoplay></video>
+
+            <!-- 레벨 선택 (하단) -->
+            <div id="levelSelect" style="display:flex; gap:12px; justify-content:center;">
                 <button class="lvl-btn" data-lv="0" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #00ffff; background:rgba(0,255,255,0.15); color:#00ffff; border-radius:8px; cursor:pointer;">Lv.1</button>
                 <button class="lvl-btn" data-lv="1" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #ffdd00; background:rgba(255,220,0,0.15); color:#ffdd00; border-radius:8px; cursor:pointer;">Lv.2</button>
                 <button class="lvl-btn" data-lv="2" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #ff66ff; background:rgba(255,100,255,0.15); color:#ff66ff; border-radius:8px; cursor:pointer;">Lv.3</button>
@@ -629,7 +632,7 @@
             weaponLabel: (icon, name) => `무기: ${icon} ${name}`,
             stageTitle: (name, weapon) => `${name} (무기: ${weapon})`,
             stages: [
-              { name: 'Lv.1 얼음 동굴', weapon: '파란 마법장갑' },
+              { name: 'Lv.1 얼음 동굴', weapon: '노란 번개 장갑' },
               { name: 'Lv.2 눈밭', weapon: '불꽃 주먹' },
               { name: 'Lv.3 다이아몬드 성', weapon: '광선검' }
             ],
@@ -1715,7 +1718,7 @@
         const STAGES = [
             {
                 name: "Lv.1 얼음 동굴",
-                weapon: "파란 마법장갑",
+                weapon: "노란 번개 장갑",
                 weaponIcon: "🧤",
                 shapeType: "rect",
                 bgGradient: 'linear-gradient(to right, rgba(0, 20, 60, 0.82) 0%, transparent 26%), linear-gradient(to left, rgba(0, 20, 60, 0.82) 0%, transparent 26%), linear-gradient(to bottom, rgba(0, 10, 30, 0.45) 0%, transparent 14%)',
@@ -2134,21 +2137,21 @@
             let gloveColor, borderColor, shadowColor;
 
             if (fever) {
-                gloveColor = 'rgba(255, 200, 255, 0.7)';
-                borderColor = 'rgba(255, 255, 255, 0.9)';
-                shadowColor = '#ff00ff';
+                gloveColor = 'rgba(255, 255, 100, 0.85)';
+                borderColor = 'rgba(255, 255, 200, 0.95)';
+                shadowColor = '#ffffff';
             } else if (stageIdx === 0) {
-                gloveColor = 'rgba(180, 230, 255, 0.6)';
-                borderColor = 'rgba(200, 240, 255, 0.9)';
-                shadowColor = '#00ccff';
+                gloveColor = 'rgba(255, 225, 0, 0.75)';
+                borderColor = 'rgba(255, 245, 100, 0.95)';
+                shadowColor = '#ffe000';
             } else if (stageIdx === 1) {
-                gloveColor = 'rgba(255, 150, 50, 0.6)';
-                borderColor = 'rgba(255, 200, 100, 0.9)';
-                shadowColor = '#ff6600';
+                gloveColor = 'rgba(255, 200, 0, 0.75)';
+                borderColor = 'rgba(255, 230, 80, 0.95)';
+                shadowColor = '#ffbb00';
             } else {
-                gloveColor = 'rgba(220, 150, 255, 0.6)';
-                borderColor = 'rgba(255, 200, 255, 0.9)';
-                shadowColor = '#cc00ff';
+                gloveColor = 'rgba(200, 255, 50, 0.75)';
+                borderColor = 'rgba(220, 255, 120, 0.95)';
+                shadowColor = '#aaff00';
             }
 
             // 장갑 본체 (둥근 주먹 모양)
@@ -4017,14 +4020,8 @@
                 }
             }
 
-            // 화면 번쩍임 (흰색 플래시)
-            if (flashAlpha > 0 && getSite() !== 'handong') {
-                canvasCtx.save();
-                canvasCtx.globalAlpha = Math.min(flashAlpha, 0.4);
-                canvasCtx.fillStyle = '#ffffff';
-                canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-                canvasCtx.restore();
-            }
+            // 화면 번쩍임 — 얼굴 가림 피드백으로 비활성화
+            // if (flashAlpha > 0 && getSite() !== 'handong') { ... }
 
             // 매 프레임 UI(시간/게이지) 갱신
             updateUI();
@@ -4049,6 +4046,8 @@
 
         startButton.addEventListener('click', async () => {
             stopTutorialRender();
+            const overlayTut = document.getElementById('overlayTutVideo');
+            if (overlayTut) overlayTut.pause();
             startButton.style.display = 'none';
             loadingMsg.style.display = 'block';
 
