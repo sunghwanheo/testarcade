@@ -470,6 +470,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
     <!-- Matter.js Physics Engine -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="../player-select.js"></script>
 </head>
 
 <body>
@@ -529,6 +530,7 @@
                 <button class="lvl-btn" data-lv="1" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #ffdd00; background:rgba(255,220,0,0.15); color:#ffdd00; border-radius:8px; cursor:pointer;">Lv.2</button>
                 <button class="lvl-btn" data-lv="2" style="padding:12px 24px; font-size:20px; font-weight:bold; border:2px solid #ff66ff; background:rgba(255,100,255,0.15); color:#ff66ff; border-radius:8px; cursor:pointer;">Lv.3</button>
             </div>
+            <div id="player-select" data-max="3"></div>
             <button id="startButton" class="dwell-btn"><span>게임 시작 (카메라 권한 필요)</span></button>
             <div id="loadingMsg">AI 및 얼음 마법 준비중... 잠시만 기다려주세요!</div>
         </div>
