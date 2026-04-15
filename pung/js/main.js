@@ -106,6 +106,17 @@ function applyLang(l) {
 
   document.title = t.pageTitle;
 
+  // 로고: 한국어 → 이미지, 영어 → 텍스트
+  const logoImg  = el('pung-logo-img');
+  const logoText = el('pung-logo-text');
+  if (l === 'en') {
+    if (logoImg)  logoImg.style.display  = 'none';
+    if (logoText) { logoText.style.display = 'block'; logoText.textContent = t.gameTitle; }
+  } else {
+    if (logoImg)  logoImg.style.display  = 'block';
+    if (logoText) logoText.style.display = 'none';
+  }
+
   // 시작 화면
   if (el('start-title'))    el('start-title').textContent    = t.gameTitle;
   if (el('start-subtitle')) el('start-subtitle').innerHTML   = t.subtitle;

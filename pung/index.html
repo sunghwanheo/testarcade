@@ -66,9 +66,12 @@
 
   <!-- 로고 + 인원 선택 (중앙) -->
   <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:20px;">
-    <img src="assets/logo.png"
+    <img id="pung-logo-img" src="assets/logo.png"
       style="max-width:min(420px,68vw);filter:drop-shadow(0 4px 20px rgba(0,0,0,0.25));"
       alt="방귀대장 뿡뿡이">
+    <h1 id="pung-logo-text" style="display:none; color:#fff; font-size:clamp(28px,6vw,52px);
+      font-weight:900; text-align:center; text-shadow:0 4px 20px rgba(0,0,0,0.6);">
+      💨 Fart King Boomie</h1>
     <div id="player-select" data-max="3"></div>
   </div>
 
