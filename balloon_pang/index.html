@@ -236,6 +236,10 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
 </div>
 
 <div id="mainScreen" class="show">
+  <!-- 배경 튜토리얼 영상 (반복 재생) -->
+  <video id="bgTutVideo" src="media/tutorial.mp4" playsinline muted loop autoplay
+    style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.38;pointer-events:none;z-index:0;"></video>
+
   <!-- 구름 -->
   <div class="mc-cloud" style="width:180px;height:55px;top:8%;left:5%;opacity:0.9;">
     <div style="position:absolute;width:80px;height:80px;background:rgba(255,255,255,0.92);border-radius:50%;top:-40px;left:25px;"></div>
@@ -253,11 +257,16 @@ canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: b
   <!-- 풍선 캔버스 -->
   <canvas id="mainCanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"></canvas>
 
-  <!-- 콘텐츠 -->
+  <!-- 로고 + 인원 선택 (중앙) -->
   <div class="main-content">
-    <img id="titleImg" src="assets/title.png" style="max-width:min(560px,80vw);margin-bottom:24px;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.18));" alt="풍선 팡팡">
-
+    <img id="titleImg" src="assets/title_new.png"
+      style="max-width:min(360px,58vw);mix-blend-mode:multiply;filter:drop-shadow(0 4px 16px rgba(0,0,0,0.12));"
+      alt="풍선 팡팡">
     <div id="player-select" data-max="3"></div>
+  </div>
+
+  <!-- 게임 시작 버튼 (하단 고정) -->
+  <div style="position:absolute;bottom:8%;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:14px;z-index:5;">
     <button id="startBtn">🎈 게임 시작!</button>
     <div id="cameraMsg"></div>
   </div>
@@ -326,7 +335,7 @@ function applyLang(l) {
   document.getElementById('restartBtn').textContent      = t.restartBtn;
   // 타이틀 이미지
   const titleImg = document.getElementById('titleImg');
-  if (titleImg) titleImg.src = l === 'en' ? 'assets/title_en.png' : 'assets/title.png';
+  if (titleImg) titleImg.src = l === 'en' ? 'assets/title_en.png' : 'assets/title_new.png';
   // 튜토리얼 타이틀 이미지
   tutTitleImg.src = l === 'en' ? 'assets/tutorial_title_en.png' : 'assets/tutorial_title.png';
 }
@@ -1705,8 +1714,13 @@ function startGame() {
   msg.style.display = 'none'; msg.classList.remove('ready');
   initAudio();
   baselineShoulderW = 0;
+  const bgVid = document.getElementById('bgTutVideo');
+  if (bgVid) bgVid.pause();
   document.getElementById('mainScreen').classList.remove('show');
-  startTutorial();
+  // 튜토리얼 없이 바로 카운트다운 시작
+  gameState = 'countdown';
+  countdownN = 1; countdownT = 0;
+  playReadyStart();
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('startBtn').addEventListener('touchstart', e => { e.preventDefault(); startGame(); }, {passive:false});
