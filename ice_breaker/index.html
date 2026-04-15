@@ -508,10 +508,15 @@
             <h1 id="endTitle" style="display:none;">쾅쾅 얼음깨기</h1>
             <p id="endDesc" style="display:none;"></p>
 
-            <!-- 로고 (상단 중앙) -->
-            <img src="assets/logo.png"
+            <!-- 로고 (상단 중앙) — 한국어 전용 -->
+            <img id="logo-img" src="assets/logo.png"
                 style="max-width:min(300px,46vw); filter:drop-shadow(0 4px 20px rgba(0,200,255,0.5));"
                 alt="쾅쾅 얼음깨기">
+
+            <!-- 영어 타이틀 (기존 스타일, 기본 숨김) -->
+            <h1 id="endTitle"
+                style="display:none; color:#00ffff; font-size:clamp(36px,7vw,72px); text-transform:uppercase; font-style:italic; text-shadow:0 0 30px #00d2ff; margin:0;">
+                Ice Breaker</h1>
 
             <!-- 튜토리얼 영상 (동시 표시, 루프) -->
             <video id="overlayTutVideo" src="tutorial_web.mp4"
@@ -690,7 +695,16 @@
         function applyLang(l) {
           const t = LANG[l];
           document.title = t.gameTitle;
-          document.getElementById('endTitle').textContent = t.gameTitle;
+          // 로고: 한국어 → 이미지, 영어 → 텍스트 타이틀
+          const logoImg = document.getElementById('logo-img');
+          const endTitle = document.getElementById('endTitle');
+          if (l === 'en') {
+            if (logoImg) logoImg.style.display = 'none';
+            if (endTitle) { endTitle.textContent = t.gameTitle; endTitle.style.display = 'block'; }
+          } else {
+            if (logoImg) logoImg.style.display = 'block';
+            if (endTitle) endTitle.style.display = 'none';
+          }
           document.getElementById('endDesc').innerHTML = t.endDesc;
           document.getElementById('startButton').querySelector('span').textContent = t.startBtn;
           document.getElementById('loadingMsg').textContent = t.loadingMsg;
