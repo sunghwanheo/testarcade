@@ -23,8 +23,9 @@
       '<div class="ps-label">' + labelText + '</div>' +
       '<div class="ps-btns">' +
       Array.from({ length: max }, function (_, i) {
+        var label = btnLabels[i] !== undefined ? btnLabels[i] : ((i + 1) + (lang === 'en' ? 'P' : '인'));
         return '<button class="ps-btn' + (i === 0 ? ' active' : '') +
-          '" data-n="' + (i + 1) + '">' + btnLabels[i] + '</button>';
+          '" data-n="' + (i + 1) + '">' + label + '</button>';
       }).join('') +
       '</div>';
 
@@ -58,11 +59,10 @@
         btn.classList.add('active');
         window.playerCount = parseInt(btn.dataset.n, 10);
       }
-      btn.addEventListener('click', select);
-      btn.addEventListener('touchstart', function (e) {
+      btn.addEventListener('pointerdown', function (e) {
         e.preventDefault();
         select();
-      }, { passive: false });
+      });
     });
   }
 
