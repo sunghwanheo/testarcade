@@ -1420,43 +1420,6 @@
             block.isStartBlock = true; // 시작 블록 표식
         }
 
-        function onStartBlockDestroyed() {
-            isWaitingStart = false;
-            startBlockReady = false;
-            
-            // 모든 시작 블록 제거 (동시 파괴 연출)
-            startBlocks.forEach(b => {
-                if (Composite.allBodies(world).includes(b)) {
-                    spawnShatter(b.position.x, b.position.y, 60, false);
-                    spawnImpactBurst(b.position.x, b.position.y, 0, -1, 4);
-                    playDestroy(currentStageIndex, b.blockType, b.iceVariant);
-                    Composite.remove(world, b);
-                }
-            });
-            startBlocks = [];
-
-            tutorialPhase = -1; // 튜토리얼 종료
-            isPlaying = false; // 카운트다운 중 일시정지
-
-            // 화려한 피날레 이펙트 후 카운트다운
-            screenShake(500, 10);
-            flashAlpha = 0.5;
-
-            setTimeout(() => {
-                showStagePreview(() => {
-                    // 카운트다운 끝 → 진짜 게임 시작!
-                    gameTimeLeft = 60.0;
-                    blockSpawnTimer = 1.0;
-                    isPlaying = true;
-                    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-                    lastTime = performance.now();
-                    gameLoop(lastTime);
-                    updateUI();
-                    recordPlay(); // 기록 시작
-                });
-            }, 800);
-        }
-
         // 트래킹 스크립트 (gateway와 연동)
         function recordPlay() {
             const STORAGE_KEY = 'gemgem_tracking';
@@ -1566,19 +1529,8 @@
             spawnShockwave(cx, cy, 600);
             playDestroy(currentStageIndex, 'normal', 0);
 
-            // 이펙트 충분히 보여준 후 카운트다운
-            setTimeout(() => {
-                isPlaying = false;
-                showStagePreview(() => {
-                    gameTimeLeft = 60.0;
-                    blockSpawnTimer = 1.0;
-                    isPlaying = true;
-                    if (animationFrameId) cancelAnimationFrame(animationFrameId);
-                    lastTime = performance.now();
-                    gameLoop(lastTime);
-                    updateUI();
-                });
-            }, 1200); // 1.2초 이펙트 감상 후
+            // 이펙트 충분히 보여준 후 게임 시작
+            setTimeout(beginGame, 1200);
         }
 
         // 폭탄 충격파 이펙트
@@ -2760,17 +2712,7 @@
                 stopTutorialRender();
                 screen.style.display = 'none';
                 clearConfetti(screen);
-                overlay.style.display = 'flex';
-                document.getElementById('endTitle').innerText = LANG[getLang()].gameTitle;
-                document.getElementById('endTitle').style.color = '#00ffff';
-                document.getElementById('endDesc').innerHTML =
-                    LANG[getLang()].endDescShort;
-                startButton.querySelector('span').textContent = isAllClear ? LANG[getLang()].startGame : LANG[getLang()].nextLevel;
-                startButton.style.display = 'block';
-                loadingMsg.style.display = 'none';
-                resetDwellBtn(startButton);
-                // 카메라가 이미 켜진 상태이면 손 렌더 시작
-                if (cameraStarted) startTutorialRender();
+                resetGame();
             };
 
             // 컨페티
@@ -3019,26 +2961,10 @@
             countdownEl.innerText = '';
             startTutorialRender();
 
-            if (currentStageIndex === 0) {
-                tutorialSection.style.display = 'block';
-                tutorialVid.currentTime = 0;
-                tutorialVid.play().then(() => {
-                    if (tutorialVid.currentTime < 0.15) tutorialVid.currentTime = 0.15;
-                }).catch(() => {});
-                if (getLang() === 'ko') {
-                    const v1 = new Audio('ice_tut_1.wav');
-                    v1.play().catch(() => {});
-                    v1.onended = () => { new Audio('ice_tut_2.wav').play().catch(() => {}); };
-                }
-                startBtn.style.display = 'inline-block';
-                startBtn.onclick = () => startCountdown();
-            } else {
-                // Lv.2, 3: 영상/시작버튼 숨기고 바로 카운트다운
-                tutorialSection.style.display = 'none';
-                startBtn.style.display = 'none';
-                startCountdown();
-                return;
-            }
+            // 모든 스테이지: 튜토리얼 영상은 로고 화면에서 이미 보여줌 → 바로 카운트다운
+            tutorialSection.style.display = 'none';
+            startBtn.style.display = 'none';
+            startCountdown();
 
             function startCountdown() {
                 startBtn.onclick = null;
@@ -3070,7 +2996,16 @@
                 }, 1000);
             }
 
-            tutorialVid.onended = startCountdown;
+        }
+
+        function beginGame() {
+            gameTimeLeft = 60.0;
+            blockSpawnTimer = 1.0;
+            isPlaying = true;
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            lastTime = performance.now();
+            gameLoop(lastTime);
+            updateUI();
         }
 
         function resetGame() {
@@ -3105,26 +3040,10 @@
             deactivateFever();
 
             updateUI();
-            isPlaying = true;
             startBgm(currentStageIndex);
 
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            lastTime = performance.now();
-
-            // 모든 스테이지: 영상 튜토리얼 프리뷰 → 게임 시작
             tutorialPhase = -1;
-            isPlaying = false;
-            showStagePreview(() => {
-                gameTimeLeft = 60.0;
-                blockSpawnTimer = 1.0;
-                isPlaying = true;
-                if (animationFrameId) cancelAnimationFrame(animationFrameId);
-                lastTime = performance.now();
-                gameLoop(lastTime);
-                updateUI();
-            });
-
-            gameLoop(lastTime);
+            beginGame();
         }
 
         // -------------------------
