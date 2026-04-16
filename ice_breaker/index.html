@@ -1888,14 +1888,14 @@
             // 외부 오라
             ctx.globalCompositeOperation = 'lighter';
             const aura = ctx.createRadialGradient(0, 0, r * 0.3, 0, 0, r * 2.2);
-            aura.addColorStop(0,   'rgba(180, 245, 255, 0.55)');
-            aura.addColorStop(0.5, 'rgba(0,  190, 255, 0.25)');
-            aura.addColorStop(1,   'rgba(0,   80, 200, 0)');
+            aura.addColorStop(0,   'rgba(255, 245, 150, 0.55)');
+            aura.addColorStop(0.5, 'rgba(255, 200,   0, 0.25)');
+            aura.addColorStop(1,   'rgba(255, 150,   0, 0)');
             ctx.fillStyle = aura;
             ctx.beginPath(); ctx.arc(0, 0, r * 2.2, 0, Math.PI * 2); ctx.fill();
             ctx.globalCompositeOperation = 'source-over';
 
-            // 얼음 결정 8개 (천천히 자전)
+            // 결정 8개 (천천히 자전)
             const NUM = 8;
             ctx.rotate(t * 0.4);
             for (let i = 0; i < NUM; i++) {
@@ -1904,10 +1904,10 @@
                 const len = r * (1.1 + 0.22 * Math.sin(t * 2.5 + i));
                 const wid = r * 0.22;
                 const grad = ctx.createLinearGradient(0, -r * 0.5, 0, -(r * 0.5 + len));
-                grad.addColorStop(0,   'rgba(220, 248, 255, 0.95)');
-                grad.addColorStop(0.4, 'rgba(100, 210, 255, 0.85)');
+                grad.addColorStop(0,   'rgba(255, 245, 150, 0.95)');
+                grad.addColorStop(0.4, 'rgba(255, 200,   0, 0.85)');
                 grad.addColorStop(1,   'rgba(255, 255, 255, 0.3)');
-                ctx.shadowBlur  = 14; ctx.shadowColor = '#00d4ff';
+                ctx.shadowBlur  = 14; ctx.shadowColor = '#ffd700';
                 ctx.fillStyle   = grad;
                 // 마름모 결정 모양
                 ctx.beginPath();
@@ -1919,12 +1919,12 @@
                 ctx.restore();
             }
 
-            // 코어 (얼음 구슬)
-            ctx.shadowBlur = 25; ctx.shadowColor = '#80eeff';
+            // 코어 (노란 구슬)
+            ctx.shadowBlur = 25; ctx.shadowColor = '#ffd700';
             const core = ctx.createRadialGradient(0, -r * 0.1, 0, 0, 0, r * 0.65);
             core.addColorStop(0,   'rgba(255, 255, 255, 1)');
-            core.addColorStop(0.4, 'rgba(160, 235, 255, 0.92)');
-            core.addColorStop(1,   'rgba(0,   160, 220, 0.6)');
+            core.addColorStop(0.4, 'rgba(255, 235, 100, 0.92)');
+            core.addColorStop(1,   'rgba(255, 180,   0, 0.6)');
             ctx.fillStyle = core;
             ctx.beginPath(); ctx.arc(0, 0, r * 0.65, 0, Math.PI * 2); ctx.fill();
 
