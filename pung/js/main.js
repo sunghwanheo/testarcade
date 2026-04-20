@@ -106,6 +106,17 @@ function applyLang(l) {
 
   document.title = t.pageTitle;
 
+  // 로고: 한국어 → 이미지, 영어 → 텍스트
+  const logoImg  = el('pung-logo-img');
+  const logoText = el('pung-logo-text');
+  if (l === 'en') {
+    if (logoImg)  logoImg.style.display  = 'none';
+    if (logoText) { logoText.style.display = 'block'; logoText.textContent = t.gameTitle; }
+  } else {
+    if (logoImg)  logoImg.style.display  = 'block';
+    if (logoText) logoText.style.display = 'none';
+  }
+
   // 시작 화면
   if (el('start-title'))    el('start-title').textContent    = t.gameTitle;
   if (el('start-subtitle')) el('start-subtitle').innerHTML   = t.subtitle;
@@ -268,8 +279,10 @@ $btnStart.addEventListener('click', () => {
   if (!detector) return;  // 모델 로딩 중엔 무시
   audio.init();
   audio.setVolume(cfg.volume);
+  const bgVid = document.getElementById('bg-tut-video');
+  if (bgVid) bgVid.pause();
   $start.style.display = 'none';
-  showTutorial();
+  startCalibration(); // 튜토리얼 없이 바로 캘리브레이션
 });
 
 // ── 튜토리얼 영상 — 게임 캔버스에 가이드 영상 + 이펙트 직접 렌더링 ──
@@ -721,29 +734,24 @@ function flashLevel() {
 //  UI 갱신
 // ============================================================
 function updateGaugeUI() {
+  // 전체 7레벨 기준 진행도 (0~100%)
+  let pct;
   if (feverMode) {
-    $gaugeFill.style.width = '100%';
-    if (theme().rainbow) {
-      $gaugeFill.style.background =
-        'linear-gradient(90deg,#ff0000,#ff7700,#ffff00,#00ff00,#0088ff,#8800ff,#ff0088)';
-      $gaugeFill.style.animation = 'rainbow-shift 0.6s linear infinite';
-    } else {
-      const [c1, c2] = theme().gaugeGrad;
-      $gaugeFill.style.background = `linear-gradient(90deg,${c1},${c2})`;
-      $gaugeFill.style.animation  = 'fever-glow 0.65s ease-in-out infinite alternate';
-    }
-    return;
-  }
-  $gaugeFill.style.animation = '';
-  const pct = (gauge / cfg.fartTarget) * 100;
-  $gaugeFill.style.width = pct + '%';
-  if (theme().rainbow) {
-    $gaugeFill.style.background =
-      'linear-gradient(90deg,#ff0080,#8000ff,#0080ff,#00ff80,#ffff00,#ff8000,#ff0080)';
+    pct = (level / 7) * 100;
+    $gaugeFill.style.animation = 'fever-glow 0.65s ease-in-out infinite alternate';
   } else {
-    const [c1, c2] = theme().gaugeGrad;
-    $gaugeFill.style.background = `linear-gradient(90deg,${c1},${c2})`;
+    pct = ((level - 1 + gauge / cfg.fartTarget) / 7) * 100;
+    $gaugeFill.style.animation = '';
   }
+  $gaugeFill.style.width = Math.min(pct, 100) + '%';
+
+  // 그라데이션이 트랙 전체 너비에 걸치도록 background-size를 트랙 너비로 설정
+  const track = document.getElementById('gauge-track');
+  const trackW = track ? track.offsetWidth : 860;
+  $gaugeFill.style.backgroundImage =
+    'linear-gradient(90deg, #ff4444 0%, #ff9800 16.66%, #ffee00 33.33%, #44cc44 50%, #2288ff 66.66%, #9933ff 83.33%, #ff44aa 100%)';
+  $gaugeFill.style.backgroundSize   = (trackW || 860) + 'px 100%';
+  $gaugeFill.style.backgroundPosition = 'left center';
 }
 
 const LEVEL_ICONS = ['🔴','🟠','🟡','🟢','🔵','🟣','🌈'];

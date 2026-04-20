@@ -6,6 +6,7 @@
 <title>두더지 잡기</title>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
 <script src="../tracking.js" data-game="두더지 잡기"></script>
+<script src="../player-select.js"></script>
 <script src="./lang.js"></script>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -209,7 +210,7 @@ body.shake { animation:screenShake .32s ease; }
 ══════════════════════════════════════ */
 #top-ui {
   position:fixed; top:0; left:0; right:0; z-index:20;
-  padding:10px 16px 12px;
+  padding:10px 16px 12px 120px;
   background:linear-gradient(to bottom, rgba(0,0,0,.7), transparent);
   display:flex; flex-direction:column; gap:8px;
 }
@@ -318,35 +319,6 @@ body.shake { animation:screenShake .32s ease; }
    시작 화면
 ══════════════════════════════════════ */
 /* 튜토리얼 화면 */
-#tutorial-screen {
-  position:fixed; inset:0; z-index:90;
-  display:none; align-items:center; justify-content:center;
-  flex-direction:column; gap:16px;
-  background:rgba(0,0,0,.92);
-}
-#tutorial-video {
-  width:min(90vw, 720px); max-height:70vh;
-  border-radius:16px; box-shadow:0 0 40px rgba(255,215,0,.3);
-  outline:none;
-}
-#tutorial-watch {
-  padding:14px 44px; font-size:clamp(1rem,3.5vw,1.4rem);
-  font-weight:700; color:#fff;
-  background:linear-gradient(135deg,#43e97b,#38f9d7);
-  border:none; border-radius:50px; cursor:pointer;
-  box-shadow:0 6px 24px rgba(67,233,123,.5); transition:transform .1s;
-  animation:btnPulse 2s ease-in-out infinite;
-}
-#tutorial-watch:hover { transform:scale(1.06); }
-#tutorial-skip {
-  padding:12px 40px; font-size:clamp(.9rem,3vw,1.3rem);
-  font-weight:700; color:#fff;
-  background:linear-gradient(135deg,#f093fb,#f5576c);
-  border:none; border-radius:50px; cursor:pointer;
-  opacity:0.35; pointer-events:none;
-  box-shadow:0 6px 20px rgba(240,147,251,.4); transition:opacity .4s;
-}
-#tutorial-skip.ready { opacity:1; pointer-events:auto; animation:btnPulse 2s ease-in-out infinite; }
 
 #start-screen {
   position:fixed; inset:0; z-index:80;
@@ -464,27 +436,20 @@ body.shake { animation:screenShake .32s ease; }
 </div>
 
 <!-- 튜토리얼 화면 -->
-<div id="tutorial-screen">
-  <div id="tutorial-intro" style="text-align:center">
-    <div style="font-size:3.5rem;margin-bottom:8px">🎬</div>
-    <p id="tutorial-desc" style="color:#fff;font-size:clamp(1rem,3vw,1.4rem);margin:0 0 24px;opacity:.9">게임 방법을 영상으로 확인하세요!</p>
-    <button id="tutorial-watch" onclick="watchTutorial()">▶ 튜토리얼 시청하기</button>
-  </div>
-  <video id="tutorial-video" playsinline style="display:none">
-  </video>
-  <button id="tutorial-skip" onclick="endTutorial()">🎮 게임 시작!</button>
-</div>
-
 <!-- 시작 화면 -->
 <div id="start-screen">
   <div style="font-size:5rem">🦔</div>
   <h1 id="start-title">두더지 잡기!</h1>
+  <video id="tutorial-video" playsinline muted loop autoplay
+    style="width:min(80vw,560px); max-height:35vh; border-radius:14px; box-shadow:0 0 30px rgba(255,215,0,.3);">
+  </video>
   <p class="sub" id="start-sub">
     웹캠 앞에 서서<br>
     두더지가 나오면 손으로 쳐요!<br>
     <small id="start-sub-small" style="opacity:.7">(마우스 클릭도 가능)</small>
   </p>
-  <button id="start-btn" onclick="showTutorial()">🎮 게임 시작!</button>
+  <div id="player-select" data-max="2"></div>
+  <button id="start-btn" onclick="startGame()">🎮 게임 시작!</button>
 </div>
 
 <script>
@@ -567,10 +532,8 @@ function applyLang(l) {
   document.getElementById('start-title').textContent          = t.startTitle;
   document.getElementById('start-sub').innerHTML              = t.startSub + '<br><small id="start-sub-small" style="opacity:.7">(' + t.startSubSmall + ')</small>';
   document.getElementById('start-btn').textContent            = t.startBtn;
-  document.getElementById('tutorial-desc').textContent        = t.tutorialDesc;
-  document.getElementById('tutorial-watch').textContent       = t.tutorialWatch;
-  document.getElementById('tutorial-skip').textContent        = t.tutorialSkip;
   document.getElementById('col-label').textContent            = t.colLabel;
+  initTutorialVideo();
   document.getElementById('clear-title').textContent          = t.clearTitle;
   document.getElementById('clear-sub').innerHTML              = t.clearSub;
   document.getElementById('btn-replay').textContent           = t.btnReplay;
@@ -594,51 +557,12 @@ function applyLang(l) {
 //  사운드 엔진 (Web Audio API, 외부 파일 없음)
 // ════════════════════════════════════════════════
 // ── 튜토리얼 제어 ──────────────────────────────────────────────
-function watchTutorial() {
-  document.getElementById('tutorial-intro').style.display = 'none';
+function initTutorialVideo() {
   const vid = document.getElementById('tutorial-video');
-  const btn = document.getElementById('tutorial-skip');
   const src = getLang() === 'en' ? 'tutorial_en.mp4' : 'tutorial_ko.mp4';
-  if (vid.getAttribute('data-src') !== src) {
-    vid.setAttribute('data-src', src);
-    vid.src = src;
-    vid.load();
-  }
-  vid.style.display = 'block';
+  vid.src = src;
+  vid.load();
   vid.play().catch(() => {});
-  // 영상 끝나거나 80% 이상 재생 시 버튼 활성화
-  vid.addEventListener('ended', () => btn.classList.add('ready'));
-  vid.addEventListener('timeupdate', () => {
-    if (vid.duration && vid.currentTime / vid.duration >= 0.8) {
-      btn.classList.add('ready');
-    }
-  });
-}
-
-function showTutorial() {
-  // 시작 화면 숨기기
-  const ss = document.getElementById('start-screen');
-  ss.style.transition = 'opacity .4s';
-  ss.style.opacity = '0';
-  setTimeout(() => {
-    ss.style.display = 'none';
-    // 튜토리얼 화면 표시
-    const ts = document.getElementById('tutorial-screen');
-    ts.style.display = 'flex';
-    ts.style.opacity = '0';
-    ts.style.transition = 'opacity .4s';
-    requestAnimationFrame(() => requestAnimationFrame(() => ts.style.opacity = '1'));
-  }, 400);
-}
-
-function endTutorial() {
-  const ts = document.getElementById('tutorial-screen');
-  ts.style.transition = 'opacity .5s';
-  ts.style.opacity = '0';
-  setTimeout(() => {
-    ts.style.display = 'none';
-    startGame(); // 튜토리얼 종료 후 바로 게임 시작
-  }, 500);
 }
 
 const SFX = (() => {

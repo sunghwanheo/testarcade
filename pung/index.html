@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>💨 방귀대장 뿡뿡이</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="../player-select.js"></script>
 </head>
 <body>
 
@@ -27,6 +28,12 @@
         <div id="gauge-label">💨 방귀 게이지</div>
         <div id="gauge-track">
           <div id="gauge-fill"></div>
+          <div class="gauge-div" style="left:calc(100% / 7 * 1)"></div>
+          <div class="gauge-div" style="left:calc(100% / 7 * 2)"></div>
+          <div class="gauge-div" style="left:calc(100% / 7 * 3)"></div>
+          <div class="gauge-div" style="left:calc(100% / 7 * 4)"></div>
+          <div class="gauge-div" style="left:calc(100% / 7 * 5)"></div>
+          <div class="gauge-div" style="left:calc(100% / 7 * 6)"></div>
           <span id="gauge-poop">💩</span>
         </div>
       </div>
@@ -57,13 +64,37 @@
 </div>
 
 <!-- ── 시작 화면 ── -->
-<div id="screen-start" class="screen">
-  <div class="card">
-    <div class="title-emoji">💨💩</div>
+<div id="screen-start" class="screen" style="background:transparent;backdrop-filter:none;">
+
+  <!-- 배경 튜토리얼 영상 반복 재생 -->
+  <video id="bg-tut-video" src="assets/guide_raw.mp4" playsinline muted loop autoplay
+    style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;"></video>
+
+  <!-- 로고 + 인원 선택 (중앙) -->
+  <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:20px;">
+    <img id="pung-logo-img" src="assets/logo.png"
+      style="max-width:min(420px,68vw);filter:drop-shadow(0 4px 20px rgba(0,0,0,0.25));"
+      alt="방귀대장 뿡뿡이">
+    <h1 id="pung-logo-text" style="display:none; color:#fff; font-size:clamp(28px,6vw,52px);
+      font-weight:900; text-align:center; text-shadow:0 4px 20px rgba(0,0,0,0.6);">
+      💨 Fart King Boomie</h1>
+    <div id="player-select" data-max="3"></div>
+  </div>
+
+  <!-- 게임 시작 버튼 (하단 중앙 고정) -->
+  <div style="position:absolute;bottom:8%;left:0;right:0;z-index:1;display:flex;flex-direction:column;align-items:center;gap:10px;">
+    <button id="btn-start">시작하기! 🚀</button>
+    <div id="loading-status" style="font-size:0.85rem;color:rgba(255,255,255,0.9);min-height:1.4em;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,0.6);">
+      <span id="loading-spinner" style="display:inline-block;animation:spin 1s linear infinite;margin-right:6px;">⏳</span>
+      <span id="loading-text">AI 모델 불러오는 중...</span>
+    </div>
+  </div>
+
+  <!-- 설정 · 텍스트 (DOM 유지 — 나중에 우상단 UI로 이전 예정) -->
+  <div style="display:none;">
     <h1 id="start-title">방귀대장 뿡뿡이</h1>
     <p class="subtitle" id="start-subtitle">앉았다 일어나면<br>방귀가 나와요!</p>
     <p class="subtitle2" id="start-subtitle2">방귀를 <strong id="display-target">5</strong>번 뀌면<br>💩이 날아가요!</p>
-
     <div class="settings">
       <label><span id="lbl-fart-count">방귀 횟수</span>
         <select id="sel-target">
@@ -90,12 +121,6 @@
           <option value="7">7초</option>
         </select>
       </label>
-    </div>
-
-    <button id="btn-start">시작하기! 🚀</button>
-    <div id="loading-status" style="margin-top:14px; font-size:0.85rem; color:rgba(255,255,255,0.55); min-height:1.4em; text-align:center;">
-      <span id="loading-spinner" style="display:inline-block; animation:spin 1s linear infinite; margin-right:6px;">⏳</span>
-      <span id="loading-text">AI 모델 불러오는 중...</span>
     </div>
   </div>
 </div>
