@@ -3072,7 +3072,7 @@
             detector = await poseDetection.createDetector(model, {
                 modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING,
                 enableSmoothing: true,
-                maxPoses: 2
+                maxPoses: 3
             });
             console.log('[MoveNet MultiPose] 초기화 완료');
         }
@@ -3097,8 +3097,23 @@
             const vidW = 320;
             const vidH = 180;
 
-            for (let personIdx = 0; personIdx < poses.length; personIdx++) {
-                const kps = poses[personIdx].keypoints;
+            // 인원 선택값(window.playerCount)만큼만 처리: 어깨 간 거리(=몸 크기) 기준 내림차순으로
+            // 카메라에 가까운 사람 우선 선택 → 뒤쪽 사람은 무시
+            const maxPlayers = Math.max(1, window.playerCount || 1);
+            const activePoses = poses.slice().sort((a, b) => {
+                const bodySize = (p) => {
+                    const kps = p && p.keypoints;
+                    if (!kps || kps.length < 17) return 0;
+                    const ls = kps[5], rs = kps[6];
+                    if (!ls || !rs || ls.score < 0.3 || rs.score < 0.3) return 0;
+                    const dx = ls.x - rs.x, dy = ls.y - rs.y;
+                    return dx * dx + dy * dy;
+                };
+                return bodySize(b) - bodySize(a);
+            }).slice(0, maxPlayers);
+
+            for (let personIdx = 0; personIdx < activePoses.length; personIdx++) {
+                const kps = activePoses[personIdx].keypoints;
                 if (!kps || kps.length < 17) continue;
 
                 // 신체 크기 추정: 어깨 간 거리로 손/발 반경 결정
